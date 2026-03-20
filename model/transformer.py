@@ -108,7 +108,7 @@ class Transformer(nn.Module):
         results['edos'] = out_edos.squeeze(1) # -> [B, edos_num]
 
         # Decoder --edos
-        phdos_query = self.phdos_num_query_embed.unsqueeze(0).repeat(B, 1, 1)
+        phdos_query = self.phdos_query_embed.unsqueeze(0).repeat(B, 1, 1)
         phdos_tgt_input = self.phdos_tgt.unsqueeze(0).repeat(B, 1, 1)
 
         hs_phdos = self.decoder(

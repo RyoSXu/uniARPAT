@@ -81,17 +81,34 @@ class basemodel(nn.Module):
                         state[k] = v.to(device)
 
     def data_preprocess(self, data):
-        inp, pos, target, dos_mean, dos_std, dos_max, dos_min = data
-        mask = (inp==0)
+        # 按照 dataset.py 中 __getitem__ 的返回顺序解包
+        inp, pos, edos_target, phdos_target, \
+        edos_mean, edos_std, edos_min, edos_max, \
+        phdos_mean, phdos_std, phdos_min, phdos_max = data
+        
+        mask = (inp == 0)
         inp = inp.to(self.device, non_blocking=True)
-        target = target.to(self.device, non_blocking=True)
         pos = pos.to(self.device, non_blocking=True)
-        dos_mean = dos_mean.to(self.device, non_blocking=True)
-        dos_std = dos_std.to(self.device, non_blocking=True)
-        dos_max = dos_max.to(self.device, non_blocking=True)
-        dos_min = dos_min.to(self.device, non_blocking=True)
+        
+        # 将两套 target 和统计量都送入 GPU
+        edos_target = edos_target.to(self.device, non_blocking=True)
+        phdos_target = phdos_target.to(self.device, non_blocking=True)
+        
+        edos_mean = edos_mean.to(self.device, non_blocking=True)
+        edos_std  = edos_std.to(self.device, non_blocking=True)
+        edos_min  = edos_min.to(self.device, non_blocking=True)
+        edos_max  = edos_max.to(self.device, non_blocking=True)
+        
+        phdos_mean = phdos_mean.to(self.device, non_blocking=True)
+        phdos_std  = phdos_std.to(self.device, non_blocking=True)
+        phdos_min  = phdos_min.to(self.device, non_blocking=True)
+        phdos_max  = phdos_max.to(self.device, non_blocking=True)
+
         mask = torch.tensor(mask.clone().detach(), dtype=torch.bool).to(self.device)
-        return inp, pos, mask, target, dos_mean, dos_std, dos_max, dos_min
+        
+        return inp, pos, mask, edos_target, phdos_target, \
+               edos_mean, edos_std, edos_min, edos_max, \
+               phdos_mean, phdos_std, phdos_min, phdos_max
 
     def loss(self, predict, target):
 
@@ -110,98 +127,125 @@ class basemodel(nn.Module):
         #return self.lossfunc(predict, target)
 
     def train_one_step(self, batch_data, step):
-        inp, pos, mask, target,_,_,_,_ = self.data_preprocess(batch_data)
+        inp, pos, mask, edos_target, phdos_target, _, _, _, _, _, _, _ = self.data_preprocess(batch_data)
         if len(self.model) == 1:
-            predict = self.model[list(self.model.keys())[0]](inp, mask, pos)[0].squeeze(-1)
+            outputs = self.model[list(self.model.keys())[0]](inp, mask, pos)
+            # 必须从字典取值，并且 squeeze(-1) 或 squeeze(1) 取决于你的 Head 输出
+            # 如果 CNN 输出是 [B, 1, L]，则用 .squeeze(1)
+            predict_edos = outputs['edos'].squeeze(1) 
+            predict_phdos = outputs['phdos'].squeeze(1)
         else:
             raise NotImplementedError('Invalid model type.')
-
-        loss = self.loss(predict, target)
+        # 分别计算 Loss 并相加 (可以根据物理重要性给 phdos 加权重，如 0.5)
+        loss_edos = self.loss(predict_edos, edos_target)
+        loss_phdos = self.loss(predict_phdos, phdos_target)
+        total_loss = loss_edos + loss_phdos
         if len(self.optimizer) == 1:
             self.optimizer[list(self.optimizer.keys())[0]].zero_grad()
-            loss.backward()
+            total_loss.backward()
             self.optimizer[list(self.optimizer.keys())[0]].step()
         else:
             raise NotImplementedError('Invalid model type.')
         
-        return {'loss': loss.item()}
+        return {
+            'loss': total_loss.item(), 
+            'loss_edos': loss_edos.item(), 
+            'loss_phdos': loss_phdos.item()
+        }
 
     def multi_step_predict(self, batch_data, clim_time_mean_daily, data_std, index, batch_len):
         pass
 
     def test_one_step(self, batch_data, step=None, save_predict=False):
-        inp, pos, mask, target, dos_mean, dos_std, dos_max, dos_min = self.data_preprocess(batch_data)
+        # 1. 解包数据 (对应 dataset.py 返回的 12 个元素)
+        inp, pos, mask, edos_target, phdos_target, \
+        edos_mean, edos_std, edos_min, edos_max, \
+        phdos_mean, phdos_std, phdos_min, phdos_max = self.data_preprocess(batch_data)
+
+        # 2. 模型预测
         if len(self.model) == 1:
-            predict, attention = self.model[list(self.model.keys())[0]](inp, mask, pos)
-        predict = predict.squeeze(-1)
-
-        loss = self.loss(predict, target)
-
-        data_dict = {}
-        data_dict['gt'] = target
-        data_dict['pred'] = predict
-        metrics_loss = self.eval_metrics.evaluate_batch(data_dict)
-        metrics_loss.update({'lp_loss': loss.item()})
-        
-        if self.dos_minmax:
-            predict_n = predict * (dos_max - dos_min) + dos_min
-            target_n = target * (dos_max - dos_min) + dos_min
-
-        elif self.dos_zscore:
-            predict_n = predict * dos_std + dos_mean
-            target_n = target * dos_std + dos_mean
-            
+            # transformer.py 返回结果字典和 attention
+            outputs = self.model[list(self.model.keys())[0]](inp, mask, pos)
+            predict_edos = outputs['edos']
+            predict_phdos = outputs['phdos']
+            # 假设你还需要 attention 用于保存，取其中一个任务的即可
+            attention = outputs.get('attn_edos', None) 
         else:
-            predict_n = predict
-            target_n = target
-    
-        if self.apply_log:
-            predict_n = torch.exp(predict_n) - 1.0
-            target_n = torch.exp(target_n) - 1.0
-    
-        if self.scale_factor!=1.0:
-            predict_n = predict_n / self.scale_factor
-            target_n = target_n / self.scale_factor
+            raise NotImplementedError('Invalid model type.')
 
-        #print("pre:", predict[0])
-        #print("tgt:", target[0])
- 
-        predict_n[predict_n < 0] = 0
-        MAE_ori = torch.mean(torch.abs(predict_n-target_n))
-        MSE_ori = torch.mean((predict_n-target_n)**2)
-        SS_res = torch.sum((predict - target)**2)  # 或 SS_res = MSE_ori * len(target_n)
-        SS_tot = torch.sum((target - torch.mean(target))**2)
-        R2_ori = 1 - (SS_res / SS_tot)
-        metrics_loss.update({'MAE_ori':MAE_ori,'MSE_ori':MSE_ori,'lp_loss': loss.item(), 'R2':R2_ori.item()})
-        if step % 100 == 0:
-            print(f"Pred Sample: {predict[0, :5]}") # 看看输出是不是全是接近 0 的数
+        # 3. 计算基础训练 Loss (标准化空间)
+        loss_edos = self.loss(predict_edos, edos_target)
+        loss_phdos = self.loss(predict_phdos, phdos_target)
+        total_lp_loss = loss_edos + loss_phdos
+
+        # --- 内部辅助函数：逆归一化并计算所有指标 ---
+        def compute_detailed_metrics(pred, target, m_mean, m_std, m_min, m_max, prefix):
+            # A. 逆归一化 (Denormalization)
+            p_n, t_n = pred.clone(), target.clone()
+            if self.dos_minmax:
+                p_n = p_n * (m_max - m_min) + m_min
+                t_n = t_n * (m_max - m_min) + m_min
+            elif self.dos_zscore:
+                p_n = p_n * m_std + m_mean
+                t_n = t_n * m_std + m_mean
+            
+            if self.apply_log:
+                p_n = torch.exp(p_n) - 1.0
+                t_n = torch.exp(t_n) - 1.0
+            
+            if self.scale_factor != 1.0:
+                p_n = p_n / self.scale_factor
+                t_n = t_n / self.scale_factor
+
+            p_n[p_n < 0] = 0 # 物理约束
+
+            # B. 计算指标
+            mae = torch.mean(torch.abs(p_n - t_n))
+            mse = torch.mean((p_n - t_n)**2)
+            
+            # R2 计算
+            ss_res = torch.sum((t_n - p_n) ** 2)
+            ss_tot = torch.sum((t_n - torch.mean(t_n)) ** 2)
+            r2 = 1 - (ss_res / (ss_tot + 1e-8))
+
+            return {
+                f'MAE_{prefix}': mae.item(),
+                f'MSE_{prefix}': mse.item(),
+                f'R2_{prefix}': r2.item(),
+                f'pred_n_{prefix}': p_n,
+                f'target_n_{prefix}': t_n
+            }
+
+        # 4. 分别执行指标计算
+        metrics_edos = compute_detailed_metrics(predict_edos, edos_target, edos_mean, edos_std, edos_min, edos_max, "edos")
+        metrics_phdos = compute_detailed_metrics(predict_phdos, phdos_target, phdos_mean, phdos_std, phdos_min, phdos_max, "phdos")
+
+        # 5. 汇总所有指标到数据字典
+        metrics_loss = {}
+        metrics_loss.update({k: v for k, v in metrics_edos.items() if 'pred_n' not in k and 'target_n' not in k})
+        metrics_loss.update({k: v for k, v in metrics_phdos.items() if 'pred_n' not in k and 'target_n' not in k})
+        
+        # 保留原有 lp_loss 用于 checkpoint 选择 (通常用总 loss 或 edos loss)
+        metrics_loss.update({'lp_loss': total_lp_loss.item()})
+
+        # 6. 保存逻辑 (保持原有逻辑)
         if save_predict:
             os.makedirs("dosdata", exist_ok=True)
-            predict_2d = predict.squeeze(dim=0).cpu().numpy()
-            target_2d = target.squeeze(dim=0).cpu().numpy()
-            np.savetxt("dosdata/predict_%s.txt"%step, predict_2d)
-            np.savetxt("dosdata/target_%s.txt"%step, target_2d)
+            # 保存第一条样本的还原后数据
+            np.savetxt(f"dosdata/edos_pred_{step}.txt", metrics_edos['pred_n_edos'][0].cpu().numpy())
+            np.savetxt(f"dosdata/edos_tgt_{step}.txt", metrics_edos['target_n_edos'][0].cpu().numpy())
+            np.savetxt(f"dosdata/phdos_pred_{step}.txt", metrics_phdos['pred_n_phdos'][0].cpu().numpy())
+            np.savetxt(f"dosdata/phdos_tgt_{step}.txt", metrics_phdos['target_n_phdos'][0].cpu().numpy())
             
-            attention_3d = attention.squeeze(dim=0).cpu().numpy()             # [B, dos_num, L], 保持3D形状
-            inp_2d = inp.squeeze(dim=0).cpu().numpy()
-            np.save("dosdata/attention_%s.npy" % step, attention_3d)  # 保存为 .npy 文件
-            np.save("dosdata/input_%s.npy" % step, inp_2d)            # 保存输入为 .npy 文件
-            ###ATTENTION
-            #print(attention.squeeze(dim=0).cpu().numpy())
-            #with open("selfattention_valid.txt", "a+") as f:
-            #    np.savetxt(f, attention.squeeze(dim=0).cpu().numpy().T, fmt='%.04f')
-            ###ATTENTION
+            if attention is not None:
+                attn_data = attention.squeeze(0).cpu().numpy()
+                np.save(f"dosdata/attention_{step}.npy", attn_data)
 
-            ###GAP
-            #gaps = [[self.read_gap(predict), self.read_gap(target)]]
-            #with open("gap_valid.txt", "a+") as f:
-            #    np.savetxt(f, gaps, fmt="%.03f")
-            ###GAP
-            if False:#loss/torch.norm(predict, p=2) <0.012:
-                print(step, loss/torch.norm(target, p=2))
-                np.savetxt("save%s_%s.txt"%(step, loss/torch.norm(target, p=2)), [np.array(predict.squeeze(dim=0).cpu()), np.array(target.squeeze(dim=0).cpu())], fmt="%.4f")
+        # 打印调试信息
+        if step % 100 == 0:
+            self.logger.info(f"Step {step} - EDOS MAE: {metrics_loss['MAE_edos']:.4f}, PhDOS MAE: {metrics_loss['MAE_phdos']:.4f}")
+
         return metrics_loss
-
 
     def train_one_epoch(self, train_data_loader, epoch, max_epoches):
 
