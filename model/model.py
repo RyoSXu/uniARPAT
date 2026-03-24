@@ -104,7 +104,7 @@ class basemodel(nn.Module):
         phdos_min  = phdos_min.to(self.device, non_blocking=True)
         phdos_max  = phdos_max.to(self.device, non_blocking=True)
 
-        mask = torch.tensor(mask.clone().detach(), dtype=torch.bool).to(self.device)
+        mask = mask.clone().detach().to(dtype=torch.bool, device=self.device)
         
         return inp, pos, mask, edos_target, phdos_target, \
                edos_mean, edos_std, edos_min, edos_max, \
@@ -173,10 +173,13 @@ class basemodel(nn.Module):
         else:
             raise NotImplementedError('Invalid model type.')
 
-        # 3. 计算基础训练 Loss (标准化空间)
-        loss_edos = self.loss(predict_edos, edos_target)
-        loss_phdos = self.loss(predict_phdos, phdos_target)
-        total_lp_loss = loss_edos + loss_phdos
+        # 3. 计算指标 (标准化空间)
+        norm_metrics = {
+            'NormMAE_edos': torch.mean(torch.abs(predict_edos - edos_target)).item(),
+            'NormMAE_phdos': torch.mean(torch.abs(predict_phdos - phdos_target)).item(),
+            'NormMSE_edos': torch.mean((predict_edos - edos_target)**2).item(),
+            'NormMSE_phdos': torch.mean((predict_phdos - phdos_target)**2).item(),
+        }
 
         # --- 内部辅助函数：逆归一化并计算所有指标 ---
         def compute_detailed_metrics(pred, target, m_mean, m_std, m_min, m_max, prefix):
@@ -225,7 +228,7 @@ class basemodel(nn.Module):
         metrics_loss.update({k: v for k, v in metrics_phdos.items() if 'pred_n' not in k and 'target_n' not in k})
         
         # 保留原有 lp_loss 用于 checkpoint 选择 (通常用总 loss 或 edos loss)
-        metrics_loss.update({'lp_loss': total_lp_loss.item()})
+        metrics_loss.update(norm_metrics)
 
         # 6. 保存逻辑 (保持原有逻辑)
         if save_predict:
@@ -239,10 +242,6 @@ class basemodel(nn.Module):
             if attention is not None:
                 attn_data = attention.squeeze(0).cpu().numpy()
                 np.save(f"dosdata/attention_{step}.npy", attn_data)
-
-        # 打印调试信息
-        if step % 100 == 0:
-            self.logger.info(f"Step {step} - EDOS MAE: {metrics_loss['MAE_edos']:.4f}, PhDOS MAE: {metrics_loss['MAE_phdos']:.4f}")
 
         return metrics_loss
 
@@ -413,7 +412,14 @@ class basemodel(nn.Module):
             if 'MSE_edos' in loss and 'MSE_phdos' in loss:
                 loss['total_MSE'] = loss['MSE_edos'] + loss['MSE_phdos']
             metric_logger.update(**loss)
-        
+
+            if 'NormMAE_edos' in loss and 'NormMAE_phdos' in loss:
+                loss['total_NormMAE'] = loss['NormMAE_edos'] + loss['NormMAE_phdos']
+            
+            if 'NormMSE_edos' in loss and 'NormMSE_phdos' in loss:
+                loss['total_NormMSE'] = loss['NormMSE_edos'] + loss['NormMSE_phdos']
+            metric_logger.update(**loss)
+            
         self.logger.info('  '.join(
                 [f'Epoch [{epoch + 1}](val stats)',
                  "{meters}"]).format(

@@ -14,7 +14,7 @@ model:
         dropout: 0.1
         activation: "gelu" # relu, relu_inplace, gelu, glu, leaky_relu
 
-    save_best: "total_MAE"
+    save_best: "total_NormMAE"
     metrics_list: ["MAE", "MSE"]
 
     optimizer:
@@ -57,7 +57,7 @@ dataloader:
   persistent_workers: True
 
 trainer:
-  batch_size: 16
+  batch_size: 32
   test_batch_size: 16
   valid_batch_size: 16
   max_epoch: *maxepoch
