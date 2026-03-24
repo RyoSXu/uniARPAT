@@ -127,7 +127,7 @@ class basemodel(nn.Module):
         #return self.lossfunc(predict, target)
 
     def train_one_step(self, batch_data, step):
-        inp, pos, mask, edos_target, phdos_target, _, _, _, _, _, _, _ = self.data_preprocess(batch_data)
+        inp, pos, mask, edos_target, phdos_target, _, _, _, _, _, _, _, _ = self.data_preprocess(batch_data)
         if len(self.model) == 1:
             outputs = self.model[list(self.model.keys())[0]](inp, mask, pos)
             # 必须从字典取值，并且 squeeze(-1) 或 squeeze(1) 取决于你的 Head 输出
@@ -202,7 +202,6 @@ class basemodel(nn.Module):
             # B. 计算指标
             mae = torch.mean(torch.abs(p_n - t_n))
             mse = torch.mean((p_n - t_n)**2)
-            
             # R2 计算
             ss_res = torch.sum((t_n - p_n) ** 2)
             ss_tot = torch.sum((t_n - torch.mean(t_n)) ** 2)
@@ -408,6 +407,11 @@ class basemodel(nn.Module):
 
         for step, batch in enumerate(test_data_loader):
             loss = self.test_one_step(batch, save_predict=save_predict, step=step)
+            if 'MAE_edos' in loss and 'MAE_phdos' in loss:
+                loss['total_MAE'] = loss['MAE_edos'] + loss['MAE_phdos']
+            
+            if 'MSE_edos' in loss and 'MSE_phdos' in loss:
+                loss['total_MSE'] = loss['MSE_edos'] + loss['MSE_phdos']
             metric_logger.update(**loss)
         
         self.logger.info('  '.join(

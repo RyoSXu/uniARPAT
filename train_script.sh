@@ -8,7 +8,7 @@ python -u train.py \
   --desc "ARPAT" \
   --resume False \
   --smear 0 \
-  --dos_minmax False \
+  --dos_minmax True \
   --dos_zscore False \
   --scale_factor 1.0 \
   --apply_log False \

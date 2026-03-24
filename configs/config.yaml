@@ -14,7 +14,7 @@ model:
         dropout: 0.1
         activation: "gelu" # relu, relu_inplace, gelu, glu, leaky_relu
 
-    save_best: "MSE"
+    save_best: "total_MAE"
     metrics_list: ["MAE", "MSE"]
 
     optimizer:

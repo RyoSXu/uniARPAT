@@ -96,7 +96,7 @@ class Transformer(nn.Module):
         # Decoder --edos
         edos_query = self.edos_query_embed.unsqueeze(0).repeat(B, 1, 1)
         edos_tgt_input = self.edos_tgt.unsqueeze(0).repeat(B, 1, 1)
-        hs_edos = self.decoder(
+        hs_edos, _ = self.decoder(
             edos_tgt_input, memory,
             memory_key_padding_mask=mask,
             pos=pos,
@@ -111,7 +111,7 @@ class Transformer(nn.Module):
         phdos_query = self.phdos_query_embed.unsqueeze(0).repeat(B, 1, 1)
         phdos_tgt_input = self.phdos_tgt.unsqueeze(0).repeat(B, 1, 1)
 
-        hs_phdos = self.decoder(
+        hs_phdos, _ = self.decoder(
             phdos_tgt_input, memory,
             memory_key_padding_mask=mask,
             pos=pos,
