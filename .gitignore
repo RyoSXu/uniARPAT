@@ -1,8 +1,33 @@
+# Python & Environment
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
 .ipynb_checkpoints/
-*.pyc
-*.npy
+
+# PyTorch checkpoints and training outputs
 *.pth
+*.pt
+*.ckpt
 output/
-*.csv
+wandb/
+runs/
+
+# Temporary data and logs
+dosdata/
 *.log
+*.tmp
+*.swp
+*.bak
+
+# Raw Datasets
+data/*.csv
+
+# Benchmark preservation
+*.npy
+*.npz
+!results/*.csv
