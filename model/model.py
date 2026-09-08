@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from model.transformer import Transformer
 from utils.builder import get_optimizer, get_lr_scheduler
 from utils.metrics import MetricsRecorder
@@ -10,6 +11,24 @@ from pathlib import Path
 import torch.cuda.amp as amp
 import numpy as np
 import os
+
+def compute_shape_loss(pred_shape, tgt_shape):
+    pred_mean = torch.mean(pred_shape, dim=-1, keepdim=True)
+    tgt_mean = torch.mean(tgt_shape, dim=-1, keepdim=True)
+    pred_diff = pred_shape - pred_mean
+    tgt_diff = tgt_shape - tgt_mean
+    var_tgt = torch.mean(tgt_diff ** 2, dim=-1)
+
+    cov = torch.sum(pred_diff * tgt_diff, dim=-1)
+    std_p = torch.sqrt(torch.sum(pred_diff ** 2, dim=-1) + 1e-8)
+    std_t = torch.sqrt(torch.sum(tgt_diff ** 2, dim=-1) + 1e-8)
+    r_pearson = cov / (std_p * std_t + 1e-8)
+    loss_pearson = 1.0 - r_pearson
+
+    loss_mse = torch.mean((pred_shape - tgt_shape)**2, dim=-1)
+    flat_mask = (var_tgt < 1e-4)
+    loss_sample = torch.where(flat_mask, loss_mse, loss_pearson + 0.5 * loss_mse)
+    return loss_sample.mean()
 
 class basemodel(nn.Module):
     def __init__(self, logger, **params) -> None:
@@ -127,30 +146,83 @@ class basemodel(nn.Module):
         #return self.lossfunc(predict, target)
 
     def train_one_step(self, batch_data, step):
-        inp, pos, mask, edos_target, phdos_target, _, _, _, _, _, _, _, _ = self.data_preprocess(batch_data)
+        inp, pos, mask, edos_target, phdos_target, \
+        edos_mean, edos_std, edos_min, edos_max, \
+        phdos_mean, phdos_std, phdos_min, phdos_max = self.data_preprocess(batch_data)
+
         if len(self.model) == 1:
             outputs = self.model[list(self.model.keys())[0]](inp, mask, pos)
-            # 必须从字典取值，并且 squeeze(-1) 或 squeeze(1) 取决于你的 Head 输出
-            # 如果 CNN 输出是 [B, 1, L]，则用 .squeeze(1)
-            predict_edos = outputs['edos'].squeeze(1) 
-            predict_phdos = outputs['phdos'].squeeze(1)
+            predict_edos = outputs['edos']
+            predict_phdos = outputs['phdos']
+            if predict_edos.dim() == 3:
+                predict_edos = predict_edos.squeeze(1)
+            if predict_phdos.dim() == 3:
+                predict_phdos = predict_phdos.squeeze(1)
         else:
             raise NotImplementedError('Invalid model type.')
-        # 分别计算 Loss 并相加 (可以根据物理重要性给 phdos 加权重，如 0.5)
-        loss_edos = self.loss(predict_edos, edos_target)
-        loss_phdos = self.loss(predict_phdos, phdos_target)
-        total_loss = loss_edos + loss_phdos
+
+        if 'phys_edos' in outputs:
+            # M5: Shape-Scale Composite Physical Loss
+            tgt_shape_e = edos_target / (torch.max(edos_target, dim=-1, keepdim=True).values + 1e-6)
+            tgt_shape_p = phdos_target / (torch.max(phdos_target, dim=-1, keepdim=True).values + 1e-6)
+
+            loss_shape_e = compute_shape_loss(outputs['shape_edos'], tgt_shape_e)
+            loss_shape_p = compute_shape_loss(outputs['shape_phdos'], tgt_shape_p)
+
+            # Huber scale loss (clamp targets to 500.0 to reject extreme outlier explosion)
+            s_true_e = torch.log(torch.clamp(edos_max, min=1e-4, max=500.0)).squeeze(-1)
+            s_true_p = torch.log(torch.clamp(phdos_max, min=1e-4, max=500.0)).squeeze(-1)
+            loss_scale_e = F.smooth_l1_loss(outputs['log_scale_edos'], s_true_e)
+            loss_scale_p = F.smooth_l1_loss(outputs['log_scale_phdos'], s_true_p)
+
+            # Sample-wise conditional bandgap loss around Fermi level E_F ~ 0 (§6.2)
+            # Fermi level corresponds to indices 63..64 on linspace(-10, 10, 128)
+            fermi_is_zero = (edos_target[:, 63:65] < 1e-3).all(dim=-1, keepdim=True) # [B, 1] bool
+            window_target = edos_target[:, 56:73] # [B, 17]
+            # Penalize in normalized shape space [0, 1] to prevent large-scale insulators from dominating gradients
+            window_pred_shape = outputs['shape_edos'][:, 56:73] # [B, 17]
+
+            # A bin is penalized only if the material is an insulator at E_F AND this bin is in the gap
+            gap_bins = fermi_is_zero & (window_target < 1e-3) # [B, 17] bool
+            has_gap = fermi_is_zero.squeeze(-1) # [B] bool
+            if has_gap.sum() > 0:
+                num_gap_bins = gap_bins[has_gap].sum(dim=-1).float().clamp(min=1.0)
+                sample_gap_loss = (window_pred_shape[has_gap] ** 2 * gap_bins[has_gap].float()).sum(dim=-1) / num_gap_bins
+                loss_gap = sample_gap_loss.mean()
+            else:
+                loss_gap = torch.tensor(0.0, device=inp.device)
+
+            # 3N total vibrational degrees of freedom sum rule
+            atom_len = pos.shape[1] - 2
+            valid_atoms = (~mask[:, :atom_len]).sum(dim=-1).float()
+            pred_area = torch.sum(outputs['phys_phdos'], dim=-1) * 20.0
+            loss_sum = torch.mean(((pred_area - 3.0 * valid_atoms) / (3.0 * valid_atoms + 1e-6)) ** 2)
+
+            total_loss = loss_shape_e + 3.0 * loss_shape_p + 0.5 * (loss_scale_e + loss_scale_p) + 0.2 * loss_gap + 0.1 * loss_sum
+            loss_edos = loss_shape_e + 0.5 * loss_scale_e
+            loss_phdos = 3.0 * loss_shape_p + 0.5 * loss_scale_p
+        else:
+            loss_edos = self.loss(predict_edos, edos_target)
+            loss_phdos = self.loss(predict_phdos, phdos_target)
+            total_loss = loss_edos + loss_phdos
+
         if len(self.optimizer) == 1:
             self.optimizer[list(self.optimizer.keys())[0]].zero_grad()
             total_loss.backward()
             self.optimizer[list(self.optimizer.keys())[0]].step()
         else:
             raise NotImplementedError('Invalid model type.')
-        
+
         return {
-            'loss': total_loss.item(), 
-            'loss_edos': loss_edos.item(), 
-            'loss_phdos': loss_phdos.item()
+            'loss': total_loss.item(),
+            'loss_edos': loss_edos.item(),
+            'loss_phdos': loss_phdos.item(),
+            'loss_shape_e': loss_shape_e.item() if 'loss_shape_e' in locals() else 0.0,
+            'loss_shape_p': loss_shape_p.item() if 'loss_shape_p' in locals() else 0.0,
+            'loss_scale_e': loss_scale_e.item() if 'loss_scale_e' in locals() else 0.0,
+            'loss_scale_p': loss_scale_p.item() if 'loss_scale_p' in locals() else 0.0,
+            'loss_gap': loss_gap.item() if 'loss_gap' in locals() else 0.0,
+            'loss_sum': loss_sum.item() if 'loss_sum' in locals() else 0.0,
         }
 
     def multi_step_predict(self, batch_data, clim_time_mean_daily, data_std, index, batch_len):
@@ -182,33 +254,49 @@ class basemodel(nn.Module):
         }
 
         # --- 内部辅助函数：逆归一化并计算所有指标 ---
-        def compute_detailed_metrics(pred, target, m_mean, m_std, m_min, m_max, prefix):
+        def compute_detailed_metrics(pred, target, m_mean, m_std, m_min, m_max, prefix, phys_pred=None):
             # A. 逆归一化 (Denormalization)
-            p_n, t_n = pred.clone(), target.clone()
+            if phys_pred is not None:
+                # 盲测推理分支 (M5: Shape-Scale 模型，无真值 min/max 泄露)
+                p_n = phys_pred.clone()
+            else:
+                # Oracle 逆归一化分支 (M1-M4)
+                p_n = pred.clone()
+                if self.dos_minmax:
+                    p_n = p_n * (m_max - m_min) + m_min
+                elif self.dos_zscore:
+                    p_n = p_n * m_std + m_mean
+                
+                if self.apply_log:
+                    p_n = torch.exp(p_n) - 1.0
+                
+                if self.scale_factor != 1.0:
+                    p_n = p_n / self.scale_factor
+
+            t_n = target.clone()
             if self.dos_minmax:
-                p_n = p_n * (m_max - m_min) + m_min
                 t_n = t_n * (m_max - m_min) + m_min
             elif self.dos_zscore:
-                p_n = p_n * m_std + m_mean
                 t_n = t_n * m_std + m_mean
             
             if self.apply_log:
-                p_n = torch.exp(p_n) - 1.0
                 t_n = torch.exp(t_n) - 1.0
             
             if self.scale_factor != 1.0:
-                p_n = p_n / self.scale_factor
                 t_n = t_n / self.scale_factor
 
             p_n[p_n < 0] = 0 # 物理约束
 
-            # B. 计算指标
-            mae = torch.mean(torch.abs(p_n - t_n))
-            mse = torch.mean((p_n - t_n)**2)
-            # R2 计算
-            ss_res = torch.sum((t_n - p_n) ** 2)
-            ss_tot = torch.sum((t_n - torch.mean(t_n)) ** 2)
-            r2 = 1 - (ss_res / (ss_tot + 1e-8))
+            # B. 计算指标 (逐样本计算后取均值，与 evaluate_and_plot.py 严格一致)
+            mae_per_sample = torch.mean(torch.abs(p_n - t_n), dim=-1)
+            mse_per_sample = torch.mean((p_n - t_n)**2, dim=-1)
+            ss_res = torch.sum((t_n - p_n) ** 2, dim=-1)
+            ss_tot = torch.sum((t_n - torch.mean(t_n, dim=-1, keepdim=True)) ** 2, dim=-1)
+            r2_per_sample = 1.0 - (ss_res / (ss_tot + 1e-8))
+
+            mae = torch.mean(mae_per_sample)
+            mse = torch.mean(mse_per_sample)
+            r2 = torch.mean(r2_per_sample)
 
             return {
                 f'MAE_{prefix}': mae.item(),
@@ -218,14 +306,41 @@ class basemodel(nn.Module):
                 f'target_n_{prefix}': t_n
             }
 
-        # 4. 分别执行指标计算
-        metrics_edos = compute_detailed_metrics(predict_edos, edos_target, edos_mean, edos_std, edos_min, edos_max, "edos")
-        metrics_phdos = compute_detailed_metrics(predict_phdos, phdos_target, phdos_mean, phdos_std, phdos_min, phdos_max, "phdos")
-
-        # 5. 汇总所有指标到数据字典
+        # 4. 分别执行指标计算 (若存在 phys_edos 则分别计算 Blind 与 Oracle 双轨)
         metrics_loss = {}
-        metrics_loss.update({k: v for k, v in metrics_edos.items() if 'pred_n' not in k and 'target_n' not in k})
-        metrics_loss.update({k: v for k, v in metrics_phdos.items() if 'pred_n' not in k and 'target_n' not in k})
+        if 'phys_edos' in outputs:
+            # A. Blind 物理盲测指标 (主指标)
+            metrics_edos = compute_detailed_metrics(
+                predict_edos, edos_target, edos_mean, edos_std, edos_min, edos_max, "edos",
+                phys_pred=outputs['phys_edos']
+            )
+            metrics_phdos = compute_detailed_metrics(
+                predict_phdos, phdos_target, phdos_mean, phdos_std, phdos_min, phdos_max, "phdos",
+                phys_pred=outputs['phys_phdos']
+            )
+            # B. Oracle 逆归一化指标 (shape * (max - min) + min)
+            shape_e_orc = outputs['shape_edos'] * (edos_max - edos_min) + edos_min
+            shape_p_orc = outputs['shape_phdos'] * (phdos_max - phdos_min) + phdos_min
+            metrics_edos_orc = compute_detailed_metrics(
+                predict_edos, edos_target, edos_mean, edos_std, edos_min, edos_max, "edos_oracle",
+                phys_pred=shape_e_orc
+            )
+            metrics_phdos_orc = compute_detailed_metrics(
+                predict_phdos, phdos_target, phdos_mean, phdos_std, phdos_min, phdos_max, "phdos_oracle",
+                phys_pred=shape_p_orc
+            )
+            for d in [metrics_edos, metrics_phdos, metrics_edos_orc, metrics_phdos_orc]:
+                metrics_loss.update({k: v for k, v in d.items() if 'pred_n' not in k and 'target_n' not in k})
+        else:
+            # M1-M4 传统 Oracle 逆归一化
+            metrics_edos = compute_detailed_metrics(
+                predict_edos, edos_target, edos_mean, edos_std, edos_min, edos_max, "edos"
+            )
+            metrics_phdos = compute_detailed_metrics(
+                predict_phdos, phdos_target, phdos_mean, phdos_std, phdos_min, phdos_max, "phdos"
+            )
+            metrics_loss.update({k: v for k, v in metrics_edos.items() if 'pred_n' not in k and 'target_n' not in k})
+            metrics_loss.update({k: v for k, v in metrics_phdos.items() if 'pred_n' not in k and 'target_n' not in k})
         
         # 保留原有 lp_loss 用于 checkpoint 选择 (通常用总 loss 或 edos loss)
         metrics_loss.update(norm_metrics)
@@ -411,13 +526,14 @@ class basemodel(nn.Module):
             
             if 'MSE_edos' in loss and 'MSE_phdos' in loss:
                 loss['total_MSE'] = loss['MSE_edos'] + loss['MSE_phdos']
-            metric_logger.update(**loss)
 
             if 'NormMAE_edos' in loss and 'NormMAE_phdos' in loss:
                 loss['total_NormMAE'] = loss['NormMAE_edos'] + loss['NormMAE_phdos']
+                loss['balanced_score'] = 0.5 * loss['NormMAE_edos'] + 0.5 * loss['NormMAE_phdos']
             
             if 'NormMSE_edos' in loss and 'NormMSE_phdos' in loss:
                 loss['total_NormMSE'] = loss['NormMSE_edos'] + loss['NormMSE_phdos']
+
             metric_logger.update(**loss)
             
         self.logger.info('  '.join(

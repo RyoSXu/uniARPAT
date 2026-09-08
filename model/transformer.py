@@ -4,19 +4,43 @@ import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
 
-from model.heads import CNN
+from model.heads import (
+    CNN, DeepConv1dHead, MultiScaleResidualHead,
+    PostDecoderGatedCrossAttention, ScaleHead, global_masked_pool
+)
 from utils.atom_feature import AtomFeatureEncoder
 from utils.relative_features import compute_relative_features
 from utils.rbf_encoding import RBFEncoding
 from utils.rp_encoding import RPEncoding
 
 
+def safe_shape_norm(z: Tensor) -> Tensor:
+    """
+    Self-healing shape normalization:
+    1. Primary: ReLU(z) / (max(ReLU(z)) + 1e-6) guarantees strict non-negativity and preserves exact zero bandgaps.
+    2. Fallback: If max(ReLU(z)) <= 1e-4 (e.g. dying ReLU or all-negative pre-activations), smoothly falls back to
+       Softplus(z) / (max(Softplus(z)) + 1e-6), which provides non-zero gradients to resurrect the representations.
+    """
+    pos = F.relu(z)
+    max_val = torch.max(pos, dim=-1, keepdim=True).values
+    fallback = F.softplus(z)
+    fallback_max = torch.max(fallback, dim=-1, keepdim=True).values
+    return torch.where(max_val > 1e-4, pos / (max_val + 1e-6), fallback / (fallback_max + 1e-6))
+
+
 class Transformer(nn.Module):
 
-    def __init__(self, token_num=100, d_model=512, nhead=8, edos_num=128, phdos_num=64, num_encoder_layers=6,
+    def __init__(self, token_num=118, d_model=512, nhead=8, edos_num=128, phdos_num=64, num_encoder_layers=6,
                  num_decoder_layers=6, dim_feedforward=2048, dropout=0.1,
-                 activation="leaky_relu", normalize_before=False):
+                 activation="gelu", normalize_before=False,
+                 decoupled_decoder=False, use_gated_cross_attn=False,
+                 head_type="legacy", predict_scale=False):
         super().__init__()
+        self.decoupled_decoder = decoupled_decoder
+        self.use_gated_cross_attn = use_gated_cross_attn
+        self.head_type = head_type
+        self.predict_scale = predict_scale
+
         # Atom type embedding
         self.tok_emb = nn.Embedding(token_num, d_model)
         # Numeric atomic feature embedding
@@ -34,27 +58,62 @@ class Transformer(nn.Module):
         encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
         self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
 
-        decoder_layer = TransformerDecoderLayer(
-            d_model, nhead, dim_feedforward,
-            dropout, activation, normalize_before
-        )
-        decoder_norm = nn.LayerNorm(d_model)
-        self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm)
+        # Decoder initialization (shared vs decoupled)
+        if decoupled_decoder:
+            self.edos_decoder = TransformerDecoder(
+                TransformerDecoderLayer(d_model, nhead, dim_feedforward, dropout, activation, normalize_before),
+                num_decoder_layers, nn.LayerNorm(d_model)
+            )
+            self.phdos_decoder = TransformerDecoder(
+                TransformerDecoderLayer(d_model, nhead, dim_feedforward, dropout, activation, normalize_before),
+                num_decoder_layers, nn.LayerNorm(d_model)
+            )
+        else:
+            decoder_layer = TransformerDecoderLayer(
+                d_model, nhead, dim_feedforward,
+                dropout, activation, normalize_before
+            )
+            decoder_norm = nn.LayerNorm(d_model)
+            self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm)
+
+        # Post-Decoder Zero-Initialized Gated Multi-Head Cross-Attention
+        if use_gated_cross_attn:
+            self.gated_cross_attn = PostDecoderGatedCrossAttention(d_model, nhead, dropout=dropout)
 
         # --- (EDOS)  ---
         self.edos_query_embed = nn.Parameter(torch.zeros(edos_num, d_model))
         self.edos_tgt = nn.Parameter(torch.zeros(edos_num, d_model))
-        self.edos_out_head = CNN(d_model, d_model*3, output_dim=1, num_layers=1)
 
-        # ---  (PhDOS)  ---
+        # --- (PhDOS)  ---
         self.phdos_query_embed = nn.Parameter(torch.zeros(phdos_num, d_model))
         self.phdos_tgt = nn.Parameter(torch.zeros(phdos_num, d_model))
-        self.phdos_out_head = CNN(d_model, d_model*3, output_dim=1, num_layers=6)
 
         self._reset_parameters()
+
+        # Output Heads (~0.788M params each for symmetric configuration)
+        if head_type == "symmetric":
+            self.edos_out_head = MultiScaleResidualHead(d_model, hidden_dim=256)
+            self.phdos_out_head = DeepConv1dHead(d_model, hidden_dim=256)
+            nn.init.constant_(self.edos_out_head.out_conv.bias, 1.0)
+            nn.init.constant_(self.phdos_out_head.net[-1].bias, 1.0)
+        elif head_type == "ph_trimmed":
+            self.edos_out_head = CNN(d_model, d_model * 3, output_dim=1, num_layers=1)
+            self.phdos_out_head = DeepConv1dHead(d_model, hidden_dim=256)
+            nn.init.constant_(self.phdos_out_head.net[-1].bias, 1.0)
+        else:  # "legacy"
+            self.edos_out_head = CNN(d_model, d_model * 3, output_dim=1, num_layers=1)
+            self.phdos_out_head = CNN(d_model, d_model * 3, output_dim=1, num_layers=6)
+
+        # Scale Head MLP for blind physical inference (Shape-Scale decoupled regression)
+        if predict_scale:
+            self.scale_head = ScaleHead(d_model, hidden_dim=128, out_dim=2)
+            with torch.no_grad():
+                self.scale_head.mlp[-1].bias.copy_(torch.tensor([3.0, -1.5]))
+            assert torch.allclose(self.scale_head.mlp[-1].bias, torch.tensor([3.0, -1.5])), "ScaleHead bias verification failed!"
+
         self.d_model = d_model
         self.nhead = nhead
-        
+
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
@@ -64,7 +123,7 @@ class Transformer(nn.Module):
         # src: [B, L] atom indices; pos carries lattice+coords
         B, Lp, _ = pos.shape
         atom_len = Lp - 2
-        mask = mask[:, :atom_len]
+        mask_atom = mask[:, :atom_len]
 
         # Extract atom indices and numeric features
         atom_idx = src[:, 2:]  # [B, L]
@@ -81,46 +140,85 @@ class Transformer(nn.Module):
 
         # Compute relative geometry features
         distances, unit_dirs = compute_relative_features(pos)
-        
-        # Encoder --sharing
+
+        # Encoder -- sharing
         memory = self.encoder(
             src=atom_src,
-            src_key_padding_mask=mask,
+            src_key_padding_mask=mask_atom,
             pos=pos,
             rel_diss=distances,
             rel_dirs=unit_dirs
         )
 
         results = {}
-        
-        # Decoder --edos
+
+        # Decoder queries
         edos_query = self.edos_query_embed.unsqueeze(0).repeat(B, 1, 1)
         edos_tgt_input = self.edos_tgt.unsqueeze(0).repeat(B, 1, 1)
-        hs_edos, _ = self.decoder(
-            edos_tgt_input, memory,
-            memory_key_padding_mask=mask,
-            pos=pos,
-            query_pos=edos_query
-        )
-
-        # Output --edos
-        out_edos = self.edos_out_head(hs_edos.permute(0, 2, 1)) # -> [B, 1, edos_num]
-        results['edos'] = out_edos.squeeze(1) # -> [B, edos_num]
-
-        # Decoder --edos
         phdos_query = self.phdos_query_embed.unsqueeze(0).repeat(B, 1, 1)
         phdos_tgt_input = self.phdos_tgt.unsqueeze(0).repeat(B, 1, 1)
 
-        hs_phdos, _ = self.decoder(
-            phdos_tgt_input, memory,
-            memory_key_padding_mask=mask,
-            pos=pos,
-            query_pos=phdos_query
-        )
+        if self.decoupled_decoder:
+            hs_edos, _ = self.edos_decoder(
+                edos_tgt_input, memory,
+                memory_key_padding_mask=mask_atom,
+                pos=pos,
+                query_pos=edos_query
+            )
+            hs_phdos, _ = self.phdos_decoder(
+                phdos_tgt_input, memory,
+                memory_key_padding_mask=mask_atom,
+                pos=pos,
+                query_pos=phdos_query
+            )
+        else:
+            hs_edos, _ = self.decoder(
+                edos_tgt_input, memory,
+                memory_key_padding_mask=mask_atom,
+                pos=pos,
+                query_pos=edos_query
+            )
+            hs_phdos, _ = self.decoder(
+                phdos_tgt_input, memory,
+                memory_key_padding_mask=mask_atom,
+                pos=pos,
+                query_pos=phdos_query
+            )
 
-        # Output --phdos
-        out_phdos = self.phdos_out_head(hs_phdos.permute(0, 2, 1)) # -> [B, 1, phdos_num]
-        results['phdos'] = out_phdos.squeeze(1) # -> [B, phdos_num]
+        # Post-Decoder Gated Cross Attention
+        if self.use_gated_cross_attn:
+            hs_edos, hs_phdos = self.gated_cross_attn(hs_edos, hs_phdos)
+
+        # Output heads
+        out_edos = self.edos_out_head(hs_edos.permute(0, 2, 1)).squeeze(1) # -> [B, edos_num]
+        out_phdos = self.phdos_out_head(hs_phdos.permute(0, 2, 1)).squeeze(1) # -> [B, phdos_num]
+
+        results['edos'] = out_edos
+        results['phdos'] = out_phdos
+
+        # Shape-Scale branch if enabled
+        if self.predict_scale:
+            shape_edos = safe_shape_norm(out_edos)
+            shape_phdos = safe_shape_norm(out_phdos)
+
+            # Physical boundary constraint (§5.1): phDOS at far negative frequency boundary (-280 cm^-1) is strictly zero
+            shape_phdos = shape_phdos.clone()
+            shape_phdos[:, 0] = 0.0
+
+            # Crystal-level pooling for scale prediction
+            h_crystal = global_masked_pool(memory, mask_atom)
+            log_scales = self.scale_head(h_crystal) # [B, 2]
+            scale_edos = torch.exp(log_scales[:, 0:1])
+            scale_phdos = torch.exp(log_scales[:, 1:2])
+
+            results['shape_edos'] = shape_edos
+            results['shape_phdos'] = shape_phdos
+            results['log_scale_edos'] = log_scales[:, 0]
+            results['log_scale_phdos'] = log_scales[:, 1]
+            results['scale_edos'] = scale_edos
+            results['scale_phdos'] = scale_phdos
+            results['phys_edos'] = shape_edos * scale_edos
+            results['phys_phdos'] = shape_phdos * scale_phdos
 
         return results
 

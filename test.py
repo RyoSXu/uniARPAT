@@ -45,7 +45,15 @@ def subprocess_fn(args):
     # 构建测试数据加载器
     logger.info('Building dataloaders ...')
     dataset_params = args.cfg_params['dataset']
-    test_dataloader = builder.get_dataloader(dataset_params=dataset_params, split='test', batch_size=args.batch_size)
+    test_dataloader = builder.get_dataloader(
+        dataset_params=dataset_params,
+        split='test',
+        batch_size=args.batch_size,
+        dos_minmax=builder.dos_minmax,
+        dos_zscore=builder.dos_zscore,
+        scale_factor=builder.scale_factor,
+        apply_log=builder.apply_log
+    )
     logger.info('Test dataloaders build complete')
     # 开始测试
     logger.info('begin testing ...')
@@ -109,11 +117,11 @@ if __name__ == "__main__":
     parser.add_argument('--cuda',           type = int,     default = 0,                                            help = 'cuda id')
     parser.add_argument('--world_size',     type = int,     default = 1,                                            help = 'Number of progress')
     parser.add_argument('--per_cpus',       type = int,     default = 1,                                            help = 'Number of perCPUs to use')
-    parser.add_argument('--batch_size',     type = int,     default = 256,                                           help = "batch size")
-    parser.add_argument('--length',         type = int,     default = 64,                                           help = "predict len")
-    parser.add_argument('--metric_list',    nargs = '+',                                                            help = 'metric list')
+    parser.add_argument('--batch_size',     type = int,     default = 32,                                            help = "batch size")
     parser.add_argument('--init_method',    type = str,     default = 'tcp://127.0.0.1:23456',                      help = 'multi process init method')
-    parser.add_argument('--cfgdir',         type = str,     default = './output/transformer/world_size1-ARPAT',  help = 'Where to save the results')
+    default_cfgdir = './output/config/world_size1-ARPAT' if os.path.exists('./output/config/world_size1-ARPAT') else './output/transformer/world_size1-ARPAT'
+    parser.add_argument('--cfgdir',         type = str,     default = default_cfgdir,  help = 'Where to save the results')
+    parser.add_argument('--length',         type = int,     default = None,            help = 'eval length limit')
 
     args = parser.parse_args()
 
