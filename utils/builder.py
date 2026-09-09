@@ -400,7 +400,6 @@ def get_optimizer(model, optimizer_params = None, resume = False, resume_lr = No
 #         raise NotImplementedError('Invalid learning rate scheduler type.')
 #     return scheduler
 
-
 def get_lr_scheduler(optimizer, lr_scheduler_params = None, resume = False, resume_epoch = None):
     """
     Get the learning rate scheduler from configuration.
@@ -429,3 +428,28 @@ def get_lr_scheduler(optimizer, lr_scheduler_params = None, resume = False, resu
     #     params.update(last_epoch = resume_epoch)
     scheduler, _ = create_scheduler(scheduler_args, optimizer)
     return scheduler
+
+
+def build_warmup_cosine_scheduler(optimizer, epochs, warmup_epochs=5,
+                                  warmup_lr=1e-5, min_lr=1e-6):
+    """H4 hygiene: single LR schedule shared by train.py semantics, ablation & pilot.
+
+    Mirrors configs/config.yaml (cosine, warmup 5 epochs from warmup_lr,
+    floor min_lr). Replaces the bare CosineAnnealingLR (no warmup) previously
+    hardcoded in run_ablation_experiments.py / run_pilot_10epochs.py, so pilot
+    LR curves extrapolate to full training. Stepped once per epoch.
+    """
+    import torch
+    base_lr = optimizer.param_groups[0]["lr"]
+    warmup = torch.optim.lr_scheduler.LinearLR(
+        optimizer,
+        start_factor=warmup_lr / base_lr if base_lr > 0 else 1.0,
+        end_factor=1.0,
+        total_iters=max(warmup_epochs, 1),
+    )
+    cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=max(epochs - warmup_epochs, 1), eta_min=min_lr
+    )
+    return torch.optim.lr_scheduler.SequentialLR(
+        optimizer, schedulers=[warmup, cosine], milestones=[max(warmup_epochs, 1)]
+    )

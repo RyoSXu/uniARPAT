@@ -22,9 +22,11 @@ def build_cell_from_lattice(pos):
     inv_c = abc[:, 2].clamp(min=1e-4)
     c = 1.0 / inv_c
 
-    # 防御性物理断言：过滤非法晶格常数
-    assert ((a > 0.5) & (a < 60) & (b > 0.5) & (b < 60) & (c > 0.5) & (c < 60)).all(), \
-        f"Illegal lattice parameters detected: a_min={a.min()}, b_min={b.min()}, c_min={c.min()}"
+    # 防御性物理断言:过滤非法晶格常数 (Hygiene 2026-09-09: 上界从 60 放宽至 1000,
+    # 训练集实测 16 个合法长轴样本 c=65~110A (层状/链状), 旧上界会误杀导致整轮崩溃。
+    # 下界 0.1 仍可捕获 1/c 契约违反类 bug (忘倒数 -> c~0.01; 误用 c 作 inv_c -> c~0.14))。
+    assert ((a > 0.1) & (a < 1000) & (b > 0.1) & (b < 1000) & (c > 0.1) & (c < 1000)).all(), \
+        f"Illegal lattice parameters detected: a=[{a.min()},{a.max()}], b=[{b.min()},{b.max()}], c=[{c.min()},{c.max()}]"
     α = angles[:,0] * math.pi/180
     β = angles[:,1] * math.pi/180
     γ = angles[:,2] * math.pi/180

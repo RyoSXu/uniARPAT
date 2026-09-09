@@ -204,27 +204,23 @@ def test_encoder_redundancy_and_masking():
     skpm = torch.zeros(B, L, dtype=torch.bool)
     skpm[:, -3:] = True
 
-    # (1) 冗余调用计数:修复后 self.self_attn 应 0 次被调用
-    calls = [0]
-    orig_attn_forward = layer.self_attn.forward
-
-    def counting_forward(*args, **kwargs):
-        calls[0] += 1
-        return orig_attn_forward(*args, **kwargs)
-
-    layer.self_attn.forward = counting_forward
+    # (1) 冗余调用计数:H3 hygiene 已彻底删除 self_attn 死模块,
+    # 缓存 RP 由 TransformerEncoder 统一计算一次传入 rp_base。
+    assert not hasattr(layer, "self_attn"), (
+        "H3 未落实:TransformerEncoderLayer 仍残留死模块 self_attn "
+        "(~1.05M 参数/层),应彻底删除"
+    )
+    assert not hasattr(layer, "rbf_encoder") and not hasattr(layer, "rel_proj"), (
+        "H3 未落实:死模块 rbf_encoder/rel_proj 仍残留"
+    )
+    from utils.rp_encoding import RPEncoding
+    rp_base = RPEncoding(num_radial=64, lmax=2, cutoff=10.0)(rel_diss, rel_dirs)
     with torch.no_grad():
         layer(
             src,
             src_key_padding_mask=skpm,
-            rel_diss=rel_diss,
-            rel_dirs=rel_dirs,
+            rp_base=rp_base,
         )
-    layer.self_attn.forward = orig_attn_forward
-    assert calls[0] == 0, (
-        f"FIX-P0-03 未修复:Encoder 仍多余调用 self.self_attn {calls[0]} 次, "
-        "应彻底删除无用调用"
-    )
 
     # (2a) 行为:有效原子输出必须对 padding 取值不变(无注意力泄露)
     torch.manual_seed(1)
@@ -239,14 +235,12 @@ def test_encoder_redundancy_and_masking():
         out_a = layer2(
             src_a,
             src_key_padding_mask=skpm,
-            rel_diss=rel_diss,
-            rel_dirs=rel_dirs,
+            rp_base=rp_base,
         )
         out_b = layer2(
             src_b,
             src_key_padding_mask=skpm,
-            rel_diss=rel_diss,
-            rel_dirs=rel_dirs,
+            rp_base=rp_base,
         )
     leak = (out_a[:, : L - 3, :] - out_b[:, : L - 3, :]).abs().max().item()
     assert leak < 1e-5, (
@@ -278,8 +272,7 @@ def test_encoder_redundancy_and_masking():
             layer2(
                 src_a,
                 src_key_padding_mask=skpm,
-                rel_diss=rel_diss,
-                rel_dirs=rel_dirs,
+                rp_base=rp_base,
             )
     assert "w" in captured, "未能捕获注意力权重"
     w = captured["w"]  # [B*nhead, L, L],最后一维是 key

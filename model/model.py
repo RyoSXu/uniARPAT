@@ -254,11 +254,10 @@ class basemodel(nn.Module):
             p_n[p_n < 0] = 0 # 物理约束
 
             # B. 计算指标 (逐样本计算后取均值，与 evaluate_and_plot.py 严格一致)
-            mae_per_sample = torch.mean(torch.abs(p_n - t_n), dim=-1)
-            mse_per_sample = torch.mean((p_n - t_n)**2, dim=-1)
-            ss_res = torch.sum((t_n - p_n) ** 2, dim=-1)
-            ss_tot = torch.sum((t_n - torch.mean(t_n, dim=-1, keepdim=True)) ** 2, dim=-1)
-            r2_per_sample = 1.0 - (ss_res / (ss_tot + 1e-8))
+            # H2 hygiene: per-sample math delegated to shared utils.metrics fn
+            from utils.metrics import per_sample_spectral_metrics
+            _m = per_sample_spectral_metrics(p_n, t_n)
+            mae_per_sample, mse_per_sample, r2_per_sample = _m['mae'], _m['mse'], _m['r2']
 
             mae = torch.mean(mae_per_sample)
             mse = torch.mean(mse_per_sample)

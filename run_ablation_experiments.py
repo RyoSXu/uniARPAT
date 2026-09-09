@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+import random
 import yaml
 import torch
 import numpy as np
@@ -11,6 +12,21 @@ from model.model import basemodel
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger('ablation')
+
+
+def setup_ablation_seed(seed: int):
+    """H1 hygiene: deterministic seeding for perfect对照 (init + shuffle + cudnn).
+
+    NOTE: torch.backends.cudnn.deterministic=True costs speed; enabled here
+    because ablation comparability outranks throughput (V100 has headroom).
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 MODEL_CONFIGS = {
     'M1': {
@@ -60,9 +76,11 @@ MODEL_CONFIGS = {
     }
 }
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
+
+    setup_ablation_seed(seed)
 
     summary_file = f"./results/test_{model_name.lower()}_summary.csv"
     if skip_existing and os.path.exists(summary_file):
@@ -73,7 +91,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     logger.info("=" * 70)
     logger.info(f"   STARTING ABLATION EXPERIMENT: {model_name}")
     logger.info(f"   Description: {config_info['desc']}")
-    logger.info(f"   Epochs: {epochs} | Batch Size: {batch_size} | LR: {lr}")
+    logger.info(f"   Epochs: {epochs} | Batch Size: {batch_size} | LR: {lr} | Seed: {seed}")
     logger.info("=" * 70)
 
     save_dir = f"./output/ablation_{model_name.lower()}"
@@ -104,13 +122,20 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     logger.info(f"[{model_name}] Verified Trainable Parameters: {total_params:,} ({total_params/1e6:.3f}M)")
 
     optimizer = model.optimizer['transformer']
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
+    # H4 hygiene: warmup+cosine shared with train.py semantics (was bare cosine).
+    from utils.builder import build_warmup_cosine_scheduler
+    scheduler = build_warmup_cosine_scheduler(optimizer, epochs)
 
     best_val_score = float('inf')
     best_epoch = 0
     history = []
 
     for epoch in range(epochs):
+        # H1 hygiene: reshuffle each epoch (DistributedSampler defaults to epoch=0
+        # forever when set_epoch is never called -> identical batch order every epoch).
+        sampler = getattr(train_loader, "sampler", None)
+        if sampler is not None and hasattr(sampler, "set_epoch"):
+            sampler.set_epoch(epoch)
         model.model['transformer'].train()
         train_loss = 0.0
         sub_loss_accum = {}
@@ -162,6 +187,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
 
         history.append({
             'epoch': epoch + 1,
+            'seed': seed,
             'epoch_time_s': ep_time,
             'peak_vram_mb': peak_vram_mb,
             'alpha_e': alpha_e,
@@ -253,30 +279,19 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
                 p_p = torch.clamp(outputs['phdos'] * (phdos_max - phdos_min) + phdos_min, min=0.0)
                 p_e_orc, p_p_orc = None, None
 
-            # Sample-wise primary metrics
-            mae_e = torch.mean(torch.abs(p_e - t_e), dim=-1)
-            mse_e = torch.mean((p_e - t_e)**2, dim=-1)
-            ss_res_e = torch.sum((t_e - p_e)**2, dim=-1)
-            ss_tot_e = torch.sum((t_e - torch.mean(t_e, dim=-1, keepdim=True))**2, dim=-1)
-            r2_e = 1.0 - (ss_res_e / (ss_tot_e + 1e-8))
-
-            mae_p = torch.mean(torch.abs(p_p - t_p), dim=-1)
-            mse_p = torch.mean((p_p - t_p)**2, dim=-1)
-            ss_res_p = torch.sum((t_p - p_p)**2, dim=-1)
-            ss_tot_p = torch.sum((t_p - torch.mean(t_p, dim=-1, keepdim=True))**2, dim=-1)
-            r2_p = 1.0 - (ss_res_p / (ss_tot_p + 1e-8))
+            # Sample-wise primary metrics (H2 hygiene: shared fn, bit-identical math)
+            from utils.metrics import per_sample_spectral_metrics
+            _me = per_sample_spectral_metrics(p_e, t_e)
+            mae_e, mse_e, r2_e = _me['mae'], _me['mse'], _me['r2']
+            _mp = per_sample_spectral_metrics(p_p, t_p)
+            mae_p, mse_p, r2_p = _mp['mae'], _mp['mse'], _mp['r2']
 
             # Sample-wise Oracle metrics if M5
             if is_m5:
-                mae_e_orc = torch.mean(torch.abs(p_e_orc - t_e), dim=-1)
-                mse_e_orc = torch.mean((p_e_orc - t_e)**2, dim=-1)
-                ss_res_e_orc = torch.sum((t_e - p_e_orc)**2, dim=-1)
-                r2_e_orc = 1.0 - (ss_res_e_orc / (ss_tot_e + 1e-8))
-
-                mae_p_orc = torch.mean(torch.abs(p_p_orc - t_p), dim=-1)
-                mse_p_orc = torch.mean((p_p_orc - t_p)**2, dim=-1)
-                ss_res_p_orc = torch.sum((t_p - p_p_orc)**2, dim=-1)
-                r2_p_orc = 1.0 - (ss_res_p_orc / (ss_tot_p + 1e-8))
+                _meo = per_sample_spectral_metrics(p_e_orc, t_e)
+                mae_e_orc, mse_e_orc, r2_e_orc = _meo['mae'], _meo['mse'], _meo['r2']
+                _mpo = per_sample_spectral_metrics(p_p_orc, t_p)
+                mae_p_orc, mse_p_orc, r2_p_orc = _mpo['mae'], _mpo['mse'], _mpo['r2']
 
             if return_sample_level:
                 all_p_p.append(p_p.cpu().numpy())
@@ -386,10 +401,11 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate')
     parser.add_argument('--skip_existing', action='store_true', help='Skip variant if test summary already exists')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed (H1 hygiene, recorded in history CSV)')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed)

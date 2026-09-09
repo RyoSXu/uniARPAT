@@ -10,7 +10,6 @@ from model.heads import (
 )
 from utils.atom_feature import AtomFeatureEncoder
 from utils.relative_features import compute_relative_features
-from utils.rbf_encoding import RBFEncoding
 from utils.rp_encoding import RPEncoding
 
 
@@ -229,6 +228,11 @@ class TransformerEncoder(nn.Module):
         self.layers = _get_clones(encoder_layer, num_layers)
         self.num_layers = num_layers
         self.norm = norm
+        # H3 hygiene: single shared RPEncoding for all layers. The relative
+        # geometry (distances/dirs) is identical across layers while RPEncoding
+        # holds no learnable weights, so per-layer instances only repeated the
+        # same expensive spherical-harmonics computation 6x per batch.
+        self.rp_encoder = RPEncoding(num_radial=64, lmax=2, cutoff=10.0)
         
     def forward(self, src,
             mask: Optional[Tensor] = None,
@@ -238,14 +242,15 @@ class TransformerEncoder(nn.Module):
             rel_dirs=None):
         
         output = src
+        # Compute once, reuse across all layers (H3).
+        rp_base = self.rp_encoder(rel_diss, rel_dirs) if rel_diss is not None else None
     
         for layer in self.layers:
             output = layer(output,
                            src_mask=mask,
                            src_key_padding_mask=src_key_padding_mask,
                            pos=pos,
-                           rel_diss=rel_diss,
-                           rel_dirs=rel_dirs)
+                           rp_base=rp_base)
         if self.norm is not None:
             output = self.norm(output)
         return output
@@ -281,14 +286,18 @@ class TransformerDecoder(nn.Module):
 
 
 class TransformerEncoderLayer(nn.Module):
-    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1, activation="leaky_relu", normalize_before=False, rbf_encoder=None):
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1, activation="leaky_relu", normalize_before=False):
         super().__init__()
         self.activation = _get_activation_fn(activation)
         self.dim = d_model
         self.nhead = nhead
-        
-        # 标准多头自注意力
-        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+
+        # H3 hygiene: removed dead modules (~1.09M params/layer, ~6.56M total):
+        #   - self_attn (forward uses hand-rolled scores, never this module)
+        #   - rbf_encoder / rel_proj / dir_proj (defined, never called)
+        # Per-layer RPEncoding hoisted to TransformerEncoder (shared, buffer-only).
+        # rp_proj stays per-layer (learned); 576 = 64 radial * (1+3+5) spherical (lmax=2).
+        self.rp_proj = nn.Linear(64 * 9, d_model)
         
         # 用于前馈网络
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -301,27 +310,19 @@ class TransformerEncoderLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.normalize_before = normalize_before
         
-        self.rbf_encoder = RBFEncoding(num_centers=64, cutoff=10.0)
-        self.rel_proj = nn.Linear(self.rbf_encoder.num_centers, d_model)  
-        self.max_ell = 3  # 球谐函数最大阶数，自己调整
-        dim_sph = sum([2 * l + 1 for l in range(self.max_ell + 1)])  # 球谐展开维度
-        self.dir_proj = nn.Linear(dim_sph, d_model)
-
-        self.rp_encoder = RPEncoding(num_radial=64, lmax=2, cutoff=10.0)
-        self.rp_proj = nn.Linear(self.rp_encoder.out_dim, d_model)  
-        
     def forward(self, src, src_mask: Optional[torch.Tensor] = None,
                      src_key_padding_mask: Optional[torch.Tensor] = None,
                      pos: Optional[torch.Tensor] = None,
-                     rel_diss=None,
-                     rel_dirs=None):
+                     rp_base=None):
 
         B, L, _ = src.size()
         
         q, k, v = src, src, src
-        
-        rp_emb = self.rp_encoder(rel_diss, rel_dirs)
-        rp_emb = self.rp_proj(rp_emb)  # [B, L, L, d_model]
+
+        if rp_base is None:
+            # Fallback for direct layer calls without encoder context.
+            rp_base = torch.zeros(B, L, L, 64 * 9, device=src.device, dtype=src.dtype)
+        rp_emb = self.rp_proj(rp_base)  # [B, L, L, d_model]
         d_model_head = self.dim // self.nhead
         rp_emb = rp_emb.view(B, L, L, self.nhead, d_model_head)
         q_heads = q.view(B, L, self.nhead, d_model_head)

@@ -1,5 +1,6 @@
 import os
 import time
+import random
 import yaml
 import torch
 import torch.nn.functional as F
@@ -13,7 +14,22 @@ from model.model import basemodel
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger('pilot')
 
+PILOT_SEED = int(os.environ.get("PILOT_SEED", "42"))
+
+
+def setup_pilot_seed(seed: int = PILOT_SEED):
+    """H1 hygiene: same seeding contract as run_ablation_experiments."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    logger.info(f"[pilot] seed={seed}")
+
 def main():
+    setup_pilot_seed()
     os.makedirs('./results', exist_ok=True)
     os.makedirs('./figures', exist_ok=True)
     os.makedirs('./output/pilot_m5', exist_ok=True)
@@ -46,10 +62,11 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
 
-    # Optimizer & Scheduler
+    # Optimizer & Scheduler (H4 hygiene: same warmup+cosine as ablation/train)
+    from utils.builder import build_warmup_cosine_scheduler
     optimizer = model.optimizer['transformer']
     epochs = 10
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
+    scheduler = build_warmup_cosine_scheduler(optimizer, epochs)
 
     pilot_records = []
     torch.cuda.reset_peak_memory_stats()
@@ -59,6 +76,9 @@ def main():
     logger.info("=" * 65)
 
     for epoch in range(epochs):
+        sampler = getattr(train_loader, "sampler", None)
+        if sampler is not None and hasattr(sampler, "set_epoch"):
+            sampler.set_epoch(epoch)
         model.model['transformer'].train()
         train_loss, train_edos_loss, train_phdos_loss = 0.0, 0.0, 0.0
         n_batches = len(train_loader)
@@ -144,6 +164,7 @@ def main():
         # Summarize epoch metrics
         rec = {
             'epoch': epoch + 1,
+            'seed': PILOT_SEED,
             'train_loss': train_loss,
             'train_edos_loss': train_edos_loss,
             'train_phdos_loss': train_phdos_loss,

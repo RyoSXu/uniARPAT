@@ -265,3 +265,19 @@ class MetricsRecorder(object):
                 losses[metric_name] = loss
 
         return losses
+
+
+def per_sample_spectral_metrics(p, t, eps=1e-8):
+    """H2 hygiene: single source of truth for per-sample DOS metrics.
+
+    p, t: [B, L] tensors in TRUE PHYSICAL space (already denormalized).
+    Returns dict of [B] tensors: mae, mse, r2.
+    Formula frozen to match legacy implementations in model.test_one_step
+    and run_ablation_experiments.evaluate_split (bit-identical math).
+    """
+    mae = torch.mean(torch.abs(p - t), dim=-1)
+    mse = torch.mean((p - t) ** 2, dim=-1)
+    ss_res = torch.sum((t - p) ** 2, dim=-1)
+    ss_tot = torch.sum((t - torch.mean(t, dim=-1, keepdim=True)) ** 2, dim=-1)
+    r2 = 1.0 - (ss_res / (ss_tot + eps))
+    return {'mae': mae, 'mse': mse, 'r2': r2}
