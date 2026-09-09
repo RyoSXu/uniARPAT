@@ -1,0 +1,28 @@
+ase==3.26.0
+boto3==1.40.40
+deltalake==1.5.1
+e3nn==0.5.6
+emmet-core==0.87.2
+jarvis-tools @ file:///home/conda/feedstock_root/build_artifacts/jarvis-tools_1732118749133/work
+matplotlib==3.10.0
+matplotlib-inline==0.1.6
+mp-api @ file:///tmp/opencode/mpapi/mp_api-0.46.5-py3-none-any.whl#sha256=d957e940926781a0e1b58cca5fb9dfb2802d1c92ef3ea3c698025ee6ec01e8b0
+numpy @ file:///croot/numpy_and_numpy_base_1708638617955/work/dist/numpy-1.26.4-cp312-cp312-linux_x86_64.whl#sha256=1d700f51d8b4fa684d858c9e3b56b1656bc5c82b6b79ff08d4e3b491c430059f
+pandas @ file:///croot/pandas_1732735089971/work/dist/pandas-2.2.3-cp312-cp312-linux_x86_64.whl#sha256=57b66702d418720ec8483f7c4ec7c08d41815316ad7ce09d5b7bbc34eefcfdfd
+pyarrow==20.0.0
+pymatgen==2025.5.2
+pymatgen-core==2026.8.30
+pymatgen-io-validation==0.1.4
+PyYAML @ file:///work/perseverance-python-buildout/croot/pyyaml_1698849903511/work
+pyyaml_env_tag @ file:///home/conda/feedstock_root/build_artifacts/pyyaml-env-tag_1734344268003/work
+requests==2.34.2
+scikit-learn @ file:///home/conda/feedstock_root/build_artifacts/scikit-learn_1733760113889/work/dist/scikit_learn-1.6.0-cp312-cp312-linux_x86_64.whl#sha256=48dba57b595635ac2875d6e48854149cd42e744aa6ffda30e9922af343909e37
+scipy @ file:///tmp/opencode/wheels/scipy-1.15.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=271e3713e645149ea5ea3e97b57fdab61ce61333f97cfae392c28ba786f9bb49
+timm==1.0.12
+torch==2.2.1
+torch-geometric==2.6.1
+torchaudio==2.2.1
+torchdata==0.8.0
+torchmetrics==1.8.2
+torchvision==0.17.1
+tqdm==4.70.0

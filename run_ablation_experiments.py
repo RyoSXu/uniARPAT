@@ -108,6 +108,13 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     cfg['dataset']['valid']['data_dir'] = './data/train4ARPAT'
     cfg['dataset']['test']['data_dir'] = './data/train4ARPAT'
 
+    # E1 hygiene: dump effective config (reproducibility; train.py already does this).
+    with open(os.path.join(save_dir, 'config_used.yaml'), 'w') as f:
+        yaml.dump({'cli': {'model': model_name, 'epochs': epochs,
+                           'batch_size': batch_size, 'lr': lr, 'seed': seed},
+                   'config': cfg}, f, indent=2, sort_keys=False,
+                  default_flow_style=False)
+
     builder = ConfigBuilder(**cfg)
 
     train_loader = builder.get_dataloader(split='train', dos_minmax=True, batch_size=batch_size)
@@ -201,13 +208,23 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
 
+        # E2 hygiene: full checkpoint dict (was bare state_dict), unified with
+        # train.py format. Loader below + cif2dos both accept this format.
+        def _ckpt(epoch_, best_):
+            return {'epoch': epoch_,
+                    'model_name': model_name,
+                    'seed': seed,
+                    'model': model.model['transformer'].state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'best_val_score': best_}
+
         if balanced < best_val_score:
             best_val_score = balanced
             best_epoch = epoch + 1
-            torch.save(model.model['transformer'].state_dict(), os.path.join(save_dir, 'checkpoint_best.pth'))
+            torch.save(_ckpt(epoch + 1, balanced), os.path.join(save_dir, 'checkpoint_best.pth'))
             logger.info(f"[{model_name}] New best model saved at Epoch {epoch+1} (Score: {balanced:.4f})")
 
-        torch.save(model.model['transformer'].state_dict(), os.path.join(save_dir, 'checkpoint_latest.pth'))
+        torch.save(_ckpt(epoch + 1, best_val_score), os.path.join(save_dir, 'checkpoint_latest.pth'))
 
     # Save training history
     df_history = pd.DataFrame(history)
@@ -216,7 +233,8 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     # Load best checkpoint and evaluate on Test set
     logger.info(f"\nEvaluating Best Model ({model_name}, Epoch {best_epoch}) on Test Set (1371 materials)...")
     best_ckpt = torch.load(os.path.join(save_dir, 'checkpoint_best.pth'))
-    model.model['transformer'].load_state_dict(best_ckpt)
+    best_state = best_ckpt['model'] if isinstance(best_ckpt, dict) and 'model' in best_ckpt else best_ckpt
+    model.model['transformer'].load_state_dict(best_state)
 
     test_metrics = evaluate_split(model, test_loader, is_m5=(model_name == 'M5'), return_sample_level=True)
     df_samples = test_metrics.pop('sample_df')
