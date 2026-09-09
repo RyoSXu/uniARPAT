@@ -132,6 +132,11 @@ def main():
     pred_edos = np.load('./results/pred_edos.npy')
     tgt_edos = np.load('./results/tgt_edos.npy')
     df_eval = pd.read_csv('./results/test_evaluation_summary.csv')
+    test_idx_path = './data/train4ARPAT/test/test_index.npy'
+    if os.path.exists(test_idx_path):
+        material_ids = np.load(test_idx_path, allow_pickle=True)
+        if 'id' not in df_eval.columns:
+            df_eval['id'] = [str(m) for m in material_ids]
 
     elem_test = np.load('data/train4ARPAT/test/elements_test.npy')
     pos_test = np.load('data/train4ARPAT/test/positions_test.npy').reshape(-1, 82, 3)
