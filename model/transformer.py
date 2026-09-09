@@ -123,7 +123,7 @@ class Transformer(nn.Module):
         # src: [B, L] atom indices; pos carries lattice+coords
         B, Lp, _ = pos.shape
         atom_len = Lp - 2
-        mask_atom = mask[:, :atom_len]
+        mask_atom = mask[:, 2:2 + atom_len]  # 严格对齐 src[:, 2:] 剥离哨兵后的原子区间
 
         # Extract atom indices and numeric features
         atom_idx = src[:, 2:]  # [B, L]
@@ -320,8 +320,6 @@ class TransformerEncoderLayer(nn.Module):
         
         q, k, v = src, src, src
         
-        attn_output, attn_weights = self.self_attn(q, k, v, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)
-        
         rp_emb = self.rp_encoder(rel_diss, rel_dirs)
         rp_emb = self.rp_proj(rp_emb)  # [B, L, L, d_model]
         d_model_head = self.dim // self.nhead
@@ -336,7 +334,17 @@ class TransformerEncoderLayer(nn.Module):
         base_scores = torch.bmm(q_heads2, k_heads.transpose(1, 2))
         
         # 新的总打分
-        total_scores = base_scores + rp_scores
+        total_scores = base_scores + rp_scores  # [B * nhead, L, L]
+
+        # 2. 将 src_key_padding_mask 正确注入重算打分中（阻断 padding 污染）
+        if src_key_padding_mask is not None:
+            # src_key_padding_mask: [B, L] -> [B * nhead, L, L]，其中 L = src.size(1)
+            # 注意：必须用 -1e9 而非 float('-inf')，否则全 padding 行经 softmax 会产生 NaN
+            B_, L_ = src.size(0), src.size(1)
+            mask_expanded = src_key_padding_mask.unsqueeze(1).unsqueeze(2)  # [B, 1, 1, L]
+            mask_expanded = mask_expanded.repeat(1, self.nhead, L_, 1).view(B_ * self.nhead, L_, L_)
+            total_scores = total_scores.masked_fill(mask_expanded, -1e9)
+
         # 计算新的注意力权重并输出
         attn_weights_new = F.softmax(total_scores, dim=-1)
         
@@ -379,16 +387,18 @@ class TransformerDecoderLayer(nn.Module):
                      memory_mask: Optional[Tensor] = None,
                      tgt_key_padding_mask: Optional[Tensor] = None,
                      memory_key_padding_mask: Optional[Tensor] = None,
-                     pos: Optional[Tensor] = None,
-                     query_pos: Optional[Tensor] = None):
-        q = tgt
-        k = tgt
-        tgt2 = self.self_attn(q, k, value=tgt, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask)[0]
+                      pos: Optional[Tensor] = None,
+                      query_pos: Optional[Tensor] = None):
+        # 在 Self-Attention 中注入 query_pos (类似 DETR 标准设计)
+        q = tgt if query_pos is None else tgt + query_pos
+        k = tgt if query_pos is None else tgt + query_pos
+        tgt2 = self.self_attn(query=q, key=k, value=tgt, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask)[0]
         tgt = tgt + self.dropout1(tgt2)
         tgt = self.norm1(tgt)
-        q = tgt
-        k = memory
-        tgt2, attention_v = self.multihead_attn(query=q, key=memory, value=memory,
+        # 在 Cross-Attention 中注入 query_pos
+        q = tgt if query_pos is None else tgt + query_pos
+        k = memory  # 若未来扩展晶格位置，此处可为 memory + pos
+        tgt2, attention_v = self.multihead_attn(query=q, key=k, value=memory,
                                                 attn_mask=memory_mask,
                                                 key_padding_mask=memory_key_padding_mask)
         tgt = tgt + self.dropout2(tgt2)

@@ -60,9 +60,14 @@ MODEL_CONFIGS = {
     }
 }
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
+
+    summary_file = f"./results/test_{model_name.lower()}_summary.csv"
+    if skip_existing and os.path.exists(summary_file):
+        logger.info(f"[{model_name}] Already completed ({summary_file} exists). Skipping.")
+        return pd.read_csv(summary_file).to_dict(orient='records')[0]
 
     config_info = MODEL_CONFIGS[model_name]
     logger.info("=" * 70)
@@ -124,10 +129,13 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                 )
 
         scheduler.step()
-        torch.cuda.synchronize()
+        torch.cuda.synchronize() if torch.cuda.is_available() else None
         ep_time = time.time() - t_start
         train_loss /= n_batches
         avg_sub_losses = {f"train_{k}": v / n_batches for k, v in sub_loss_accum.items()}
+
+        # 显存实测打点 (§6 补正 1):每轮记录峰值显存,写入 history_*.csv 的 peak_vram_mb 列
+        peak_vram_mb = torch.cuda.max_memory_allocated() / (1024 ** 2) if torch.cuda.is_available() else 0.0
 
         # Extract gate scalars if gated cross-attention is present
         alpha_e, alpha_p = 0.0, 0.0
@@ -155,12 +163,17 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         history.append({
             'epoch': epoch + 1,
             'epoch_time_s': ep_time,
+            'peak_vram_mb': peak_vram_mb,
             'alpha_e': alpha_e,
             'alpha_p': alpha_p,
             **avg_sub_losses,
             **val_metrics,
             'balanced_score': balanced
         })
+
+        # 如需逐轮独立峰值则重置计数器,下一轮重新统计
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
 
         if balanced < best_val_score:
             best_val_score = balanced
@@ -181,6 +194,20 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
 
     test_metrics = evaluate_split(model, test_loader, is_m5=(model_name == 'M5'), return_sample_level=True)
     df_samples = test_metrics.pop('sample_df')
+    pred_p = test_metrics.pop('pred_phdos')
+    pred_e = test_metrics.pop('pred_edos')
+    tgt_p = test_metrics.pop('tgt_phdos')
+    tgt_e = test_metrics.pop('tgt_edos')
+
+    np.save(f"./results/pred_phdos_{model_name.lower()}.npy", pred_p)
+    np.save(f"./results/pred_edos_{model_name.lower()}.npy", pred_e)
+    if model_name == 'M5':
+        np.save('./results/pred_phdos.npy', pred_p)
+        np.save('./results/pred_edos.npy', pred_e)
+        np.save('./results/tgt_phdos.npy', tgt_p)
+        np.save('./results/tgt_edos.npy', tgt_e)
+        df_samples.to_csv('./results/test_evaluation_summary.csv', index=False)
+
     df_samples.to_csv(f"./results/samples_{model_name.lower()}_test.csv", index=False)
 
     df_test_summary = pd.DataFrame([test_metrics])
@@ -197,6 +224,9 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
 def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: bool = False):
     model.model['transformer'].eval()
     records = []
+    if return_sample_level:
+        all_p_p, all_t_p = [], []
+        all_p_e, all_t_e = [], []
 
     with torch.no_grad():
         for batch in dataloader:
@@ -247,6 +277,12 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
                 mse_p_orc = torch.mean((p_p_orc - t_p)**2, dim=-1)
                 ss_res_p_orc = torch.sum((t_p - p_p_orc)**2, dim=-1)
                 r2_p_orc = 1.0 - (ss_res_p_orc / (ss_tot_p + 1e-8))
+
+            if return_sample_level:
+                all_p_p.append(p_p.cpu().numpy())
+                all_t_p.append(t_p.cpu().numpy())
+                all_p_e.append(p_e.cpu().numpy())
+                all_t_e.append(t_e.cpu().numpy())
 
             B = inp.shape[0]
             for i in range(B):
@@ -305,7 +341,41 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
         })
 
     if return_sample_level:
+        from thermo_props import ThermodynamicCalculator
+        calc = ThermodynamicCalculator()
+        p_p_arr = np.concatenate(all_p_p, axis=0)
+        t_p_arr = np.concatenate(all_t_p, axis=0)
+        p_e_arr = np.concatenate(all_p_e, axis=0)
+        t_e_arr = np.concatenate(all_t_e, axis=0)
+
+        cv_preds, cv_tgts = [], []
+        debye_preds, debye_tgts = [], []
+        for i in range(len(p_p_arr)):
+            d_p = calc.compute_Debye_T(p_p_arr[i])
+            d_t = calc.compute_Debye_T(t_p_arr[i])
+            debye_preds.append(d_p)
+            debye_tgts.append(d_t)
+            cv_p = calc.compute_Cv(p_p_arr[i], T_range=[300.0])[0]
+            cv_t = calc.compute_Cv(t_p_arr[i], T_range=[300.0])[0]
+            cv_preds.append(cv_p)
+            cv_tgts.append(cv_t)
+
+        df['cv_pred'] = cv_preds
+        df['cv_true'] = cv_tgts
+        df['debye_pred'] = debye_preds
+        df['debye_true'] = debye_tgts
+
+        valid_debye = (np.array(debye_tgts) > 50) & (np.array(debye_preds) > 50)
+        if np.sum(valid_debye) > 0:
+            cv_mae = float(np.mean(np.abs(np.array(cv_preds)[valid_debye] - np.array(cv_tgts)[valid_debye])))
+        else:
+            cv_mae = float(np.mean(np.abs(np.array(cv_preds) - np.array(cv_tgts))))
+        summary['cv_mae'] = cv_mae
         summary['sample_df'] = df
+        summary['pred_phdos'] = p_p_arr
+        summary['pred_edos'] = p_e_arr
+        summary['tgt_phdos'] = t_p_arr
+        summary['tgt_edos'] = t_e_arr
 
     return summary
 
@@ -315,10 +385,11 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate')
+    parser.add_argument('--skip_existing', action='store_true', help='Skip variant if test summary already exists')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing)

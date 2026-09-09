@@ -140,8 +140,8 @@ class basemodel(nn.Module):
         diff[weights] *= 2
         return torch.mean(diff)
         '''
-        #return torch.mean(abs(predict-target))
-        return torch.mean((predict-target)**2)
+        # §1.2: 纯端到端直接回归,统一为 Smooth-L1 (Huber)
+        return F.smooth_l1_loss(predict, target)
         #return nn.functional.kl_div(predict.softmax(dim=-1).log(), target.softmax(dim=-1), reduction='sum')
         #return self.lossfunc(predict, target)
 
@@ -161,50 +161,16 @@ class basemodel(nn.Module):
         else:
             raise NotImplementedError('Invalid model type.')
 
-        if 'phys_edos' in outputs:
-            # M5: Shape-Scale Composite Physical Loss
-            tgt_shape_e = edos_target / (torch.max(edos_target, dim=-1, keepdim=True).values + 1e-6)
-            tgt_shape_p = phdos_target / (torch.max(phdos_target, dim=-1, keepdim=True).values + 1e-6)
+        # FIX-P0-01: valid_atoms 哨兵对齐 (与 transformer.py 一致,严格对齐 src[:, 2:])
+        atom_len = pos.shape[1] - 2
+        valid_atoms = (~mask[:, 2:2 + atom_len]).sum(dim=-1).float()
+        _ = valid_atoms  # 直接回归暂不使用求和规则,保留统计以备回退/日志
 
-            loss_shape_e = compute_shape_loss(outputs['shape_edos'], tgt_shape_e)
-            loss_shape_p = compute_shape_loss(outputs['shape_phdos'], tgt_shape_p)
-
-            # Huber scale loss (clamp targets to 500.0 to reject extreme outlier explosion)
-            s_true_e = torch.log(torch.clamp(edos_max, min=1e-4, max=500.0)).squeeze(-1)
-            s_true_p = torch.log(torch.clamp(phdos_max, min=1e-4, max=500.0)).squeeze(-1)
-            loss_scale_e = F.smooth_l1_loss(outputs['log_scale_edos'], s_true_e)
-            loss_scale_p = F.smooth_l1_loss(outputs['log_scale_phdos'], s_true_p)
-
-            # Sample-wise conditional bandgap loss around Fermi level E_F ~ 0 (§6.2)
-            # Fermi level corresponds to indices 63..64 on linspace(-10, 10, 128)
-            fermi_is_zero = (edos_target[:, 63:65] < 1e-3).all(dim=-1, keepdim=True) # [B, 1] bool
-            window_target = edos_target[:, 56:73] # [B, 17]
-            # Penalize in normalized shape space [0, 1] to prevent large-scale insulators from dominating gradients
-            window_pred_shape = outputs['shape_edos'][:, 56:73] # [B, 17]
-
-            # A bin is penalized only if the material is an insulator at E_F AND this bin is in the gap
-            gap_bins = fermi_is_zero & (window_target < 1e-3) # [B, 17] bool
-            has_gap = fermi_is_zero.squeeze(-1) # [B] bool
-            if has_gap.sum() > 0:
-                num_gap_bins = gap_bins[has_gap].sum(dim=-1).float().clamp(min=1.0)
-                sample_gap_loss = (window_pred_shape[has_gap] ** 2 * gap_bins[has_gap].float()).sum(dim=-1) / num_gap_bins
-                loss_gap = sample_gap_loss.mean()
-            else:
-                loss_gap = torch.tensor(0.0, device=inp.device)
-
-            # 3N total vibrational degrees of freedom sum rule
-            atom_len = pos.shape[1] - 2
-            valid_atoms = (~mask[:, :atom_len]).sum(dim=-1).float()
-            pred_area = torch.sum(outputs['phys_phdos'], dim=-1) * 20.0
-            loss_sum = torch.mean(((pred_area - 3.0 * valid_atoms) / (3.0 * valid_atoms + 1e-6)) ** 2)
-
-            total_loss = loss_shape_e + 3.0 * loss_shape_p + 0.5 * (loss_scale_e + loss_scale_p) + 0.2 * loss_gap + 0.1 * loss_sum
-            loss_edos = loss_shape_e + 0.5 * loss_scale_e
-            loss_phdos = 3.0 * loss_shape_p + 0.5 * loss_scale_p
-        else:
-            loss_edos = self.loss(predict_edos, edos_target)
-            loss_phdos = self.loss(predict_phdos, phdos_target)
-            total_loss = loss_edos + loss_phdos
+        # §1.2: 纯端到端直接回归 (Smooth-L1 / Huber),M1-M4 的 MSE 与 M5 的 5 项复合损失统一精简
+        # L_total = SmoothL1(edos) + lambda_ph * SmoothL1(phdos), lambda_ph=1.0 (标准化空间等权)
+        loss_edos = F.smooth_l1_loss(predict_edos, edos_target)
+        loss_phdos = F.smooth_l1_loss(predict_phdos, phdos_target)
+        total_loss = loss_edos + 1.0 * loss_phdos
 
         if len(self.optimizer) == 1:
             self.optimizer[list(self.optimizer.keys())[0]].zero_grad()

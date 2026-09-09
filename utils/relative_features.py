@@ -14,9 +14,17 @@ def build_cell_from_lattice(pos):
         frac_coords: [B, L, 3] 分数坐标
     """
     B, Lp, _ = pos.shape
-    abc    = pos[:,0]       # [B,3]
-    angles = pos[:,1]       # [B,3]
-    a, b, c = abc.unbind(dim=1)
+    abc    = pos[:, 0]       # [B, 3] = (a, b, inv_c) 归一化特征契约
+    angles = pos[:, 1]       # [B, 3] = (alpha, beta, gamma) 单位度
+    a = abc[:, 0]
+    b = abc[:, 1]
+    # FIX-P0-02: 第三列存的是 1/c 归一化特征，必须倒数还原为真实实空间晶格常数 c
+    inv_c = abc[:, 2].clamp(min=1e-4)
+    c = 1.0 / inv_c
+
+    # 防御性物理断言：过滤非法晶格常数
+    assert ((a > 0.5) & (a < 60) & (b > 0.5) & (b < 60) & (c > 0.5) & (c < 60)).all(), \
+        f"Illegal lattice parameters detected: a_min={a.min()}, b_min={b.min()}, c_min={c.min()}"
     α = angles[:,0] * math.pi/180
     β = angles[:,1] * math.pi/180
     γ = angles[:,2] * math.pi/180
