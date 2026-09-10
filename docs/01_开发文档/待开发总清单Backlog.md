@@ -10,7 +10,7 @@
 
 - [x] **A1 Delta整表下载**（eDOS 4.35GB/phDOS 0.35GB已落地）。
 - [x] **A2 对齐验证**（中位0.9935；83%单自旋；3%细胞不一致）。
-- [ ] **A3 census收尾** → [Design-A3](2026-09-10-Design-A3census收尾.md)（census_rebuild跑中）。
+- [x] **A3 census收尾** → [Design-A3](2026-09-10-Design-A3census收尾.md)：有效全集154,373（summary可解析；11万无summary幽灵排除）；双谱**26,609**（pheasy 26,272+DFPT 1,512，1,175双有）；unresolved=0。清单`getdata/raw/dual_spectra_ids.json`。
 - [ ] **A4 v2加工执行** → [Design-A4](2026-09-10-Design-A4v2加工执行.md)（规范见DataSpec）。
 - [ ] **A5 processed落盘**（随A4）。
 - [ ] **A6 分层切分v2** → [Design-A6](2026-09-10-Design-A6分层切分.md)（8:1:1+三层分层+硬隔离+seed42）。
@@ -24,7 +24,7 @@
 - [ ] **B2 v2基线重标定** → [Design-B2](2026-09-10-Design-B2v2基线重标定.md)。
 
 ## 0. 最高优先级（2026-09-10置顶）
-- [ ] **E9 Encoder v2** → [Design-E](2026-09-10-Design-E编码器v2.md)：自主下一代编码器（硬等变+截断稀疏+完备几何+全局融合+谱预训练），接口兼容现有解码器。
+- [ ] **E9 Encoder v2** → [Design-E](2026-09-10-Design-E编码器v2.md)（已决断P0冻结，轮数另定）：自研稀疏周期图+低阶等变（G1必做/G2G3选做）+坐标query（Q1Q2必做/Q3选做）+守恒前面积审计，接口`[B,L,512]+[B,512]`不变。开工门槛A6+B1+B2；与C1/C2见Design-E§5分工。
 
 ## C. 模型线（B1/B2开门后）
 
@@ -44,12 +44,12 @@
   - 指标：median R² + fail率 + 峰区MAE；判决：Stage胜者永久采用，两阶段总计7臂≈25h。
 - [ ] **C3 Phase 3**：PhysMoE晶体级路由 vs 能量级路由 A/B；[CLS] Cell Token；PotNet长程后置。
 - [ ] **C5 解码器MoE** → [Design-C5解码器MoE.md]（待讨论：token级4专家Top-2+负载均衡 vs 晶体级PhysMoE；位置/宽度/层数）。
-- [ ] **P0 预训练线** → [Design-P0预训练.md]（待讨论：(a)自监督遮罩+去噪/(b)标量监督/(c)冻结uMLIP三选一与组合）。
+- [ ] **P0 预训练线** → [Design-P0预训练.md]（2026-09-10已决断见Design-E§5：仅保留(a)/(b)，(c)删除；放E9-P0之后）。
 - [ ] **C4 AMP加速臂**（默认关`--amp`，h1后验证）：预期1.4–1.8x；NaN冒烟先行；成绩单独立记录。
 
 ## D. 数据扩量线（phDOS天花板对策）
 
-- [ ] **D1 uMLIP伪标签**：MACE/Orb力→声子谱，无限近似phDOS预训练，30k DFT微调（Phase 2首位）。
+- [ ] **D1 uMLIP伪标签**：暂停（2026-09-10撞无外部权重决断，见Design-E§5；原MACE/Orb力→声子谱方案归档备查）。
 - [ ] **D2 Raman Phase-R**：CRD已到货（`getdata/raw/crd/*.zip`，5101条，mpid直连；频率轴二选一待定），第三解码器预留。
 - [ ] **D3 eDOS-only辅助臂**（M-aux，等计算量对照，Phase 1.5后）：掩码多任务，只教encoder。
 - [ ] **D4 IR/介电**：暂缓，已记录。
