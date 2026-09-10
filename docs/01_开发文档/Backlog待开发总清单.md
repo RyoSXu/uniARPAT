@@ -6,22 +6,22 @@
 
 ---
 
-## A. 数据v2线（主线）
+## A. 数据v2线（主线，详见 Design-A*.md）
 
-- [ ] **A1 Delta整表下载**（进行中，后台）：eDOS 4.35GB + phDOS 0.35GB，文件级断点续传，manifest校验。验收：本地DeltaTable可查。
-- [ ] **A2 JARVIS pilot对齐验证**：网格/结构/标尺/离群四项。门：中位相关>0.9、结构全同>95%。
-- [ ] **A3 census精确计数**：双谱构成28–32k锁定；原子数分布定cap（候选96/128）；晶系/金属性/元素覆盖四张表。
-- [ ] **A4 v2加工规范定稿**：CIF六项清单（结构JSON/canonical CIF/对称性/占位/谱原始/provenance）、grids.yaml版本化、winsorize规则、round-trip校验1000条。
-- [ ] **A5 processed落盘**：Parquet全集（含split列）+ `build_v2_cache.py` → npy/memmap训练缓存；删哨兵126/127；float32；mask唯一化；24维原子特征预计算；晶格/坐标分离。
-- [ ] **A6 分层切分v2**：成分去重隔离 + 难度/晶系分层 + seed固定 + 旧索引保留。
-- [ ] **A7 映射v2**：L1 reference直连 + L2同成分StructureMatcher（记分）+ L3诚实标记；新旧一致性校验。
-- [ ] **A8 CIF特征完备性**：占位审计→规则；对称性注入；CIF round-trip diff=0。
+- [x] **A1 Delta整表下载**（eDOS 4.35GB/phDOS 0.35GB已落地）。
+- [x] **A2 对齐验证**（中位0.9935；83%单自旋；3%细胞不一致）。
+- [ ] **A3 census收尾** → [Design-A3](Design-A3census收尾.md)（census_rebuild跑中）。
+- [ ] **A4 v2加工执行** → [Design-A4](Design-A4v2加工执行.md)（规范见DataSpec）。
+- [ ] **A5 processed落盘**（随A4）。
+- [ ] **A6 分层切分v2** → [Design-A6](Design-A6分层切分.md)（8:1:1+三层分层+硬隔离+seed42）。
+- [ ] **A7 映射v2** → [Design-A7](Design-A7映射.md)（L1✅/L2待议/L3标记）。
+- [ ] **A8 CIF特征完备性**（随A4验收）。
 
 ## B. 对照与基线线
 
 - [x] **B0 hygiene五项 + E1–E4**（已完成，已提交）
-- [ ] **B1 h1重跑 M1–M5**（100轮，输出`h1`后缀）：新对照基线。门：111s/轮量级、收敛形态正常。
-- [ ] **B2 v2基线重标定**：v2上M1重跑 + 数据量消融（5k/10k/20k/30k）→ 学习曲线决定是否加码数据。
+- [ ] **B1 h1重跑 M1–M5**（M1✅[日志](../03_工作日志/2026-09-10-hygiene工程与M1基线日志.md)：eDOS med 0.519/fail 12.3%，phDOS med 0.678/fail 10.0%；M2–M5排队）。
+- [ ] **B2 v2基线重标定** → [Design-B2](Design-B2v2基线重标定.md)。
 
 ## C. 模型线（B1/B2开门后）
 
@@ -45,7 +45,7 @@
 ## D. 数据扩量线（phDOS天花板对策）
 
 - [ ] **D1 uMLIP伪标签**：MACE/Orb力→声子谱，无限近似phDOS预训练，30k DFT微调（Phase 2首位）。
-- [ ] **D2 Raman Phase-R**：CRD 5k接入（Materials Cloud `ze-58`），第三解码器预留。
+- [ ] **D2 Raman Phase-R**：CRD已到货（`getdata/raw/crd/*.zip`，5101条，mpid直连；频率轴二选一待定），第三解码器预留。
 - [ ] **D3 eDOS-only辅助臂**（M-aux，等计算量对照，Phase 1.5后）：掩码多任务，只教encoder。
 - [ ] **D4 IR/介电**：暂缓，已记录。
 
@@ -58,7 +58,7 @@
 
 ## F. Backlog
 
-- [ ] **F1 PhononDB Kyoto重试**（本站503，延后）。
+- [ ] **F1 PhononDB Kyoto重试**（原站NXDOMAIN注销；数据在NIMS MDR按材料分包，无单包；维持backlog）。
 - [ ] **F2 MP Delta访问方式归档**（已打通，写进v2手册：REST+Delta直读+重试策略）。
 - [ ] **F3 He/稀有元素样本策略**（已定 2026-09-09，v2双谱口径修正）：v1不动（含mp-1019742）；
   v2 census实测MP全库He仅6材料且0个有phDOS → **v2双谱核心集不含He**（口径一致）；
