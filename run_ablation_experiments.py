@@ -136,8 +136,43 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     best_val_score = float('inf')
     best_epoch = 0
     history = []
+    start_epoch = 0
 
-    for epoch in range(epochs):
+    # Resume-from-latest: long runs may be killed by infra; resume losslessly.
+    # checkpoint_latest.pth carries {epoch, model, optimizer, best_val_score}.
+    latest_p = os.path.join(save_dir, 'checkpoint_latest.pth')
+    hist_p = f"./results/history_{model_name.lower()}.csv"
+    if os.path.exists(latest_p) and os.path.exists(hist_p):
+        try:
+            ck = torch.load(latest_p, map_location='cpu')
+            state = ck['model'] if isinstance(ck, dict) and 'model' in ck else ck
+            model.model['transformer'].load_state_dict(state)
+            if isinstance(ck, dict) and 'optimizer' in ck:
+                try:
+                    optimizer.load_state_dict(ck['optimizer'])
+                except Exception:
+                    pass
+            start_epoch = int(ck.get('epoch', 0)) if isinstance(ck, dict) else 0
+            best_val_score = float(ck.get('best_val_score', float('inf'))) if isinstance(ck, dict) else float('inf')
+            # restore best_epoch + history
+            dfh = pd.read_csv(hist_p)
+            history = dfh.to_dict(orient='records')
+            if start_epoch <= 0 and len(dfh):
+                start_epoch = int(dfh['epoch'].max())
+            if history:
+                best_epoch = int(dfh.loc[dfh['balanced_score'].idxmin(), 'epoch'])
+            # fast-forward cosine part of scheduler to start_epoch
+            for _ in range(start_epoch):
+                scheduler.step()
+            model.to(device)
+            logger.info(f"[{model_name}] Resumed from epoch {start_epoch} "
+                        f"(best ep {best_epoch}, score {best_val_score:.4f})")
+        except Exception as e:
+            logger.info(f"[{model_name}] Resume failed ({e}); starting fresh.")
+            start_epoch, history = 0, []
+            best_val_score, best_epoch = float('inf'), 0
+
+    for epoch in range(start_epoch, epochs):
         # H1 hygiene: reshuffle each epoch (DistributedSampler defaults to epoch=0
         # forever when set_epoch is never called -> identical batch order every epoch).
         sampler = getattr(train_loader, "sampler", None)
