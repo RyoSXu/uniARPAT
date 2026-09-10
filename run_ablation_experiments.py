@@ -245,6 +245,8 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
 
         # E2 hygiene: full checkpoint dict (was bare state_dict), unified with
         # train.py format. Loader below + cif2dos both accept this format.
+        # Atomic write (tmp + rename): concurrent/duplicate runners or SIGKILL
+        # mid-save must never leave a torn checkpoint behind.
         def _ckpt(epoch_, best_):
             return {'epoch': epoch_,
                     'model_name': model_name,
@@ -253,13 +255,18 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                     'optimizer': optimizer.state_dict(),
                     'best_val_score': best_}
 
+        def _atomic_save(obj, path):
+            tmp = path + '.tmp'
+            torch.save(obj, tmp)
+            os.replace(tmp, path)
+
         if balanced < best_val_score:
             best_val_score = balanced
             best_epoch = epoch + 1
-            torch.save(_ckpt(epoch + 1, balanced), os.path.join(save_dir, 'checkpoint_best.pth'))
+            _atomic_save(_ckpt(epoch + 1, balanced), os.path.join(save_dir, 'checkpoint_best.pth'))
             logger.info(f"[{model_name}] New best model saved at Epoch {epoch+1} (Score: {balanced:.4f})")
 
-        torch.save(_ckpt(epoch + 1, best_val_score), os.path.join(save_dir, 'checkpoint_latest.pth'))
+        _atomic_save(_ckpt(epoch + 1, best_val_score), os.path.join(save_dir, 'checkpoint_latest.pth'))
 
     # Save training history
     df_history = pd.DataFrame(history)
