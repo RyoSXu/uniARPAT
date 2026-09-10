@@ -31,3 +31,8 @@ data/*.csv
 *.npy
 *.npz
 !results/*.csv
+# Data-fetch tooling runtime (scripts versioned, payloads never)
+tools/getdata/__pycache__/
+tools/getdata/*.log
+tools/getdata/raw/
+*.jsonl
