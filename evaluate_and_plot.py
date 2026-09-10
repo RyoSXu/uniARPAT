@@ -174,8 +174,10 @@ def main():
     print(f"Saved: {fig_path1}")
 
     # Figure 2: Representative Material Dual-Spectrum Comparisons
+    # NOTE (2026-09-09 correction): training grid is [-6,6] eV (A2 verified),
+    # not [-10,10]; axis below fixed accordingly.
     ph_freqs = np.linspace(-280, 980, 64)
-    e_energies = np.linspace(-10, 10, 128)
+    e_energies = np.linspace(-6, 6, 128)
 
     top_materials = df_results[(df_results['r2_phdos'] > 0.8) & (df_results['r2_edos'] > 0.65)].head(4)
     if len(top_materials) < 4:

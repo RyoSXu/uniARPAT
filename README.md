@@ -149,6 +149,12 @@ Evaluated strictly per-sample on completely unseen test crystals:
 
 ### 2. Ablation Planning Matrix (Table 1)
 
+> NOTE (2026-09-09 correction): M1 baseline numbers below (0.521/0.694) are the
+> original planning values. Measured 100-epoch results: eDOS med/mean 0.472/0.382,
+> phDOS med/mean 0.684/0.555 (see `results/test_m*_summary.csv`); hygiene rerun
+> (h1) in progress as the new reference. M2–M5 "Ablation run" cells were never
+> filled with measured values — do not cite them as results.
+
 | Variant | Decoder | Cross-Modal Interaction | eDOS Head | phDOS Head | Loss & Scale Scheme | Params | eDOS $R^2$ (med/mean) | phDOS $R^2$ (med/mean) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **M1 (Baseline)** | Shared | None | 1-layer (1.5k) | 6-layer (30.7M) | MSE (Oracle scale) | **77.63M** | 0.521 / 0.374 | 0.694 / 0.585 |
