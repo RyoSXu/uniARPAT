@@ -1,7 +1,7 @@
 # uniARPAT 待开发总清单（Backlog，主干文档）
 
 **建档**：2026-09-09 ｜ **状态**：待开发 ｜ **前置完成**：对照Hygiene五项（`3e6df8f`）、工程E1–E4（`5b3d280`）
-**关联文档**：双报告合并评估（统一路线）、Hygiene实施记录、v2加工规范（待建）
+**关联文档**：[技术路线Roadmap.md](./技术路线Roadmap.md)、archive/Hygiene实施记录、[数据加工规范DataSpec.md](./数据加工规范DataSpec.md)
 **冻结基线**：v0-legacy（旧成绩）→ h1（hygiene重跑，待执行）
 
 ---
