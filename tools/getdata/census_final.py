@@ -25,6 +25,7 @@ def qbatch(session, ids, tries=6):
     """Returns {canonical_id: phonon_dict} using positional echo-mapping."""
     out = {}
     pending = list(ids)
+    n_chunks = 0
     for _ in range(tries):
         if not pending:
             break
@@ -41,6 +42,11 @@ def qbatch(session, ids, tries=6):
                         out[doc["material_id"]] = doc.get("phonon_IDs") or {}
             except Exception:  # noqa: BLE001
                 pass
+            n_chunks += 1
+            # Heartbeat: blind long loops are undebuggable (2026-09-10 lesson).
+            if n_chunks % 50 == 0:
+                print(f"[qbatch] chunks={n_chunks} resolved={len(out)}/{len(ids)}",
+                      flush=True)
             time.sleep(0.3)
         got = set()
         for chunk_start in range(0, len(pending), 200):
@@ -50,8 +56,14 @@ def qbatch(session, ids, tries=6):
 
 
 def main():
-    edos = sorted({l.strip() for l in open(RAW / "census_edos_materials.txt")
-                   if l.strip()})
+    eff = RAW / "census_effective_ids.json"
+    if eff.exists():
+        # Preferred universe: summary-resolvable materials only (all have
+        # canonical structures; dos-only ghosts excluded by design).
+        edos = json.load(open(eff))
+    else:
+        edos = sorted({l.strip() for l in open(RAW / "census_edos_materials.txt")
+                       if l.strip()})
     pmap = json.load(open(OUT)) if OUT.exists() else {}
     # legacy keys are real phonon-positive materials; park them separately
     # instead of dropping (their dos docs may live under new ids or not exist).

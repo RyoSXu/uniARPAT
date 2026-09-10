@@ -23,6 +23,9 @@
 - [ ] **B1 h1重跑 M1–M5**（M1✅[日志](../03_工作日志/2026-09-10-hygiene工程与M1基线日志.md)：eDOS med 0.519/fail 12.3%，phDOS med 0.678/fail 10.0%；M2–M5排队）。
 - [ ] **B2 v2基线重标定** → [Design-B2](2026-09-10-Design-B2v2基线重标定.md)。
 
+## 0. 最高优先级（2026-09-10置顶）
+- [ ] **E9 Encoder v2** → [Design-E](2026-09-10-Design-E编码器v2.md)：自主下一代编码器（硬等变+截断稀疏+完备几何+全局融合+谱预训练），接口兼容现有解码器。
+
 ## C. 模型线（B1/B2开门后）
 
 - [ ] **C1 Phase 1四件套**：24维特征MLP投影、能量坐标编码+RFF（仅eDOS）、TV/梯度loss+物理加权、旋转+声子位移增强。逐个消融验收。
@@ -40,6 +43,8 @@
   - 依据：线宽采样律 + XBERT窗口 + DOSTransformer能量模态（Fermi精细）+ PET-MAD-DOS宽谱+CNN读出。
   - 指标：median R² + fail率 + 峰区MAE；判决：Stage胜者永久采用，两阶段总计7臂≈25h。
 - [ ] **C3 Phase 3**：PhysMoE晶体级路由 vs 能量级路由 A/B；[CLS] Cell Token；PotNet长程后置。
+- [ ] **C5 解码器MoE** → [Design-C5解码器MoE.md]（待讨论：token级4专家Top-2+负载均衡 vs 晶体级PhysMoE；位置/宽度/层数）。
+- [ ] **P0 预训练线** → [Design-P0预训练.md]（待讨论：(a)自监督遮罩+去噪/(b)标量监督/(c)冻结uMLIP三选一与组合）。
 - [ ] **C4 AMP加速臂**（默认关`--amp`，h1后验证）：预期1.4–1.8x；NaN冒烟先行；成绩单独立记录。
 
 ## D. 数据扩量线（phDOS天花板对策）
