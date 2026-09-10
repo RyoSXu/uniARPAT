@@ -29,8 +29,8 @@ def qbatch(session, ids, tries=6):
     for _ in range(tries):
         if not pending:
             break
-        for i in range(0, len(pending), 200):
-            chunk = pending[i:i + 200]
+        for i in range(0, len(pending), 100):
+            chunk = pending[i:i + 100]
             try:
                 r = session.get(
                     BASE + "/materials/summary/",
