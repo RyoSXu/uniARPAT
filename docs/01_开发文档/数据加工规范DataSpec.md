@@ -39,7 +39,7 @@
 
 ## 3. 结构 canonical 化
 
-MP summary结构为准；统一**原胞 + 固定symprec**（A2发现3%常规胞/原胞混用）；symprec值与pymatgen版本写入provenance；round-trip抽1000条 diff=0 方可放行。
+MP summary结构为准；统一**原胞 + symprec=0.1**（社区默认；A2那3%常规胞/原胞混用即根治对象）；symprec值与pymatgen版本写入provenance；round-trip抽1000条 diff=0 方可放行。
 
 ## 4. CIF六项清单（per-sample必存）
 

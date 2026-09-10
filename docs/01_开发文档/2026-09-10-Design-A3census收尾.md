@@ -1,12 +1,20 @@
 # Design-A3：census收尾
 
-**状态**：进行中（`census_rebuild.py`后台跑） ｜ **Backlog**：[待开发总清单Backlog.md](./待开发总清单Backlog.md)
+**状态**：执行中（`census_rebuild.py`后台跑） ｜ **Backlog**：[待开发总清单Backlog.md](./待开发总清单Backlog.md)
 
-## 背景
-eDOS全集271,321已齐；声子映射历经id_format空跑→静默丢数→新老id双记三重bug，现队列式重跑。
+## 目标
+输出双谱构成表：271,321个eDOS材料逐个确认声子有无。只认canonical新id。
 
-## 执行
-`python3 getdata/v2/census_rebuild.py`（resume-safe；失败进`census_queue.json`，永不静默丢）。
+## 映射正确性审查结论（2026-09-10，四重验证）
+1. **edos名单纯度**：271,321行，去重后仍271,321，全11位新id，无混杂。
+2. **回声保序**：100/100全命中批次验证，服务端保序返回——批量对应关系可用（附带数量校验）。
+3. **部分返回=静默省略**：未知id直接不返回、不报错。census脚本已改：逐批核对返回集，缺的进`census_unverified.json`，永不记`{}`。
+4. **三态规则**：有声子 / 确认无（空响应且可复现）/ 未验证（无summary文档≈无canonical结构→排除出v2训练宇宙，另表记录，不算"无声子"）。
+5. **新老id双记教训**：`mp-100`=`mp-aaaaaadw`同一材料曾占两行；现老key封存`census_phonon_map_legacy.json`（68,640），canonical表只留新id。
 
-## 输出/验收
-`census_phonon_map_canonical.json` + 双谱构成表（28–32k）；He复核；日志DONE且failed=0。
+## 已知坑位
+- 约一半eDOS id无summary文档（单查重试0/6恢复）：非瞬时失败，系非核心材料，直接影响v2有效全集规模（以终版数为准）。
+- M2后台死亡两次（无traceback，疑工具超时回收）：已加断点续跑+看门狗待补。
+
+## 验收
+queue空 + failed=0 + unverified清单有明确处置（排除或补查）；双谱总数以终版为准，不预设28–32k。
