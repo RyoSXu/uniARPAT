@@ -10,7 +10,8 @@
 
 - [x] **A1 Delta整表下载**（eDOS 4.35GB/phDOS 0.35GB已落地）。
 - [x] **A2 对齐验证**（中位0.9935；83%单自旋；3%细胞不一致）。
-- [x] **A3 census收尾** → [Design-A3](2026-09-10-Design-A3census收尾.md)：有效全集154,373（summary可解析；11万无summary幽灵排除）；双谱**26,609**（pheasy 26,272+DFPT 1,512，1,175双有）；unresolved=0。清单`getdata/raw/dual_spectra_ids.json`。
+- [x] **A3 census收尾** → [Design-A3](2026-09-10-Design-A3census收尾.md)：有效全集154,373；声子26,609；**真双谱18,644**（7,965个有声子无eDOS文档，已逐个复核）；unresolved=0。清单`getdata/raw/dual_spectra_ids.json`（26,609声子全集，真双谱以A4抽取`edos_absent.json`为准）。
+- [ ] **A3b PhononDB复算入库**（PhononDB 10,034包第三源，PBEsol；包内yaml嵌forces，phonopy mesh DOS直算，四面体+密度标定）：复算脚本已验证（pilot 50/50），全量跑中；结构/Born/介电副产品同步入库。A4输入三源至此齐：MP双谱18.6k + JARVIS pilot + PhononDB复算。
 - [ ] **A4 v2加工执行** → [Design-A4](2026-09-10-Design-A4v2加工执行.md)（规范见DataSpec）。
 - [ ] **A5 processed落盘**（随A4）。
 - [ ] **A6 分层切分v2** → [Design-A6](2026-09-10-Design-A6分层切分.md)（8:1:1+三层分层+硬隔离+seed42）。
@@ -58,7 +59,7 @@
 - [ ] **D2 Raman Phase-R**：CRD已到货（`getdata/raw/crd/*.zip`，5101条，mpid直连；频率轴二选一待定），第三解码器预留。
 - [ ] **D3 eDOS-only辅助臂**（M-aux，等计算量对照，Phase 1.5后）：掩码多任务，只教encoder。
 - [ ] **D4 IR/介电**：暂缓，已记录。
-- [ ] **D5 PhononDB并入**（2026-09-11反转重开：包内yaml嵌`displacements[].forces`，phonopy可直接复算谱，已用N2包实证`total_dos.dat`；此前“无线振子”结论作废，教训：只扫顶层key不断言）。执行：批量解包→phonopy mesh DOS（统一q网+展宽）→统一schema入库→第三源（PBEsol）+分源监控；另收结构/Born/介电副产品。状态：复算脚本已验证（pilot 50/50零错误），全量10k跑中（`tools/getdata/recompute_phonondb.py --mesh 20`）。
+- [ ] **D5 PhononDB混训权重**（复算入库后）：PBEsol第三源分源监控/配比，ablation备而不用。
 
 ## E. 工程线（h1跑完后）
 
@@ -69,7 +70,7 @@
 
 ## F. Backlog
 
-- [x] **F1 PhononDB Kyoto重试**（已转为D5执行；原站注销，MDR包已全下）。
+- [x] **F1 PhononDB Kyoto重试**（已转为A3b执行；原站注销，MDR包已全下）。
 - [ ] **F2 MP Delta访问方式归档**（已打通，写进v2手册：REST+Delta直读+重试策略）。
 - [ ] **F3 He/稀有元素样本策略**（已定 2026-09-09，v2双谱口径修正）：v1不动（含mp-1019742）；
   v2 census实测MP全库He仅6材料且0个有phDOS → **v2双谱核心集不含He**（口径一致）；
