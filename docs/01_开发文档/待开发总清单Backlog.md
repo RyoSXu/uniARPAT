@@ -20,7 +20,10 @@
 ## B. 对照与基线线
 
 - [x] **B0 hygiene五项 + E1–E4**（已完成，已提交）
-- [ ] **B1 h1重跑 M1–M5**（M1✅[日志](../03_工作日志/2026-09-10-hygiene工程与M1基线日志.md)：eDOS med 0.519/fail 12.3%，phDOS med 0.678/fail 10.0%；M2–M5排队）。
+- [x] **B1 h1重跑 M1–M4**（日志[2026-09-11-h1收官](../03_工作日志/日志-2026-09-11-h1收官.md)）：
+  M1 0.519/12.3%，0.678/10.0% ｜ M2 0.526/13.3%，0.681/8.5% ｜
+  M3 0.491/16.2%，0.650/11.6% ｜ M4 0.481/17.4%，0.649/12.2%（eDOS med/fail，phDOS med/fail）。
+  判决：解耦≈零（砍回共享，省~35M）；对称头负（回退轻量）；门控负（判死刑转MoE）。M5待P0-0修复后单跑。
 - [ ] **B3 batch/lr放量臂**（h1后首个）：batch 32→96/128（显存22%→70%），lr线性缩放，总步数对齐；AMP反降显存不列入本项。
 - [ ] **B4 超参扫描**（B3定轨后）：dropout / weight_decay（现AdamW默认0.01，未显式调过）/ warmup长度 / λ_ph / 梯度裁剪阈值——一次一个，10轮pilot初筛，胜者进100轮。预期二阶增益，不前置。
 - [ ] **B2 v2基线重标定** → [Design-B2](2026-09-10-Design-B2v2基线重标定.md)。
@@ -55,7 +58,7 @@
 - [ ] **D2 Raman Phase-R**：CRD已到货（`getdata/raw/crd/*.zip`，5101条，mpid直连；频率轴二选一待定），第三解码器预留。
 - [ ] **D3 eDOS-only辅助臂**（M-aux，等计算量对照，Phase 1.5后）：掩码多任务，只教encoder。
 - [ ] **D4 IR/介电**：暂缓，已记录。
-- [ ] **D5 PhononDB并入**（2026-09-11反转重开：包内yaml嵌`displacements[].forces`，phonopy可直接复算谱，已用N2包实证`total_dos.dat`；此前“无线振子”结论作废，教训：只扫顶层key不断言）。执行：批量解包→phonopy mesh DOS（统一q网+展宽）→统一schema入库→第三源（PBEsol）+分源监控；另收结构/Born/介电副产品。
+- [ ] **D5 PhononDB并入**（2026-09-11反转重开：包内yaml嵌`displacements[].forces`，phonopy可直接复算谱，已用N2包实证`total_dos.dat`；此前“无线振子”结论作废，教训：只扫顶层key不断言）。执行：批量解包→phonopy mesh DOS（统一q网+展宽）→统一schema入库→第三源（PBEsol）+分源监控；另收结构/Born/介电副产品。状态：复算脚本已验证（pilot 50/50零错误），全量10k跑中（`tools/getdata/recompute_phonondb.py --mesh 20`）。
 
 ## E. 工程线（h1跑完后）
 
@@ -66,7 +69,7 @@
 
 ## F. Backlog
 
-- [ ] **F1 PhononDB Kyoto重试**（已转为A9并入执行；原站注销，MDR包已全下）。
+- [x] **F1 PhononDB Kyoto重试**（已转为D5执行；原站注销，MDR包已全下）。
 - [ ] **F2 MP Delta访问方式归档**（已打通，写进v2手册：REST+Delta直读+重试策略）。
 - [ ] **F3 He/稀有元素样本策略**（已定 2026-09-09，v2双谱口径修正）：v1不动（含mp-1019742）；
   v2 census实测MP全库He仅6材料且0个有phDOS → **v2双谱核心集不含He**（口径一致）；
