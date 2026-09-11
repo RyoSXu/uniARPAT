@@ -16,6 +16,8 @@
 - [ ] **A5 processed落盘**（随A4）。
 - [ ] **A6 分层切分v2** → [Design-A6](2026-09-10-Design-A6分层切分.md)（8:1:1+三层分层+硬隔离+seed42）。
 - [ ] **A7 映射v2** → [Design-A7](2026-09-10-Design-A7映射.md)（L1✅/L2待议/L3标记）。
+- [ ] **A2b 三源gap分析**（phdb到货后）：MP↔JARVIS↔PhononDB三极分歧矩阵（eDOS两极/phDOS三极）；分歧样本→冲突审计输入；源权重设计依据。
+- [ ] **A3-supplement PhononDB覆盖映射**（phdb到货后）：MDR文件名mp引用→mpid，与双谱集取交集；新增覆盖数+分布（低对称复杂氧化物验证）；未命中走L2 matcher。
 - [ ] **A8 CIF特征完备性**（随A4验收）。
 
 ## B. 对照与基线线
