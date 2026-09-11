@@ -6,18 +6,18 @@
 
 ---
 
-## A. 数据v2线（主线，详见 Design-A*.md）
+## A. 数据v2线（按执行顺序排列）
 
 - [x] **A1 Delta整表下载**（eDOS 4.35GB/phDOS 0.35GB已落地）。
-- [x] **A2 对齐验证**（中位0.9935；83%单自旋；3%细胞不一致）。
-- [x] **A3 census收尾** → [Design-A3](2026-09-10-Design-A3census收尾.md)：有效全集154,373；声子26,609；**真双谱18,644**（7,965个有声子无eDOS文档，已逐个复核）；unresolved=0。清单`getdata/raw/dual_spectra_ids.json`（26,609声子全集，真双谱以A4抽取`edos_absent.json`为准）。
-- [ ] **A3b PhononDB复算入库**（PhononDB 10,034包第三源，PBEsol；包内yaml嵌forces，phonopy mesh DOS直算，四面体+密度标定）：复算脚本已验证（pilot 50/50），全量跑中；结构/Born/介电副产品同步入库。A4输入三源至此齐：MP双谱18.6k + JARVIS pilot + PhononDB复算。
-- [ ] **A4 v2加工执行** → [Design-A4](2026-09-10-Design-A4v2加工执行.md)（规范见DataSpec）。
+- [x] **A2 对齐验证**（MP↔v1中位0.9935；83%单自旋；3%细胞不一致；MP↔JARVIS gap：eDOS 0.54/phDOS 0.85）。
+- [x] **A3 census收尾** → [Design-A3](2026-09-10-Design-A3census收尾.md)：有效全集154,373；声子26,609；**真双谱18,644**（7,965有声子无eDOS，已逐个复核，见`edos_absent.json`）；unresolved=0。
+- [ ] **A3b PhononDB复算入库**（10,034包，mesh20四面体；结构/Born/介电副产品同步）：复算脚本已验证（pilot 50/50），全量跑中。
+- [ ] **A3c PhononDB覆盖映射**（A3b到货后）：MDR文件名mp引用→mpid，与双谱集取交集；新增覆盖数+分布验证；未命中走L2 matcher。
+- [ ] **A2b 三源gap分析**（A3b到货后）：MP↔JARVIS↔PhononDB三极分歧矩阵；分歧样本→冲突审计输入；源权重设计依据。
+- [ ] **A4 v2加工执行** → [Design-A4](2026-09-10-Design-A4v2加工执行.md)（输入：MP双谱18.6k+JARVIS pilot+PhononDB复算；规范见DataSpec）。
 - [ ] **A5 processed落盘**（随A4）。
 - [ ] **A6 分层切分v2** → [Design-A6](2026-09-10-Design-A6分层切分.md)（8:1:1+三层分层+硬隔离+seed42）。
-- [ ] **A7 映射v2** → [Design-A7](2026-09-10-Design-A7映射.md)（L1✅/L2待议/L3标记）。
-- [ ] **A2b 三源gap分析**（phdb到货后）：MP↔JARVIS↔PhononDB三极分歧矩阵（eDOS两极/phDOS三极）；分歧样本→冲突审计输入；源权重设计依据。
-- [ ] **A3-supplement PhononDB覆盖映射**（phdb到货后）：MDR文件名mp引用→mpid，与双谱集取交集；新增覆盖数+分布（低对称复杂氧化物验证）；未命中走L2 matcher。
+- [ ] **A7 映射v2** → [Design-A7](2026-09-10-Design-A7映射.md)（L1✅49,942零冲突；L2待议；L3标记）。
 - [ ] **A8 CIF特征完备性**（随A4验收）。
 
 ## B. 对照与基线线
