@@ -76,13 +76,14 @@ MODEL_CONFIGS = {
     }
 }
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = ""):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
     setup_ablation_seed(seed)
-
-    summary_file = f"./results/test_{model_name.lower()}_summary.csv"
+    # B3: tag isolates variant runs (e.g. batch-size bridge) from h1 outputs.
+    suffix = model_name.lower() + tag
+    summary_file = f"./results/test_{suffix}_summary.csv"
     if skip_existing and os.path.exists(summary_file):
         logger.info(f"[{model_name}] Already completed ({summary_file} exists). Skipping.")
         return pd.read_csv(summary_file).to_dict(orient='records')[0]
@@ -94,7 +95,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     logger.info(f"   Epochs: {epochs} | Batch Size: {batch_size} | LR: {lr} | Seed: {seed}")
     logger.info("=" * 70)
 
-    save_dir = f"./output/ablation_{model_name.lower()}"
+    save_dir = f"./output/ablation_{suffix}"
     os.makedirs(save_dir, exist_ok=True)
     os.makedirs('./results', exist_ok=True)
 
@@ -129,6 +130,12 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     logger.info(f"[{model_name}] Verified Trainable Parameters: {total_params:,} ({total_params/1e6:.3f}M)")
 
     optimizer = model.optimizer['transformer']
+    # B3 fix (latent bug): --lr was accepted but never applied (optimizer kept
+    # config lr). Apply CLI lr BEFORE scheduler construction.
+    for pg in optimizer.param_groups:
+        pg['lr'] = lr
+        pg['initial_lr'] = lr
+    logger.info(f"[{model_name}] Effective optimizer LR set to {lr:.2e}")
     # H4 hygiene: warmup+cosine shared with train.py semantics (was bare cosine).
     from utils.builder import build_warmup_cosine_scheduler
     scheduler = build_warmup_cosine_scheduler(optimizer, epochs)
@@ -141,7 +148,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     # Resume-from-latest: long runs may be killed by infra; resume losslessly.
     # checkpoint_latest.pth carries {epoch, model, optimizer, best_val_score}.
     latest_p = os.path.join(save_dir, 'checkpoint_latest.pth')
-    hist_p = f"./results/history_{model_name.lower()}.csv"
+    hist_p = f"./results/history_{suffix}.csv"
     if os.path.exists(latest_p) and os.path.exists(hist_p):
         try:
             ck = torch.load(latest_p, map_location='cpu')
@@ -270,7 +277,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
 
     # Save training history
     df_history = pd.DataFrame(history)
-    df_history.to_csv(f"./results/history_{model_name.lower()}.csv", index=False)
+    df_history.to_csv(f"./results/history_{suffix}.csv", index=False)
 
     # Load best checkpoint and evaluate on Test set
     logger.info(f"\nEvaluating Best Model ({model_name}, Epoch {best_epoch}) on Test Set (1371 materials)...")
@@ -285,8 +292,8 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     tgt_p = test_metrics.pop('tgt_phdos')
     tgt_e = test_metrics.pop('tgt_edos')
 
-    np.save(f"./results/pred_phdos_{model_name.lower()}.npy", pred_p)
-    np.save(f"./results/pred_edos_{model_name.lower()}.npy", pred_e)
+    np.save(f"./results/pred_phdos_{suffix}.npy", pred_p)
+    np.save(f"./results/pred_edos_{suffix}.npy", pred_e)
     if model_name == 'M5':
         np.save('./results/pred_phdos.npy', pred_p)
         np.save('./results/pred_edos.npy', pred_e)
@@ -294,10 +301,10 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         np.save('./results/tgt_edos.npy', tgt_e)
         df_samples.to_csv('./results/test_evaluation_summary.csv', index=False)
 
-    df_samples.to_csv(f"./results/samples_{model_name.lower()}_test.csv", index=False)
+    df_samples.to_csv(f"./results/samples_{suffix}_test.csv", index=False)
 
     df_test_summary = pd.DataFrame([test_metrics])
-    df_test_summary.to_csv(f"./results/test_{model_name.lower()}_summary.csv", index=False)
+    df_test_summary.to_csv(f"./results/test_{suffix}_summary.csv", index=False)
 
     logger.info("=" * 70)
     logger.info(f"   TEST EVALUATION SUMMARY ({model_name})")
@@ -462,10 +469,11 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate')
     parser.add_argument('--skip_existing', action='store_true', help='Skip variant if test summary already exists')
     parser.add_argument('--seed', type=int, default=42, help='Random seed (H1 hygiene, recorded in history CSV)')
+    parser.add_argument('--tag', type=str, default='', help='Run tag, e.g. _b96: isolates save_dir/results from h1 outputs')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag)
