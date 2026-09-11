@@ -64,12 +64,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mesh", type=int, default=20)
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--out", type=str, default=str(OUT),
+                    help="output jsonl (per-worker part file for parallel runs)")
     ap.add_argument("--serials", type=str, default="",
                     help="comma-separated zip serials for pilot (default: all)")
     args = ap.parse_args()
+    out_path = Path(args.out)
     done = set()
-    if OUT.exists():
-        with open(OUT) as f:
+    if out_path.exists():
+        with open(out_path) as f:
             for line in f:
                 try:
                     done.add(json.loads(line)["id"])
@@ -85,7 +88,7 @@ def main():
     print(f"[phdb] total={len(zips)} done={len(done)} todo={len(todo)} mesh={args.mesh}",
           flush=True)
     n_ok = n_err = 0
-    with open(OUT, "a") as f:
+    with open(out_path, "a") as f:
         for i, zp in enumerate(todo):
             rec = recon_one(zp, args.mesh)
             if "_error" in rec:
