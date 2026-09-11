@@ -54,7 +54,7 @@
 - [ ] **D1 uMLIP伪标签**：暂停（2026-09-10撞无外部权重决断，见Design-E§5；原MACE/Orb力→声子谱方案归档备查）。
 - [ ] **D2 Raman Phase-R**：CRD已到货（`getdata/raw/crd/*.zip`，5101条，mpid直连；频率轴二选一待定），第三解码器预留。
 - [ ] **D3 eDOS-only辅助臂**（M-aux，等计算量对照，Phase 1.5后）：掩码多任务，只教encoder。
-- [ ] **D4 IR/介电**：暂缓，已记录。
+- [ ] **D5 PhononDB并入**（10,034包已到货1.9GB）：①材料级映射（MDR文件名mp引用→mp-id）；②解析入库统一schema；③直接进主集+分源验证监控三列报，ablation备而不用。放D线理由：扩量性质+第三方泛函的方法论不确定性，不属于A线冻结spec执行范畴。
 
 ## E. 工程线（h1跑完后）
 
@@ -65,7 +65,7 @@
 
 ## F. Backlog
 
-- [ ] **F1 PhononDB Kyoto重试**（原站NXDOMAIN注销；数据在NIMS MDR按材料分包，无单包；维持backlog）。
+- [ ] **F1 PhononDB Kyoto重试**（已转为A9并入执行；原站注销，MDR包已全下）。
 - [ ] **F2 MP Delta访问方式归档**（已打通，写进v2手册：REST+Delta直读+重试策略）。
 - [ ] **F3 He/稀有元素样本策略**（已定 2026-09-09，v2双谱口径修正）：v1不动（含mp-1019742）；
   v2 census实测MP全库He仅6材料且0个有phDOS → **v2双谱核心集不含He**（口径一致）；
