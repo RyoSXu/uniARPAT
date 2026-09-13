@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+import json
 import random
 import yaml
 import torch
@@ -76,7 +77,21 @@ MODEL_CONFIGS = {
     }
 }
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = ""):
+def _ph_grid_centers(phdos_num: int):
+    """C2b: bin centers for the P-arm matching phdos_num (P0/P1/P2 in grids.json)."""
+    try:
+        with open('./data/grids_c2b/grids.json') as f:
+            grids = json.load(f)
+    except Exception:
+        return None
+    for arm in ("P0", "P1", "P2"):
+        e = np.asarray(grids.get(arm, []), dtype=float)
+        if len(e) - 1 == phdos_num:
+            return ((e[:-1] + e[1:]) / 2).tolist()
+    return None
+
+
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -103,16 +118,21 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         cfg = yaml.load(f, Loader=yaml.FullLoader)
 
     cfg['model']['params']['sub_model']['transformer'].update(config_info['transformer_params'])
+    # C2b: grid arms override output dims + data source (defaults = v1/h1 behavior).
+    cfg['model']['params']['sub_model']['transformer']['edos_num'] = edos_num
+    cfg['model']['params']['sub_model']['transformer']['phdos_num'] = phdos_num
     cfg['model']['params']['dos_minmax'] = True
     cfg['model']['params']['save_best'] = 'balanced_score'
-    cfg['dataset']['train']['data_dir'] = './data/train4ARPAT'
-    cfg['dataset']['valid']['data_dir'] = './data/train4ARPAT'
-    cfg['dataset']['test']['data_dir'] = './data/train4ARPAT'
+    cfg['dataset']['train']['data_dir'] = data_dir
+    cfg['dataset']['valid']['data_dir'] = data_dir
+    cfg['dataset']['test']['data_dir'] = data_dir
 
     # E1 hygiene: dump effective config (reproducibility; train.py already does this).
     with open(os.path.join(save_dir, 'config_used.yaml'), 'w') as f:
         yaml.dump({'cli': {'model': model_name, 'epochs': epochs,
-                           'batch_size': batch_size, 'lr': lr, 'seed': seed},
+                           'batch_size': batch_size, 'lr': lr, 'seed': seed,
+                           'data_dir': data_dir, 'edos_num': edos_num,
+                           'phdos_num': phdos_num},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
 
@@ -149,7 +169,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     # checkpoint_latest.pth carries {epoch, model, optimizer, best_val_score}.
     latest_p = os.path.join(save_dir, 'checkpoint_latest.pth')
     hist_p = f"./results/history_{suffix}.csv"
-    if os.path.exists(latest_p) and os.path.exists(hist_p):
+    if os.path.exists(latest_p):
         try:
             ck = torch.load(latest_p, map_location='cpu')
             state = ck['model'] if isinstance(ck, dict) and 'model' in ck else ck
@@ -161,13 +181,15 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                     pass
             start_epoch = int(ck.get('epoch', 0)) if isinstance(ck, dict) else 0
             best_val_score = float(ck.get('best_val_score', float('inf'))) if isinstance(ck, dict) else float('inf')
-            # restore best_epoch + history
-            dfh = pd.read_csv(hist_p)
-            history = dfh.to_dict(orient='records')
-            if start_epoch <= 0 and len(dfh):
-                start_epoch = int(dfh['epoch'].max())
-            if history:
-                best_epoch = int(dfh.loc[dfh['balanced_score'].idxmin(), 'epoch'])
+            # restore best_epoch + history (history file optional: killed runs
+            # only have checkpoints; it is rewritten incrementally below).
+            if os.path.exists(hist_p):
+                dfh = pd.read_csv(hist_p)
+                history = dfh.to_dict(orient='records')
+                if start_epoch <= 0 and len(dfh):
+                    start_epoch = int(dfh['epoch'].max())
+                if history:
+                    best_epoch = int(dfh.loc[dfh['balanced_score'].idxmin(), 'epoch'])
             # fast-forward cosine part of scheduler to start_epoch
             for _ in range(start_epoch):
                 scheduler.step()
@@ -274,6 +296,8 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
             logger.info(f"[{model_name}] New best model saved at Epoch {epoch+1} (Score: {balanced:.4f})")
 
         _atomic_save(_ckpt(epoch + 1, best_val_score), os.path.join(save_dir, 'checkpoint_latest.pth'))
+        # Incremental history (killed runs resume from checkpoint + history).
+        pd.DataFrame(history).to_csv(f"./results/history_{suffix}.csv", index=False)
 
     # Save training history
     df_history = pd.DataFrame(history)
@@ -285,7 +309,8 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     best_state = best_ckpt['model'] if isinstance(best_ckpt, dict) and 'model' in best_ckpt else best_ckpt
     model.model['transformer'].load_state_dict(best_state)
 
-    test_metrics = evaluate_split(model, test_loader, is_m5=(model_name == 'M5'), return_sample_level=True)
+    test_metrics = evaluate_split(model, test_loader, is_m5=(model_name == 'M5'), return_sample_level=True,
+                                    ph_grid=_ph_grid_centers(phdos_num))
     df_samples = test_metrics.pop('sample_df')
     pred_p = test_metrics.pop('pred_phdos')
     pred_e = test_metrics.pop('pred_edos')
@@ -314,9 +339,22 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     logger.info("=" * 70)
     return test_metrics
 
-def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: bool = False):
+def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: bool = False, ph_grid=None):
     model.model['transformer'].eval()
     records = []
+    # C2b: thermo needs a uniform freq grid; nonuniform arms (P1) skip thermo
+    # (verdict metrics are spectral; thermo tracked where defined).
+    skip_thermo, _calc_override = False, None
+    if ph_grid is not None:
+        import numpy as _np
+        _g = _np.asarray(ph_grid, dtype=float)
+        _d = _np.diff(_g)
+        if _np.allclose(_d, _d[0], rtol=1e-3):
+            from thermo_props import ThermodynamicCalculator as _TC
+            _calc_override = _TC(ph_freq_min=float(_g[0]), ph_freq_max=float(_g[-1]),
+                                 ph_bins=len(_g))
+        else:
+            skip_thermo = True
     if return_sample_level:
         all_p_p, all_t_p = [], []
         all_p_e, all_t_e = [], []
@@ -424,7 +462,7 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
 
     if return_sample_level:
         from thermo_props import ThermodynamicCalculator
-        calc = ThermodynamicCalculator()
+        calc = _calc_override if _calc_override is not None else ThermodynamicCalculator()
         p_p_arr = np.concatenate(all_p_p, axis=0)
         t_p_arr = np.concatenate(all_t_p, axis=0)
         p_e_arr = np.concatenate(all_p_e, axis=0)
@@ -432,15 +470,20 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
 
         cv_preds, cv_tgts = [], []
         debye_preds, debye_tgts = [], []
-        for i in range(len(p_p_arr)):
-            d_p = calc.compute_Debye_T(p_p_arr[i])
-            d_t = calc.compute_Debye_T(t_p_arr[i])
-            debye_preds.append(d_p)
-            debye_tgts.append(d_t)
-            cv_p = calc.compute_Cv(p_p_arr[i], T_range=[300.0])[0]
-            cv_t = calc.compute_Cv(t_p_arr[i], T_range=[300.0])[0]
-            cv_preds.append(cv_p)
-            cv_tgts.append(cv_t)
+        if skip_thermo:
+            n = len(p_p_arr)
+            cv_preds, cv_tgts = [float("nan")] * n, [float("nan")] * n
+            debye_preds, debye_tgts = [float("nan")] * n, [float("nan")] * n
+        else:
+            for i in range(len(p_p_arr)):
+                d_p = calc.compute_Debye_T(p_p_arr[i])
+                d_t = calc.compute_Debye_T(t_p_arr[i])
+                debye_preds.append(d_p)
+                debye_tgts.append(d_t)
+                cv_p = calc.compute_Cv(p_p_arr[i], T_range=[300.0])[0]
+                cv_t = calc.compute_Cv(t_p_arr[i], T_range=[300.0])[0]
+                cv_preds.append(cv_p)
+                cv_tgts.append(cv_t)
 
         df['cv_pred'] = cv_preds
         df['cv_true'] = cv_tgts
@@ -450,6 +493,8 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
         valid_debye = (np.array(debye_tgts) > 50) & (np.array(debye_preds) > 50)
         if np.sum(valid_debye) > 0:
             cv_mae = float(np.mean(np.abs(np.array(cv_preds)[valid_debye] - np.array(cv_tgts)[valid_debye])))
+        elif np.all(~np.isfinite(np.array(cv_preds, dtype=float))):
+            cv_mae = float("nan")  # thermo skipped (nonuniform grid)
         else:
             cv_mae = float(np.mean(np.abs(np.array(cv_preds) - np.array(cv_tgts))))
         summary['cv_mae'] = cv_mae
@@ -470,10 +515,13 @@ if __name__ == '__main__':
     parser.add_argument('--skip_existing', action='store_true', help='Skip variant if test summary already exists')
     parser.add_argument('--seed', type=int, default=42, help='Random seed (H1 hygiene, recorded in history CSV)')
     parser.add_argument('--tag', type=str, default='', help='Run tag, e.g. _b96: isolates save_dir/results from h1 outputs')
+    parser.add_argument('--data_dir', type=str, default='./data/train4ARPAT', help='Dataset root (C2b: per-arm dir)')
+    parser.add_argument('--edos_num', type=int, default=128, help='eDOS output bins (C2b grid arms)')
+    parser.add_argument('--phdos_num', type=int, default=64, help='phDOS output bins (C2b grid arms)')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num)
