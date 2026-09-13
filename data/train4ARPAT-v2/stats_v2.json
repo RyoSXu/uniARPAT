@@ -1,0 +1,12 @@
+{
+ "n": 24988,
+ "edos_thr_p999_med": 68.234,
+ "phdos_thr_p999_med": 0.55098,
+ "edos_max_med": 15.062,
+ "phdos_max_med": 0.15024,
+ "clipped_events": 1229,
+ "wide_kept": 511,
+ "roundtrip_n": 1000,
+ "roundtrip_ok": 1000,
+ "roundtrip_fail": 0
+}

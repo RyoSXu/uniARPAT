@@ -1,0 +1,198 @@
+{
+ "splits": {
+  "train": {
+   "n": 20040,
+   "buckets": [
+    8623,
+    5475,
+    3611,
+    1990,
+    341
+   ]
+  },
+  "valid": {
+   "n": 2477,
+   "buckets": [
+    1069,
+    693,
+    423,
+    250,
+    42
+   ]
+  },
+  "test": {
+   "n": 2471,
+   "buckets": [
+    1076,
+    667,
+    420,
+    253,
+    55
+   ]
+  }
+ },
+ "files": {
+  "train/elements_train.npy": {
+   "shape": [
+    20040,
+    82
+   ],
+   "sha": "4101180c6ce40956"
+  },
+  "train/positions_train.npy": {
+   "shape": [
+    20040,
+    246
+   ],
+   "sha": "97e4bf04080d52f7"
+  },
+  "train/edos_tgtdos_train.npy": {
+   "shape": [
+    20040,
+    128
+   ],
+   "sha": "06ae466b1036a299"
+  },
+  "train/phdos_tgtdos_train.npy": {
+   "shape": [
+    20040,
+    64
+   ],
+   "sha": "9309415824e0c473"
+  },
+  "train/edos_mask_train.npy": {
+   "shape": [
+    20040,
+    128
+   ],
+   "sha": "0f2e926ed9ffa202"
+  },
+  "train/phdos_mask_train.npy": {
+   "shape": [
+    20040,
+    64
+   ],
+   "sha": "bf8100098064664e"
+  },
+  "train/train_index.npy": {
+   "shape": [
+    20040
+   ],
+   "sha": "b2bbfeabfe447172"
+  },
+  "valid/elements_valid.npy": {
+   "shape": [
+    2477,
+    82
+   ],
+   "sha": "a226f9bf4654462e"
+  },
+  "valid/positions_valid.npy": {
+   "shape": [
+    2477,
+    246
+   ],
+   "sha": "2780d5b948aa1f9f"
+  },
+  "valid/edos_tgtdos_valid.npy": {
+   "shape": [
+    2477,
+    128
+   ],
+   "sha": "67aa7a3f1641f984"
+  },
+  "valid/phdos_tgtdos_valid.npy": {
+   "shape": [
+    2477,
+    64
+   ],
+   "sha": "c2f160202095a5a2"
+  },
+  "valid/edos_mask_valid.npy": {
+   "shape": [
+    2477,
+    128
+   ],
+   "sha": "55001384a472f659"
+  },
+  "valid/phdos_mask_valid.npy": {
+   "shape": [
+    2477,
+    64
+   ],
+   "sha": "d95a24a6ea2644e2"
+  },
+  "valid/valid_index.npy": {
+   "shape": [
+    2477
+   ],
+   "sha": "dd641c102d3149bb"
+  },
+  "test/elements_test.npy": {
+   "shape": [
+    2471,
+    82
+   ],
+   "sha": "5c5420f1d514e2f6"
+  },
+  "test/positions_test.npy": {
+   "shape": [
+    2471,
+    246
+   ],
+   "sha": "324ecd6b0b5aabae"
+  },
+  "test/edos_tgtdos_test.npy": {
+   "shape": [
+    2471,
+    128
+   ],
+   "sha": "53e299633f375909"
+  },
+  "test/phdos_tgtdos_test.npy": {
+   "shape": [
+    2471,
+    64
+   ],
+   "sha": "ef4fb9898fe48d97"
+  },
+  "test/edos_mask_test.npy": {
+   "shape": [
+    2471,
+    128
+   ],
+   "sha": "a727659e9d7eed51"
+  },
+  "test/phdos_mask_test.npy": {
+   "shape": [
+    2471,
+    64
+   ],
+   "sha": "e8fec1d10893b15e"
+  },
+  "test/test_index.npy": {
+   "shape": [
+    2471
+   ],
+   "sha": "cf7f7313b569ab33"
+  }
+ },
+ "stats_v2": {
+  "n": 24988,
+  "edos_thr_p999_med": 68.234,
+  "phdos_thr_p999_med": 0.55098,
+  "edos_max_med": 15.062,
+  "phdos_max_med": 0.15024,
+  "clipped_events": 1229,
+  "wide_kept": 511,
+  "roundtrip_n": 1000,
+  "roundtrip_ok": 1000,
+  "roundtrip_fail": 0
+ },
+ "split": {
+  "train": 20040,
+  "valid": 2477,
+  "test": 2471
+ },
+ "code_sha": "2eef7e928d469df4"
+}

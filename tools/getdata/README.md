@@ -9,5 +9,20 @@
 | `census_repair*.py` / `census_final.py` | 中间修复稿，保留备查，勿直接跑 | 🔕 |
 | `fetch_mp_raw.py` / `fetch_raw_pilot.py` | 单批/试点抓取 | ✅pilot完成 |
 | `process.py` | 加工骨架（待填CAP/GRID） | ⚪待A4 |
+| `a3c_phonondb_coverage.py` | A3c：MDR serial→legacy→canonical + 交集统计（断点续跑） | ✅2026-09-11（9938映射） |
+| `a3c_validate.py` | A3c分布验证（元素/maxfreq/晶系，全本地） | ✅2026-09-11（通过） |
+| `a7b_jarvis_coverage.py` | A7b：JVASP→canonical + 交集（A3c免费复用+API补） | ✅2026-09-11（45154映射） |
+| `a7c_fetch_jarvis.py` | A7c：JVASP谱拉取（webpages，一页双谱，断点续跑） | ✅2026-09-12（32453条） |
+| `a2b_gap.py` | A2b三源分歧矩阵（公共网格+配准+结构delta） | ✅2026-09-12 |
+| `top1_mp_increment.py` | Top-up#1：增量集summary+eDOS task映射 | ✅2026-09-12（7724全回） |
+| `delta_edos_index.py` + `dosmap_final.py` | Delta归属索引 + matcher终判 | ✅2026-09-12 |
+| `a4_process.py` / `a4_pass2.py` | A4两遍式加工（重切+winsorize+验收） | ✅2026-09-12（24988行） |
+| `a6_split.py` | A6分层切分（8:1:1+硬隔离+探针） | ✅2026-09-12 |
+| `build_v2_cache.py` | A5 npy缓存+manifest（--check经训练loader） | ✅2026-09-12 |
+| `a8_cifs.py` | A8逐样本canonical CIF生成+打包 | ✅2026-09-12（24988零失败） |
+| `resume_dl.py` | 断点续传通用下载器（Range+重试） | ✅figshare实测 |
+
+> 注意：`jarvis.db.webpages` 会在**当前目录**掉落 `tmp????????` XML 缓存（4千+个，316MB），
+> 跑批量抓取后记得清理；已在根 `.gitignore` 忽略（勿提交）。
 
 规范见 `../../docs/01_开发文档/数据加工规范DataSpec.md`。

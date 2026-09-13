@@ -23,6 +23,8 @@ dosdata/
 *.tmp
 *.swp
 *.bak
+# jarvis.db.webpages XML dump in CWD (tmp + 8 chars, no ext) - clean after bulk fetch
+/tmp????????
 
 # Raw Datasets
 data/*.csv
