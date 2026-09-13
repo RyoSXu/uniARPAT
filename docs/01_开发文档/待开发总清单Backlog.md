@@ -51,9 +51,7 @@
 - [x] **A9 数据报告v2**（2026-09-13）：descriptor 体例（Background/来源/方法/文件清单/验证/使用/代码/引用），
   与数据同目录：`getdata/v2_release/README.md`（发布包 ~90MB：主表去split列 + CIF + 映射 + 统计；
   网格与切分不属数据层）。
-- [ ] **A10 开源发布**（A9之后）：Zenodo DOI；发布物=**全分辨率谱包**
-  （各源原生谱+结构JSON+canonical CIF+映射表+provenance；无网格，网格归训练代码）；
-  前置：三源再分发条款核查（MP/JARVIS/MDR）+ attribution写法。
+  （2026-09-13：A10 开源发布项删除，发布包已随数据留存，上传另议。）
 
 ## B. 对照与基线线
 
@@ -84,7 +82,9 @@
     - P1 宽非均匀 [-300,4000]/112（0~500按10cm⁻¹≈50，500~4000按~60cm⁻¹≈58，负频~10）；
     - P2 宽等距 [-300,4000]/128（测非均匀是否必要）。
   - 依据：线宽采样律 + XBERT窗口 + DOSTransformer能量模态（Fermi精细）+ PET-MAD-DOS宽谱+CNN读出。
-  - 指标：median R² + fail率 + 峰区MAE；判决：Stage胜者永久采用，两阶段总计7臂≈25h。
+   - 指标：median R² + fail率 + 峰区MAE；判决：Stage胜者永久采用，两阶段总计7臂≈25h。
+   - 数据已备齐（2026-09-13）：`data/grids_c2b/` E1/E2/E3/P1/P2全量标签+掩膜（E0/P0沿用v2），
+     split复用，单点bin修复后E臂覆盖93–94%；训练未跑，本项不勾。
 - [ ] **C3 Phase 3**：PhysMoE晶体级路由 vs 能量级路由 A/B；[CLS] Cell Token；PotNet长程后置。
 - [ ] **C5 解码器MoE** → [Design-C5解码器MoE.md]（待讨论：token级4专家Top-2+负载均衡 vs 晶体级PhysMoE；位置/宽度/层数）。
 - [ ] **P0 预训练线** → [Design-P0预训练.md]（2026-09-10已决断见Design-E§5：仅保留(a)/(b)，(c)删除；放E9-P0之后）。

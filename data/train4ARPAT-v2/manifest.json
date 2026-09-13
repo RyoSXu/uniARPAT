@@ -51,28 +51,28 @@
     20040,
     128
    ],
-   "sha": "06ae466b1036a299"
+   "sha": "09111d100c2028d0"
   },
   "train/phdos_tgtdos_train.npy": {
    "shape": [
     20040,
     64
    ],
-   "sha": "9309415824e0c473"
+   "sha": "45b369491ea2fb11"
   },
   "train/edos_mask_train.npy": {
    "shape": [
     20040,
     128
    ],
-   "sha": "0f2e926ed9ffa202"
+   "sha": "ba8394ef1a6470be"
   },
   "train/phdos_mask_train.npy": {
    "shape": [
     20040,
     64
    ],
-   "sha": "bf8100098064664e"
+   "sha": "ed08ff484acb2eb3"
   },
   "train/train_index.npy": {
    "shape": [
@@ -99,28 +99,28 @@
     2477,
     128
    ],
-   "sha": "67aa7a3f1641f984"
+   "sha": "8e22d6638edeefc3"
   },
   "valid/phdos_tgtdos_valid.npy": {
    "shape": [
     2477,
     64
    ],
-   "sha": "c2f160202095a5a2"
+   "sha": "63df06164ed93400"
   },
   "valid/edos_mask_valid.npy": {
    "shape": [
     2477,
     128
    ],
-   "sha": "55001384a472f659"
+   "sha": "0f7fd80be76cb204"
   },
   "valid/phdos_mask_valid.npy": {
    "shape": [
     2477,
     64
    ],
-   "sha": "d95a24a6ea2644e2"
+   "sha": "228bcce3c7f2866f"
   },
   "valid/valid_index.npy": {
    "shape": [
@@ -147,28 +147,28 @@
     2471,
     128
    ],
-   "sha": "53e299633f375909"
+   "sha": "2de1a2d96b4c9aab"
   },
   "test/phdos_tgtdos_test.npy": {
    "shape": [
     2471,
     64
    ],
-   "sha": "ef4fb9898fe48d97"
+   "sha": "c0599c374ddacc45"
   },
   "test/edos_mask_test.npy": {
    "shape": [
     2471,
     128
    ],
-   "sha": "a727659e9d7eed51"
+   "sha": "d8dd8c2de2d30a24"
   },
   "test/phdos_mask_test.npy": {
    "shape": [
     2471,
     64
    ],
-   "sha": "e8fec1d10893b15e"
+   "sha": "8893ae6c06a7c766"
   },
   "test/test_index.npy": {
    "shape": [
@@ -179,12 +179,12 @@
  },
  "stats_v2": {
   "n": 24988,
-  "edos_thr_p999_med": 68.234,
-  "phdos_thr_p999_med": 0.55098,
-  "edos_max_med": 15.062,
-  "phdos_max_med": 0.15024,
-  "clipped_events": 1229,
-  "wide_kept": 511,
+  "edos_thr_p999_med": 78.727,
+  "phdos_thr_p999_med": 0.63474,
+  "edos_max_med": 16.684,
+  "phdos_max_med": 0.15515,
+  "clipped_events": 1612,
+  "wide_kept": 530,
   "roundtrip_n": 1000,
   "roundtrip_ok": 1000,
   "roundtrip_fail": 0

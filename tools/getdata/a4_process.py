@@ -53,8 +53,12 @@ def box_average(x, y, edges):
     cov = np.zeros(len(edges) - 1, dtype=np.int8)
     for i in range(len(edges) - 1):
         m = (x >= edges[i]) & (x < edges[i + 1])
-        if m.sum() > 1:
+        n = int(m.sum())
+        if n > 1:
             out[i] = np.trapz(y[m], x[m]) / (edges[i + 1] - edges[i])
+            cov[i] = 1
+        elif n == 1:
+            out[i] = float(y[m][0])  # 单点bin: 取点值(有数据≠缺失), 照样记覆盖
             cov[i] = 1
     return out.astype(np.float32), cov
 
@@ -333,6 +337,20 @@ def main():
         "prov": [r["prov"] for r in recs],
     })
     pq.write_table(tbl, RAW / "v2_intermediate.parquet")
+    # 切分冻结: 若旧终盘有split列则原样带回(重跑标签不动切分, 保可比性)
+    try:
+        old = pq.read_table(RAW / "v2_processed.parquet", columns=["mpid", "split"])
+        sm = dict(zip(old.column("mpid").to_pylist(), old.column("split").to_pylist()))
+        tbl2 = pq.read_table(RAW / "v2_intermediate.parquet")
+        import pyarrow as pa2
+        tbl2 = tbl2.append_column(
+            "split", pa2.array([sm.get(m, "train") for m in
+                                tbl2.column("mpid").to_pylist()]))
+        pq.write_table(tbl2, RAW / "v2_intermediate.parquet")
+        missing = sum(1 for m in tbl2.column("mpid").to_pylist() if m not in sm)
+        print(f"[a4] split carried over, missing={missing}", flush=True)
+    except Exception as e:
+        print(f"[a4] no split to carry ({type(e).__name__}), A6 needed", flush=True)
     json.dump({"stats": dict(stats), "n": len(recs),
                "audit_alt_views": len(audit)},
               open(RAW / "v2_pass1.json", "w"), indent=1)
