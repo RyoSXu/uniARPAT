@@ -91,7 +91,7 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3"):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -121,6 +121,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     # C2b: grid arms override output dims + data source (defaults = v1/h1 behavior).
     cfg['model']['params']['sub_model']['transformer']['edos_num'] = edos_num
     cfg['model']['params']['sub_model']['transformer']['phdos_num'] = phdos_num
+    cfg['model']['params']['sub_model']['transformer']['atom_feat_mode'] = atom_feat
     cfg['model']['params']['dos_minmax'] = True
     cfg['model']['params']['save_best'] = 'balanced_score'
     cfg['dataset']['train']['data_dir'] = data_dir
@@ -132,7 +133,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         yaml.dump({'cli': {'model': model_name, 'epochs': epochs,
                            'batch_size': batch_size, 'lr': lr, 'seed': seed,
                            'data_dir': data_dir, 'edos_num': edos_num,
-                           'phdos_num': phdos_num},
+                           'phdos_num': phdos_num, 'atom_feat': atom_feat},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
 
@@ -518,10 +519,11 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', type=str, default='./data/train4ARPAT', help='Dataset root (C2b: per-arm dir)')
     parser.add_argument('--edos_num', type=int, default=128, help='eDOS output bins (C2b grid arms)')
     parser.add_argument('--phdos_num', type=int, default=64, help='phDOS output bins (C2b grid arms)')
+    parser.add_argument('--atom_feat', type=str, default='legacy3', choices=['legacy3', 'mendeleev24'], help='Atom feature table (C1.1)')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat)

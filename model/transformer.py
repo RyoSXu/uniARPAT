@@ -33,17 +33,20 @@ class Transformer(nn.Module):
                  num_decoder_layers=6, dim_feedforward=2048, dropout=0.1,
                  activation="gelu", normalize_before=False,
                  decoupled_decoder=False, use_gated_cross_attn=False,
-                 head_type="legacy", predict_scale=False):
+                 head_type="legacy", predict_scale=False, atom_feat_mode="legacy3"):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
         self.head_type = head_type
         self.predict_scale = predict_scale
+        self.atom_feat_mode = atom_feat_mode
 
         # Atom type embedding
         self.tok_emb = nn.Embedding(token_num, d_model)
-        # Numeric atomic feature embedding
-        self.num_emb_encoder = AtomFeatureEncoder(input_dim=3, out_dim=d_model)
+        # Numeric atomic feature embedding (C1.1: mendeleev24 physical-main)
+        _feat_dim = 24 if atom_feat_mode == "mendeleev24" else 3
+        self.num_emb_encoder = AtomFeatureEncoder(input_dim=_feat_dim, out_dim=d_model,
+                                                  feat=atom_feat_mode)
         # LayerNorms for matching distributions
         self.atom_norm = nn.LayerNorm(d_model)
         self.num_norm  = nn.LayerNorm(d_model)
@@ -88,6 +91,11 @@ class Transformer(nn.Module):
         self.phdos_tgt = nn.Parameter(torch.zeros(phdos_num, d_model))
 
         self._reset_parameters()
+        if atom_feat_mode == "mendeleev24":
+            # C1.1 residual semantics: tok starts silent, learns corrections
+            # only where gradients are consistent; phys features carry the load.
+            with torch.no_grad():
+                self.tok_emb.weight.zero_()
 
         # Output Heads (~0.788M params each for symmetric configuration)
         if head_type == "symmetric":

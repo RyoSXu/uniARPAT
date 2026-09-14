@@ -69,11 +69,50 @@ class PeriodicTable():
         self.feature = F.pad(self.feature, (0, 0, 1, 0), value=0)  # -> [n_elements+1, 27]
         return self.feature
         
+class Mendeleev24():
+    """Frozen 24-dim physical features (C1.1): utils/atom_features_mendeleev.csv.
+
+    Z-score stats are computed from the frozen 103-row table itself (fixed,
+    no data fitting, no leakage). Row 0 (padding/sentinel) stays exact zeros.
+    """
+    COLS24 = ["atomic_weight", "covalent_radius_cordero", "atomic_radius",
+              "vdw_radius", "metallic_radius", "en_pauling", "en_allen",
+              "ionization_1", "electron_affinity", "melting_point",
+              "boiling_point", "density", "molar_heat_capacity",
+              "thermal_conductivity", "abundance_crust", "group_id", "period",
+              "mendeleev_number", "pettifor_number", "dipole_polarizability",
+              "c6", "fusion_heat", "evaporation_heat", "en_miedema"]
+
+    def __init__(self, csv_path=None):
+        import pandas as pd
+        if csv_path is None:
+            csv_path = os.path.join(current_dir, 'atom_features_mendeleev.csv')
+        df = pd.read_csv(csv_path, index_col=0)
+        assert list(df.columns) == self.COLS24, "feature table schema drift!"
+        raw = df.to_numpy(dtype=np.float64)  # [103, 24], Z=1..103
+        mu = raw.mean(axis=0)
+        sd = raw.std(axis=0) + 1e-12
+        normed = (raw - mu) / sd
+        full = np.zeros((119, 24), dtype=np.float32)  # Z=0 pad + 1..118
+        full[1:104] = normed.astype(np.float32)
+        self.feature = torch.tensor(full, dtype=torch.float32)
+        self.mean = mu.astype(np.float32)
+        self.std = sd.astype(np.float32)
+
+    def atom_feature_map(self):
+        return self.feature
+
+
 class AtomFeatureEncoder(nn.Module):
-    def __init__(self, input_dim,  out_dim):
+    def __init__(self, input_dim,  out_dim, feat='legacy3'):
         super(AtomFeatureEncoder, self).__init__()
-        self.pt = PeriodicTable()
-        self.feature_map = self.pt.atom_feature_map()
+        self.feat = feat
+        if feat == 'mendeleev24':
+            assert input_dim == 24
+            self.feature_map = Mendeleev24().atom_feature_map()
+        else:
+            self.pt = PeriodicTable()
+            self.feature_map = self.pt.atom_feature_map()
         self.proj = nn.Linear(input_dim, out_dim)  # input_dim是原始特征维度
         
     def forward(self, src):
