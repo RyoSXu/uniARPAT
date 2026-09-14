@@ -1,5 +1,39 @@
 import torch
+import numpy as np
 from torch import nn
+
+
+class EnergyCode(nn.Module):
+    """C1.2: bin-center energy code (Fourier + RFF), zero-init residual add-on.
+
+    code(x) = ZeroInitLinear([Fourier_L8(x); RFF_D64(x)]) -> d_model, added to
+    the learned query. Day-0 output is exactly zero => M1 behavior preserved;
+    any gain is attributable to the energy information, not a capacity shock.
+    RFF (high-freq, Van Hove spikes) is eDOS-only by design; phDOS untouched.
+    Frozen: L=8 bands, D=64, sigma=10.0 (periods down to ~0.1eV), seed=42.
+    """
+
+    def __init__(self, d_model, bands=8, rff_dim=64, sigma=10.0, seed=42,
+                 x_range=6.0):
+        super().__init__()
+        self.bands = bands
+        self.x_range = x_range
+        g = torch.Generator().manual_seed(seed)
+        self.register_buffer("rff_B", torch.randn(rff_dim, 1, generator=g) * sigma)
+        self.proj = nn.Linear(2 * bands + 2 * rff_dim, d_model)
+        nn.init.zeros_(self.proj.weight)
+        nn.init.zeros_(self.proj.bias)
+
+    def forward(self, x):
+        """x: [E] bin centers (same unit the grid was built in)."""
+        xn = x / self.x_range
+        feats = []
+        for k in range(self.bands):
+            f = (2 ** k) * np.pi * xn
+            feats += [torch.sin(f).unsqueeze(-1), torch.cos(f).unsqueeze(-1)]
+        r = 2 * np.pi * (x.unsqueeze(-1) @ self.rff_B.T)  # [E, D]
+        feats += [torch.sin(r), torch.cos(r)]
+        return self.proj(torch.cat(feats, dim=-1))  # [E, 2B+2D] -> d_model
 
 class CNN(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers=3, kernel_size=3, padding=1):

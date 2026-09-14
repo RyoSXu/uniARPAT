@@ -1,11 +1,12 @@
 import copy
 from typing import Optional, List
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
 
 from model.heads import (
-    CNN, DeepConv1dHead, MultiScaleResidualHead,
+    CNN, DeepConv1dHead, EnergyCode, MultiScaleResidualHead,
     PostDecoderGatedCrossAttention, ScaleHead, global_masked_pool
 )
 from utils.atom_feature import AtomFeatureEncoder
@@ -33,13 +34,23 @@ class Transformer(nn.Module):
                  num_decoder_layers=6, dim_feedforward=2048, dropout=0.1,
                  activation="gelu", normalize_before=False,
                  decoupled_decoder=False, use_gated_cross_attn=False,
-                 head_type="legacy", predict_scale=False, atom_feat_mode="legacy3"):
+                 head_type="legacy", predict_scale=False, atom_feat_mode="legacy3",
+                 energy_code="none", edos_grid=None):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
         self.head_type = head_type
         self.predict_scale = predict_scale
         self.atom_feat_mode = atom_feat_mode
+        self.energy_code = energy_code
+        # C1.2: eDOS bin-energy code (zero-init residual; phDOS untouched).
+        if energy_code == "edos":
+            assert edos_grid is not None, "edos_grid bin centers required"
+            self.edos_energy = EnergyCode(d_model)
+            self.register_buffer("edos_grid",
+                                 torch.tensor(np.asarray(edos_grid, dtype=np.float32)))
+        else:
+            self.edos_energy = None
 
         # Atom type embedding
         self.tok_emb = nn.Embedding(token_num, d_model)
@@ -96,6 +107,12 @@ class Transformer(nn.Module):
             # only where gradients are consistent; phys features carry the load.
             with torch.no_grad():
                 self.tok_emb.weight.zero_()
+        if energy_code == "edos":
+            # C1.2: zero-init AFTER _reset_parameters (which would overwrite
+            # the module-local init); day-0 model == M1 exactly.
+            with torch.no_grad():
+                self.edos_energy.proj.weight.zero_()
+                self.edos_energy.proj.bias.zero_()
 
         # Output Heads (~0.788M params each for symmetric configuration)
         if head_type == "symmetric":
@@ -161,6 +178,8 @@ class Transformer(nn.Module):
 
         # Decoder queries
         edos_query = self.edos_query_embed.unsqueeze(0).repeat(B, 1, 1)
+        if self.edos_energy is not None:
+            edos_query = edos_query + self.edos_energy(self.edos_grid).unsqueeze(0)
         edos_tgt_input = self.edos_tgt.unsqueeze(0).repeat(B, 1, 1)
         phdos_query = self.phdos_query_embed.unsqueeze(0).repeat(B, 1, 1)
         phdos_tgt_input = self.phdos_tgt.unsqueeze(0).repeat(B, 1, 1)

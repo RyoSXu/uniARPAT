@@ -77,6 +77,20 @@ MODEL_CONFIGS = {
     }
 }
 
+def _resolve_edos_grid(spec: str, edos_num: int):
+    """C1.2: grid key (E0/E2..) in grids.json or path to centers npy -> centers list."""
+    import os as _os
+    if _os.path.exists(spec):
+        return np.load(spec).tolist()
+    with open('./data/grids_c2b/grids.json') as f:
+        grids = json.load(f)
+    if spec in grids:
+        e = np.asarray(grids[spec], dtype=float)
+        assert len(e) - 1 == edos_num, f"{spec} bins {len(e)-1} != {edos_num}"
+        return ((e[:-1] + e[1:]) / 2).tolist()
+    raise ValueError(f"unknown edos_grid spec: {spec}")
+
+
 def _ph_grid_centers(phdos_num: int):
     """C2b: bin centers for the P-arm matching phdos_num (P0/P1/P2 in grids.json)."""
     try:
@@ -91,7 +105,7 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3"):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = ""):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -122,6 +136,9 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     cfg['model']['params']['sub_model']['transformer']['edos_num'] = edos_num
     cfg['model']['params']['sub_model']['transformer']['phdos_num'] = phdos_num
     cfg['model']['params']['sub_model']['transformer']['atom_feat_mode'] = atom_feat
+    cfg['model']['params']['sub_model']['transformer']['energy_code'] = energy_code
+    if energy_code == "edos":
+        cfg['model']['params']['sub_model']['transformer']['edos_grid'] = _resolve_edos_grid(edos_grid, edos_num)
     cfg['model']['params']['dos_minmax'] = True
     cfg['model']['params']['save_best'] = 'balanced_score'
     cfg['dataset']['train']['data_dir'] = data_dir
@@ -133,7 +150,8 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         yaml.dump({'cli': {'model': model_name, 'epochs': epochs,
                            'batch_size': batch_size, 'lr': lr, 'seed': seed,
                            'data_dir': data_dir, 'edos_num': edos_num,
-                           'phdos_num': phdos_num, 'atom_feat': atom_feat},
+                           'phdos_num': phdos_num, 'atom_feat': atom_feat,
+                           'energy_code': energy_code, 'edos_grid': edos_grid},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
 
@@ -520,10 +538,12 @@ if __name__ == '__main__':
     parser.add_argument('--edos_num', type=int, default=128, help='eDOS output bins (C2b grid arms)')
     parser.add_argument('--phdos_num', type=int, default=64, help='phDOS output bins (C2b grid arms)')
     parser.add_argument('--atom_feat', type=str, default='legacy3', choices=['legacy3', 'mendeleev24'], help='Atom feature table (C1.1)')
+    parser.add_argument('--energy_code', type=str, default='none', choices=['none', 'edos'], help='eDOS bin-energy code (C1.2)')
+    parser.add_argument('--edos_grid', type=str, default='', help='C1.2 grid key (E0/E2..) in grids.json or path to centers npy')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid)
