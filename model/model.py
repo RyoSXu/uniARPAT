@@ -50,6 +50,8 @@ class basemodel(nn.Module):
         self.peak_w = float(self.params.get("peak_w", 1.0))
         self.tail_w = float(self.params.get("tail_w", 1.0))
         self.tail_start = int(self.params.get("tail_start", -1))
+        # C2.3: coverage-mask the loss (default off; eval protocol unchanged).
+        self.use_mask = bool(self.params.get("use_mask", False))
         # C2.1: SumNorm-KL/W dual track + Huber (default smoothl1 legacy).
         self.loss_form = str(self.params.get("loss_form", "smoothl1"))
         self.w_w1 = float(self.params.get("w_w1", 1.0))
@@ -111,10 +113,11 @@ class basemodel(nn.Module):
                         state[k] = v.to(device)
 
     def data_preprocess(self, data):
-        # 按照 dataset.py 中 __getitem__ 的返回顺序解包
+        # 按照 dataset.py 中 __getitem__ 的返回顺序解包（C2.3掩膜附后，无文件时为None）
         inp, pos, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
-        phdos_mean, phdos_std, phdos_min, phdos_max = data
+        phdos_mean, phdos_std, phdos_min, phdos_max, \
+        edos_cov, phdos_cov = data
         
         mask = (inp == 0)
         inp = inp.to(self.device, non_blocking=True)
@@ -135,10 +138,21 @@ class basemodel(nn.Module):
         phdos_max  = phdos_max.to(self.device, non_blocking=True)
 
         mask = mask.clone().detach().to(dtype=torch.bool, device=self.device)
-        
+
+        # C2.3: coverage masks (None -> all-ones, legacy/v1 behavior).
+        if edos_cov is None:
+            edos_cov = torch.ones_like(edos_target, dtype=torch.bool)
+        else:
+            edos_cov = edos_cov.to(dtype=torch.bool, device=self.device)
+        if phdos_cov is None:
+            phdos_cov = torch.ones_like(phdos_target, dtype=torch.bool)
+        else:
+            phdos_cov = phdos_cov.to(dtype=torch.bool, device=self.device)
+
         return inp, pos, mask, edos_target, phdos_target, \
                edos_mean, edos_std, edos_min, edos_max, \
-               phdos_mean, phdos_std, phdos_min, phdos_max
+               phdos_mean, phdos_std, phdos_min, phdos_max, \
+               edos_cov, phdos_cov
 
     def loss(self, predict, target):
 
@@ -159,7 +173,8 @@ class basemodel(nn.Module):
     def train_one_step(self, batch_data, step):
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
-        phdos_mean, phdos_std, phdos_min, phdos_max = self.data_preprocess(batch_data)
+        phdos_mean, phdos_std, phdos_min, phdos_max, \
+        edos_cov, phdos_cov = self.data_preprocess(batch_data)
 
         if len(self.model) == 1:
             outputs = self.model[list(self.model.keys())[0]](inp, mask, pos)
@@ -182,19 +197,40 @@ class basemodel(nn.Module):
         if self.loss_form == "sumnorm_klw":
             # C2.1: targets arrive sum-normalized (dataset dos_sumnorm; denorm via
             # sum slots keeps eval identical). Dual track KL + W1 + Huber on dists.
-            def _klw(p_raw, q):
+            # C2.3: masked softmax (covered bins only) when use_mask.
+            def _klw(p_raw, q, cov):
+                if self.use_mask:
+                    eff = cov.clone()
+                    eff[eff.sum(dim=-1) == 0] = True  # 全空行回退无掩膜
+                    p_raw = p_raw.masked_fill(~eff, float("-inf"))
                 logp = F.log_softmax(p_raw, dim=-1)
-                # q含精确零(掩膜bin), clamp防0*log0=nan
-                kl = (q * (q.clamp_min(1e-12).log() - logp)).sum(dim=-1)
+                # q含精确零(掩膜bin): 内层0*inf恒nan, 用where按eff选取丢弃(非传播).
+                _inner = q * (q.clamp_min(1e-12).log() - logp)
+                _sel = eff if self.use_mask else torch.ones_like(q, dtype=torch.bool)
+                kl = torch.where(_sel, _inner, torch.zeros_like(_inner)).sum(dim=-1)
                 p = logp.exp()
-                w1 = (p.cumsum(dim=-1) - q.cumsum(dim=-1)).abs().mean(dim=-1)
-                hub = F.huber_loss(p, q, reduction="none", delta=self.huber_delta).mean(dim=-1)
+                if self.use_mask:
+                    cw = eff.float()
+                    w1 = ((p.cumsum(dim=-1) - q.cumsum(dim=-1)).abs() * cw).sum(dim=-1) / cw.sum(dim=-1).clamp_min(1)
+                    hub = (F.huber_loss(p, q, reduction="none", delta=self.huber_delta) * cw).sum(dim=-1) / cw.sum(dim=-1).clamp_min(1)
+                else:
+                    w1 = (p.cumsum(dim=-1) - q.cumsum(dim=-1)).abs().mean(dim=-1)
+                    hub = F.huber_loss(p, q, reduction="none", delta=self.huber_delta).mean(dim=-1)
                 return kl + self.w_w1 * w1 + self.w_huber * hub
-            loss_edos = _klw(predict_edos, edos_target).mean()
-            loss_phdos = _klw(predict_phdos, phdos_target).mean()
+            loss_edos = _klw(predict_edos, edos_target, edos_cov).mean()
+            loss_phdos = _klw(predict_phdos, phdos_target, phdos_cov).mean()
         elif self.peak_w == 1.0 and self.tail_w == 1.0:
-            loss_edos = F.smooth_l1_loss(predict_edos, edos_target)
-            loss_phdos = F.smooth_l1_loss(predict_phdos, phdos_target)
+            if self.use_mask:
+                # C2.3: 覆盖bin内平均，全空行回退
+                def _mmean(elem, cov):
+                    cw = cov.float()
+                    cw[cw.sum(dim=-1) == 0] = 1.0
+                    return ((elem * cw).sum(dim=-1) / cw.sum(dim=-1).clamp_min(1)).mean()
+                loss_edos = _mmean(F.smooth_l1_loss(predict_edos, edos_target, reduction="none"), edos_cov)
+                loss_phdos = _mmean(F.smooth_l1_loss(predict_phdos, phdos_target, reduction="none"), phdos_cov)
+            else:
+                loss_edos = F.smooth_l1_loss(predict_edos, edos_target)
+                loss_phdos = F.smooth_l1_loss(predict_phdos, phdos_target)
         else:
             # C1.3 物理加权: 峰区(>均值+标准差)×peak_w + 声子尾部×tail_w
             def _w(tgt, tail=False):
@@ -249,10 +285,11 @@ class basemodel(nn.Module):
         pass
 
     def test_one_step(self, batch_data, step=None, save_predict=False):
-        # 1. 解包数据 (对应 dataset.py 返回的 12 个元素)
+        # 1. 解包数据 (对应 dataset.py 返回的 14 个元素，末2为C2.3掩膜)
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
-        phdos_mean, phdos_std, phdos_min, phdos_max = self.data_preprocess(batch_data)
+        phdos_mean, phdos_std, phdos_min, phdos_max, \
+        edos_cov, phdos_cov = self.data_preprocess(batch_data)
 
         # 2. 模型预测
         if len(self.model) == 1:

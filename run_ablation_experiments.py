@@ -105,7 +105,7 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "minmax"):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "sumnorm", use_mask: bool = False):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -141,6 +141,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                    ("tail_w", tail_w), ("tail_start", tail_start)):
         cfg['model']['params'][_k] = _v
     # C2.1: sumnorm norm => KL/W+Huber loss form (dataset flag mirrored here).
+    cfg['model']['params']['use_mask'] = bool(use_mask)
     cfg['model']['params']['loss_form'] = "sumnorm_klw" if norm == "sumnorm" else "smoothl1"
     _sn = (norm == "sumnorm")
     cfg['model']['params']['sub_model']['transformer']['energy_code'] = energy_code
@@ -165,7 +166,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                            'tv_w': tv_w, 'grad_w': grad_w, 'peak_w': peak_w,
                            'tail_w': tail_w, 'tail_start': tail_start,
                            'augment': augment, 'disp_sigma': disp_sigma,
-                           'norm': norm},
+                           'norm': norm, 'use_mask': use_mask},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
 
@@ -396,7 +397,8 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
         for batch in dataloader:
             inp, pos, mask, edos_tgt, phdos_tgt, \
             edos_m, edos_s, edos_min, edos_max, \
-            phdos_m, phdos_s, phdos_min, phdos_max = model.data_preprocess(batch)
+            phdos_m, phdos_s, phdos_min, phdos_max, \
+            edos_cov, phdos_cov = model.data_preprocess(batch)
 
             outputs = model.model['transformer'](inp, mask, pos)
 
@@ -569,10 +571,11 @@ if __name__ == '__main__':
     parser.add_argument('--augment', action='store_true', help='C1.4 phonon displacement aug (train only)')
     parser.add_argument('--disp_sigma', type=float, default=0.01, help='C1.4 displacement sigma (frac)')
     parser.add_argument('--norm', type=str, default='sumnorm', choices=['minmax', 'sumnorm'], help='Target norm (C2.1 merged default; minmax recovers legacy)')
+    parser.add_argument('--use_mask', action='store_true', help='C2.3 coverage-mask the loss (eval protocol unchanged)')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask)

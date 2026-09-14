@@ -29,6 +29,10 @@ class Dos_Dataset(Dataset):
         
         self.elements  = self.get_elements()  #size (__len__, src_len)
         self.positions = self.get_positions() #size (__len__, src_len*3)
+        # C2.3: coverage masks (optional files; v1 cache lacks them -> None).
+        self.masks_available = (
+            os.path.exists(os.path.join(self.data_dir, f"edos_mask_{split}.npy"))
+            and os.path.exists(os.path.join(self.data_dir, f"phdos_mask_{split}.npy")))
         data_len = self.positions.shape[0]
 
         if self.split == 'test_cif':
@@ -37,6 +41,9 @@ class Dos_Dataset(Dataset):
         else:
             self.edos_tgtdos = self.get_dos_data(prefix="edos_tgtdos")
             self.phdos_tgtdos = self.get_dos_data(prefix="phdos_tgtdos")
+
+        self.edos_mask = self.get_mask_data(prefix="edos_mask")
+        self.phdos_mask = self.get_mask_data(prefix="phdos_mask")
         
         self.edos_mean = torch.mean(self.edos_tgtdos, dim=1, keepdim=True).float()
         self.edos_std = torch.std(self.edos_tgtdos, dim=1, keepdim=True).float()
@@ -105,7 +112,7 @@ class Dos_Dataset(Dataset):
                 pos[2:2 + n_atom] = (pos[2:2 + n_atom] + torch.from_numpy(noise).to(pos.dtype)) % 1.0
             else:
                 pos[2:2 + n_atom] = (pos[2:2 + n_atom] + noise) % 1.0
-        # 返回 10 个元素，包含所有归一化所需的参数
+        # 返回 12 个元素，C2.3 掩膜附后（无文件时为None，下游转全1）
         return [
             self.elements[index],           # [0]
             pos.reshape(-1, 3),             # [1] (82,3; 与原格式一致)
@@ -118,7 +125,9 @@ class Dos_Dataset(Dataset):
             self.phdos_mean[index],         # [8]
             self.phdos_std[index],          # [9]
             self.phdos_min[index],          # [10]
-            self.phdos_max[index]           # [11]
+            self.phdos_max[index],          # [11]
+            self.edos_mask[index] if self.edos_mask is not None else None,   # [12]
+            self.phdos_mask[index] if self.phdos_mask is not None else None,  # [13]
         ]
 
     def get_elements(self):
@@ -132,6 +141,12 @@ class Dos_Dataset(Dataset):
     def get_dos_data(self, prefix):
         filename = os.path.join(self.data_dir, f"{prefix}_{self.split}.npy")
         return torch.from_numpy(np.load(filename)).float()
+
+    def get_mask_data(self, prefix):
+        if not self.masks_available:
+            return None
+        filename = os.path.join(self.data_dir, f"{prefix}_{self.split}.npy")
+        return torch.from_numpy(np.load(filename)).bool()
 
 if __name__ == "__main__":
     test = Dos_Dataset(data_dir="./data/train4ARPAT", split="train")
