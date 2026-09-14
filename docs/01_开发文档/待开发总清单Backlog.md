@@ -72,6 +72,12 @@
 
 - [ ] **C1 Phase 1四件套**：24维特征MLP投影、能量坐标编码+RFF（仅eDOS）、TV/梯度loss+物理加权、旋转+声子位移增强。逐个消融验收。
 - [ ] **C2 Phase 1.5**：SumNorm-KL双轨+Huber、守恒缩放替代M5 scale（P0-0修复）、截断mask+距离衰减。
+  - [x] C2.1 SumNorm-KL/W+Huber（2026-09-14合并，默认；见日志）。
+  - [ ] C2.1b attribution臂（排队）：SumNorm+SmoothL1，拆归一与loss的各自贡献。
+  - [ ] C2.2 守恒缩放（2026-09-14机制验证通过，声子部分合并）：
+    blind-3N×0.92达oracle水平（0.839 vs 0.833）；公式`Y=d·3N·0.92/Δ`冻结；
+    M5 ScaleHead可删（E阶段）；eDOS价电子标定需全谱窗，另起臂。
+    推理接线（cif2dos盲模式）归E阶段。
 - [x] **C2b 网格对照试验**（2026-09-14收官；臂定义见 Design 原文，已折叠）：
   pilot：E0 0.371唯一胜（E1 0.299/E2 0.321/E3 0.283）；P2 0.786/2.1%大胜（P0 0.667/P1 0.609）；
   100轮（E0+P2，best ep60）：eDOS med 0.438/fail 17.1%，phDOS med 0.833/fail 2.5%，Cv 0.35；
