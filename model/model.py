@@ -44,6 +44,12 @@ class basemodel(nn.Module):
         self.save_best_param = self.params.get("save_best", "MSE")
         self.metric_best = None
         self.constants_len = self.params.get("constants_len", 0)
+        # C1.3: TV/gradient loss + physical weighting (defaults = legacy behavior).
+        self.tv_w = float(self.params.get("tv_w", 0.0))
+        self.grad_w = float(self.params.get("grad_w", 0.0))
+        self.peak_w = float(self.params.get("peak_w", 1.0))
+        self.tail_w = float(self.params.get("tail_w", 1.0))
+        self.tail_start = int(self.params.get("tail_start", -1))
         self.begin_epoch = 0
         self.metric_best = 1000
 
@@ -168,9 +174,37 @@ class basemodel(nn.Module):
 
         # §1.2: 纯端到端直接回归 (Smooth-L1 / Huber),M1-M4 的 MSE 与 M5 的 5 项复合损失统一精简
         # L_total = SmoothL1(edos) + lambda_ph * SmoothL1(phdos), lambda_ph=1.0 (标准化空间等权)
-        loss_edos = F.smooth_l1_loss(predict_edos, edos_target)
-        loss_phdos = F.smooth_l1_loss(predict_phdos, phdos_target)
+        if self.peak_w == 1.0 and self.tail_w == 1.0:
+            loss_edos = F.smooth_l1_loss(predict_edos, edos_target)
+            loss_phdos = F.smooth_l1_loss(predict_phdos, phdos_target)
+        else:
+            # C1.3 物理加权: 峰区(>均值+标准差)×peak_w + 声子尾部×tail_w
+            def _w(tgt, tail=False):
+                w = torch.ones_like(tgt)
+                peak = tgt > (tgt.mean(dim=-1, keepdim=True) + tgt.std(dim=-1, keepdim=True))
+                w = torch.where(peak, torch.full_like(w, self.peak_w), w)
+                if tail and self.tail_start >= 0 and tgt.shape[-1] > self.tail_start:
+                    w[..., self.tail_start:] *= self.tail_w
+                return w
+            loss_edos = (F.smooth_l1_loss(predict_edos, edos_target, reduction="none")
+                         * _w(edos_target)).mean()
+            loss_phdos = (F.smooth_l1_loss(predict_phdos, phdos_target, reduction="none")
+                          * _w(phdos_target, tail=True)).mean()
         total_loss = loss_edos + 1.0 * loss_phdos
+        # C1.3: TV(毛刺惩罚) + 梯度(峰形)正则
+        loss_tv = torch.tensor(0.0, device=total_loss.device)
+        loss_grad = torch.tensor(0.0, device=total_loss.device)
+        if self.tv_w > 0:
+            loss_tv = (predict_edos[:, 1:] - predict_edos[:, :-1]).abs().mean() \
+                + (predict_phdos[:, 1:] - predict_phdos[:, :-1]).abs().mean()
+            total_loss = total_loss + self.tv_w * loss_tv
+        if self.grad_w > 0:
+            ge = (predict_edos[:, 1:] - predict_edos[:, :-1]
+                  - (edos_target[:, 1:] - edos_target[:, :-1])).pow(2).mean()
+            gp = (predict_phdos[:, 1:] - predict_phdos[:, :-1]
+                  - (phdos_target[:, 1:] - phdos_target[:, :-1])).pow(2).mean()
+            loss_grad = ge + gp
+            total_loss = total_loss + self.grad_w * loss_grad
 
         if len(self.optimizer) == 1:
             self.optimizer[list(self.optimizer.keys())[0]].zero_grad()
@@ -183,6 +217,8 @@ class basemodel(nn.Module):
             'loss': total_loss.item(),
             'loss_edos': loss_edos.item(),
             'loss_phdos': loss_phdos.item(),
+            'loss_tv': loss_tv.item(),
+            'loss_grad': loss_grad.item(),
             'loss_shape_e': loss_shape_e.item() if 'loss_shape_e' in locals() else 0.0,
             'loss_shape_p': loss_shape_p.item() if 'loss_shape_p' in locals() else 0.0,
             'loss_scale_e': loss_scale_e.item() if 'loss_scale_e' in locals() else 0.0,
