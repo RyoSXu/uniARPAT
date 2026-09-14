@@ -5,9 +5,18 @@ import torch
 
 
 class Dos_Dataset(Dataset):
-    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[],**kwargs) -> None:
+    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, **kwargs) -> None:
         super().__init__()
         self.split = split
+        # C1.4: train-only stochastic displacement (valid/test stay deterministic).
+        # Rotation is intentionally ABSENT: the 82-format carries no orientation
+        # (lattice scalars + frac coords; build_cell convention fixed), so any
+        # global rotation maps to bit-identical inputs => provably no-op.
+        # Corollary: the model is E(3)-invariant by representation blindness
+        # (translation/rotation/reflection all collapse), just not equivariant.
+        self.augment = bool(augment) and (split == 'train')
+        self.disp_sigma = float(disp_sigma)
+        self.disp_clip = float(disp_clip)
         self.smear = smear
         self.data_dir = data_dir+"/"+split+"/"
         
@@ -60,10 +69,25 @@ class Dos_Dataset(Dataset):
 
     def __getitem__(self, index):
         index = min(index, self.__len__() - 1)
+        pos = self.positions[index].reshape(-1, 3).clone() \
+            if torch.is_tensor(self.positions[index]) else self.positions[index].reshape(-1, 3).copy()
+        if self.augment:
+            # C1.4 phonon displacement: frac rows only, periodic wrap.
+            # NOTE: elements[0:2] are sentinels (126/127, nonzero) -> count from [2:].
+            el = self.elements[index]
+            n_atom = int(((el[2:] != 0).sum()).item()) if torch.is_tensor(el) \
+                else int((el[2:] != 0).sum())
+            n_atom = max(0, min(n_atom, pos.shape[0] - 2))
+            noise = np.random.normal(0.0, self.disp_sigma, size=(n_atom, 3))
+            noise = np.clip(noise, -self.disp_clip, self.disp_clip)
+            if torch.is_tensor(pos):
+                pos[2:2 + n_atom] = (pos[2:2 + n_atom] + torch.from_numpy(noise).to(pos.dtype)) % 1.0
+            else:
+                pos[2:2 + n_atom] = (pos[2:2 + n_atom] + noise) % 1.0
         # 返回 10 个元素，包含所有归一化所需的参数
         return [
             self.elements[index],           # [0]
-            self.positions[index].reshape(-1, 3), # [1]
+            pos.reshape(-1, 3),             # [1] (82,3; 与原格式一致)
             self.edos_tgtdos[index],        # [2]
             self.phdos_tgtdos[index],       # [3]
             self.edos_mean[index],          # [4]

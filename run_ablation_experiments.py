@@ -105,7 +105,7 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -148,6 +148,9 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     cfg['dataset']['train']['data_dir'] = data_dir
     cfg['dataset']['valid']['data_dir'] = data_dir
     cfg['dataset']['test']['data_dir'] = data_dir
+    # C1.4: aug flags ride the train dict into Dos_Dataset (valid/test clean).
+    cfg['dataset']['train']['augment'] = bool(augment)
+    cfg['dataset']['train']['disp_sigma'] = float(disp_sigma)
 
     # E1 hygiene: dump effective config (reproducibility; train.py already does this).
     with open(os.path.join(save_dir, 'config_used.yaml'), 'w') as f:
@@ -157,7 +160,8 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                            'phdos_num': phdos_num, 'atom_feat': atom_feat,
                            'energy_code': energy_code, 'edos_grid': edos_grid,
                            'tv_w': tv_w, 'grad_w': grad_w, 'peak_w': peak_w,
-                           'tail_w': tail_w, 'tail_start': tail_start},
+                           'tail_w': tail_w, 'tail_start': tail_start,
+                           'augment': augment, 'disp_sigma': disp_sigma},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
 
@@ -551,10 +555,12 @@ if __name__ == '__main__':
     parser.add_argument('--peak_w', type=float, default=1.0, help='C1.3 peak-region weight')
     parser.add_argument('--tail_w', type=float, default=1.0, help='C1.3 phDOS tail weight')
     parser.add_argument('--tail_start', type=int, default=-1, help='C1.3 tail start bin (-1=off)')
+    parser.add_argument('--augment', action='store_true', help='C1.4 phonon displacement aug (train only)')
+    parser.add_argument('--disp_sigma', type=float, default=0.01, help='C1.4 displacement sigma (frac)')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma)
