@@ -105,7 +105,7 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "minmax"):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -140,6 +140,9 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     for _k, _v in (("tv_w", tv_w), ("grad_w", grad_w), ("peak_w", peak_w),
                    ("tail_w", tail_w), ("tail_start", tail_start)):
         cfg['model']['params'][_k] = _v
+    # C2.1: sumnorm norm => KL/W+Huber loss form (dataset flag mirrored here).
+    cfg['model']['params']['loss_form'] = "sumnorm_klw" if norm == "sumnorm" else "smoothl1"
+    _sn = (norm == "sumnorm")
     cfg['model']['params']['sub_model']['transformer']['energy_code'] = energy_code
     if energy_code == "edos":
         cfg['model']['params']['sub_model']['transformer']['edos_grid'] = _resolve_edos_grid(edos_grid, edos_num)
@@ -161,15 +164,16 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                            'energy_code': energy_code, 'edos_grid': edos_grid,
                            'tv_w': tv_w, 'grad_w': grad_w, 'peak_w': peak_w,
                            'tail_w': tail_w, 'tail_start': tail_start,
-                           'augment': augment, 'disp_sigma': disp_sigma},
+                           'augment': augment, 'disp_sigma': disp_sigma,
+                           'norm': norm},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
 
     builder = ConfigBuilder(**cfg)
 
-    train_loader = builder.get_dataloader(split='train', dos_minmax=True, batch_size=batch_size)
-    val_loader = builder.get_dataloader(split='valid', dos_minmax=True, batch_size=batch_size)
-    test_loader = builder.get_dataloader(split='test', dos_minmax=True, batch_size=batch_size)
+    train_loader = builder.get_dataloader(split='train', dos_minmax=True, batch_size=batch_size, dos_sumnorm=_sn)
+    val_loader = builder.get_dataloader(split='valid', dos_minmax=True, batch_size=batch_size, dos_sumnorm=_sn)
+    test_loader = builder.get_dataloader(split='test', dos_minmax=True, batch_size=batch_size, dos_sumnorm=_sn)
 
     model = builder.get_model()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -269,7 +273,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
             alpha_p = model.model['transformer'].gated_cross_attn.alpha_p.item()
 
         # Validation (Dual-track Blind & Oracle for M5)
-        val_metrics = evaluate_split(model, val_loader, is_m5=(model_name == 'M5'))
+        val_metrics = evaluate_split(model, val_loader, is_m5=(model_name == 'M5'), ph_grid=_ph_grid_centers(phdos_num), sumnorm=(norm == 'sumnorm'))
         balanced = 0.5 * val_metrics['mae_edos_median'] + 0.5 * val_metrics['mae_phdos_median']
 
         log_str = (
@@ -339,7 +343,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     model.model['transformer'].load_state_dict(best_state)
 
     test_metrics = evaluate_split(model, test_loader, is_m5=(model_name == 'M5'), return_sample_level=True,
-                                    ph_grid=_ph_grid_centers(phdos_num))
+                                    ph_grid=_ph_grid_centers(phdos_num), sumnorm=(norm == 'sumnorm'))
     df_samples = test_metrics.pop('sample_df')
     pred_p = test_metrics.pop('pred_phdos')
     pred_e = test_metrics.pop('pred_edos')
@@ -368,7 +372,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     logger.info("=" * 70)
     return test_metrics
 
-def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: bool = False, ph_grid=None):
+def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: bool = False, ph_grid=None, sumnorm: bool = False):
     model.model['transformer'].eval()
     records = []
     # C2b: thermo needs a uniform freq grid; nonuniform arms (P1) skip thermo
@@ -408,9 +412,16 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
                 p_e_orc = torch.clamp(outputs['shape_edos'] * (edos_max - edos_min) + edos_min, min=0.0)
                 p_p_orc = torch.clamp(outputs['shape_phdos'] * (phdos_max - phdos_min) + phdos_min, min=0.0)
             else:
-                # Oracle denormalization for M1-M4
-                p_e = torch.clamp(outputs['edos'] * (edos_max - edos_min) + edos_min, min=0.0)
-                p_p = torch.clamp(outputs['phdos'] * (phdos_max - phdos_min) + phdos_min, min=0.0)
+                # Oracle denormalization for M1-M4. C2.1 sumnorm: head emits raw
+                # logits (distribution lives behind softmax in loss); eval must
+                # softmax first, then scale by sum slots (min=0 here by design).
+                if sumnorm:
+                    import torch.nn.functional as _F
+                    p_e = torch.clamp(_F.softmax(outputs['edos'], dim=-1) * (edos_max - edos_min) + edos_min, min=0.0)
+                    p_p = torch.clamp(_F.softmax(outputs['phdos'], dim=-1) * (phdos_max - phdos_min) + phdos_min, min=0.0)
+                else:
+                    p_e = torch.clamp(outputs['edos'] * (edos_max - edos_min) + edos_min, min=0.0)
+                    p_p = torch.clamp(outputs['phdos'] * (phdos_max - phdos_min) + phdos_min, min=0.0)
                 p_e_orc, p_p_orc = None, None
 
             # Sample-wise primary metrics (H2 hygiene: shared fn, bit-identical math)
@@ -557,10 +568,11 @@ if __name__ == '__main__':
     parser.add_argument('--tail_start', type=int, default=-1, help='C1.3 tail start bin (-1=off)')
     parser.add_argument('--augment', action='store_true', help='C1.4 phonon displacement aug (train only)')
     parser.add_argument('--disp_sigma', type=float, default=0.01, help='C1.4 displacement sigma (frac)')
+    parser.add_argument('--norm', type=str, default='sumnorm', choices=['minmax', 'sumnorm'], help='Target norm (C2.1 merged default; minmax recovers legacy)')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm)

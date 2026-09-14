@@ -50,6 +50,11 @@ class basemodel(nn.Module):
         self.peak_w = float(self.params.get("peak_w", 1.0))
         self.tail_w = float(self.params.get("tail_w", 1.0))
         self.tail_start = int(self.params.get("tail_start", -1))
+        # C2.1: SumNorm-KL/W dual track + Huber (default smoothl1 legacy).
+        self.loss_form = str(self.params.get("loss_form", "smoothl1"))
+        self.w_w1 = float(self.params.get("w_w1", 1.0))
+        self.w_huber = float(self.params.get("w_huber", 1.0))
+        self.huber_delta = float(self.params.get("huber_delta", 0.02))
         self.begin_epoch = 0
         self.metric_best = 1000
 
@@ -174,7 +179,20 @@ class basemodel(nn.Module):
 
         # §1.2: 纯端到端直接回归 (Smooth-L1 / Huber),M1-M4 的 MSE 与 M5 的 5 项复合损失统一精简
         # L_total = SmoothL1(edos) + lambda_ph * SmoothL1(phdos), lambda_ph=1.0 (标准化空间等权)
-        if self.peak_w == 1.0 and self.tail_w == 1.0:
+        if self.loss_form == "sumnorm_klw":
+            # C2.1: targets arrive sum-normalized (dataset dos_sumnorm; denorm via
+            # sum slots keeps eval identical). Dual track KL + W1 + Huber on dists.
+            def _klw(p_raw, q):
+                logp = F.log_softmax(p_raw, dim=-1)
+                # q含精确零(掩膜bin), clamp防0*log0=nan
+                kl = (q * (q.clamp_min(1e-12).log() - logp)).sum(dim=-1)
+                p = logp.exp()
+                w1 = (p.cumsum(dim=-1) - q.cumsum(dim=-1)).abs().mean(dim=-1)
+                hub = F.huber_loss(p, q, reduction="none", delta=self.huber_delta).mean(dim=-1)
+                return kl + self.w_w1 * w1 + self.w_huber * hub
+            loss_edos = _klw(predict_edos, edos_target).mean()
+            loss_phdos = _klw(predict_phdos, phdos_target).mean()
+        elif self.peak_w == 1.0 and self.tail_w == 1.0:
             loss_edos = F.smooth_l1_loss(predict_edos, edos_target)
             loss_phdos = F.smooth_l1_loss(predict_phdos, phdos_target)
         else:

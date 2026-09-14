@@ -5,9 +5,16 @@ import torch
 
 
 class Dos_Dataset(Dataset):
-    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, **kwargs) -> None:
+    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, dos_sumnorm=False, **kwargs) -> None:
         super().__init__()
         self.split = split
+        # C2.1: SumNorm replaces minmax (mutually exclusive; sumnorm wins if both).
+        # min/max slots are reused as (0, sum) so oracle denorm pred*(max-min)+min
+        # == pred*sum keeps working UNCHANGED in all eval code. mean/std dummies.
+        self.dos_sumnorm = bool(dos_sumnorm)
+        if self.dos_sumnorm:
+            dos_minmax = False
+            dos_zscore = False
         # C1.4: train-only stochastic displacement (valid/test stay deterministic).
         # Rotation is intentionally ABSENT: the 82-format carries no orientation
         # (lattice scalars + frac coords; build_cell convention fixed), so any
@@ -56,6 +63,20 @@ class Dos_Dataset(Dataset):
         if dos_minmax:
             self.edos_tgtdos = (self.edos_tgtdos - self.edos_min) / (self.edos_max - self.edos_min + 1e-8)
             self.phdos_tgtdos = (self.phdos_tgtdos - self.phdos_min) / (self.phdos_max - self.phdos_min + 1e-8)
+
+        if self.dos_sumnorm:
+            e_sum = self.edos_tgtdos.sum(dim=1, keepdim=True)
+            p_sum = self.phdos_tgtdos.sum(dim=1, keepdim=True)
+            self.edos_tgtdos = self.edos_tgtdos / (e_sum + 1e-12)
+            self.phdos_tgtdos = self.phdos_tgtdos / (p_sum + 1e-12)
+            self.edos_min = torch.zeros_like(e_sum)
+            self.edos_max = e_sum.float()
+            self.phdos_min = torch.zeros_like(p_sum)
+            self.phdos_max = p_sum.float()
+            self.edos_mean = torch.ones_like(e_sum)
+            self.edos_std = torch.ones_like(e_sum)
+            self.phdos_mean = torch.ones_like(p_sum)
+            self.phdos_std = torch.ones_like(p_sum)
 
         if len(choice) != 0:
             cholist = torch.Tensor(choice).long()
