@@ -55,6 +55,9 @@ class basemodel(nn.Module):
         # B4: phonon loss weight + grad clip (defaults = legacy behavior).
         self.lambda_ph = float(self.params.get("lambda_ph", 1.0))
         self.grad_clip = float(self.params.get("grad_clip", 0.0))
+        # C2.4: supervised decoupled scale (log per-atom eDOS + log phDOS sum).
+        # Requires sumnorm (sum slots); asserts instead of silently misreading minmax.
+        self.scale_sup_w = float(self.params.get("scale_sup_w", 1.0))
         # C2.1: SumNorm-KL/W dual track + Huber (default smoothl1 legacy).
         self.loss_form = str(self.params.get("loss_form", "smoothl1"))
         self.w_w1 = float(self.params.get("w_w1", 1.0))
@@ -193,7 +196,7 @@ class basemodel(nn.Module):
         # FIX-P0-01: valid_atoms 哨兵对齐 (与 transformer.py 一致,严格对齐 src[:, 2:])
         atom_len = pos.shape[1] - 2
         valid_atoms = (~mask[:, 2:2 + atom_len]).sum(dim=-1).float()
-        _ = valid_atoms  # 直接回归暂不使用求和规则,保留统计以备回退/日志
+        NATOMS = valid_atoms.clamp_min(1.0).unsqueeze(-1)  # C2.4广延量
 
         # §1.2: 纯端到端直接回归 (Smooth-L1 / Huber),M1-M4 的 MSE 与 M5 的 5 项复合损失统一精简
         # L_total = SmoothL1(edos) + lambda_ph * SmoothL1(phdos), lambda_ph=1.0 (标准化空间等权)
@@ -248,6 +251,17 @@ class basemodel(nn.Module):
             loss_phdos = (F.smooth_l1_loss(predict_phdos, phdos_target, reduction="none")
                           * _w(phdos_target, tail=True)).mean()
         total_loss = loss_edos + self.lambda_ph * loss_phdos
+        # C2.4: supervised decoupled scale (needs sumnorm sum slots).
+        loss_scale_e = torch.tensor(0.0, device=total_loss.device)
+        loss_scale_p = torch.tensor(0.0, device=total_loss.device)
+        if "log_scale" in outputs:
+            assert self.loss_form == "sumnorm_klw", "scale head needs sumnorm sums"
+            ls = outputs["log_scale"]
+            tgt_e = (edos_max.clamp_min(1e-12) / NATOMS).log()
+            tgt_p = phdos_max.clamp_min(1e-12).log()
+            loss_scale_e = F.mse_loss(ls[:, 0:1], tgt_e)
+            loss_scale_p = F.mse_loss(ls[:, 1:2], tgt_p)
+            total_loss = total_loss + self.scale_sup_w * (loss_scale_e + loss_scale_p)
         # C1.3: TV(毛刺惩罚) + 梯度(峰形)正则
         loss_tv = torch.tensor(0.0, device=total_loss.device)
         loss_grad = torch.tensor(0.0, device=total_loss.device)

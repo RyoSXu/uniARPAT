@@ -35,7 +35,7 @@ class Transformer(nn.Module):
                  activation="gelu", normalize_before=False,
                  decoupled_decoder=False, use_gated_cross_attn=False,
                  head_type="legacy", predict_scale=False, atom_feat_mode="legacy3",
-                 energy_code="none", edos_grid=None):
+                 energy_code="none", edos_grid=None, scale_mode="none"):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
@@ -43,6 +43,14 @@ class Transformer(nn.Module):
         self.predict_scale = predict_scale
         self.atom_feat_mode = atom_feat_mode
         self.energy_code = energy_code
+        self.scale_mode = scale_mode
+        # C2.4 decoupled scale head: log per-atom eDOS scale + log phDOS sum.
+        # Semantics differ from M5's ScaleHead (log-min/max); fresh bias init.
+        if scale_mode == "decoupled":
+            self.scale_head_c24 = ScaleHead(d_model, hidden_dim=128, out_dim=2)
+            with torch.no_grad():
+                self.scale_head_c24.mlp[-1].bias.copy_(
+                    torch.tensor([1.5, 3.2]))  # ~log(4.4), ~log(25)
         # C1.2: eDOS bin-energy code (zero-init residual; phDOS untouched).
         if energy_code == "edos":
             assert edos_grid is not None, "edos_grid bin centers required"
@@ -221,6 +229,11 @@ class Transformer(nn.Module):
 
         results['edos'] = out_edos
         results['phdos'] = out_phdos
+
+        # C2.4 decoupled scale (M1 path included; needs memory + mask_atom).
+        if self.scale_mode == "decoupled":
+            h_cry = global_masked_pool(memory, mask_atom)
+            results['log_scale'] = self.scale_head_c24(h_cry)  # [B,2]
 
         # Shape-Scale branch if enabled
         if self.predict_scale:

@@ -105,7 +105,7 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "sumnorm", use_mask: bool = False, dropout: float = None, weight_decay: float = None, warmup_epochs: int = None, lambda_ph: float = None, grad_clip: float = None):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "sumnorm", use_mask: bool = False, dropout: float = None, weight_decay: float = None, warmup_epochs: int = None, lambda_ph: float = None, grad_clip: float = None, scale_mode: str = "none", freeze_backbone: bool = False, init_ckpt: str = "", scale_sup_w: float = 1.0):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -142,6 +142,9 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         cfg['model']['params'][_k] = _v
     # C2.1: sumnorm norm => KL/W+Huber loss form (dataset flag mirrored here).
     cfg['model']['params']['use_mask'] = bool(use_mask)
+    # C2.4 decoupled scale head (default off).
+    cfg['model']['params']['sub_model']['transformer']['scale_mode'] = scale_mode
+    cfg['model']['params']['scale_sup_w'] = float(scale_sup_w)
     # B4 hyperparams (None = config default, preserves legacy behavior).
     if dropout is not None:
         cfg['model']['params']['sub_model']['transformer']['dropout'] = float(dropout)
@@ -178,7 +181,9 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                            'augment': augment, 'disp_sigma': disp_sigma,
                            'norm': norm, 'use_mask': use_mask, 'dropout': dropout,
                            'weight_decay': weight_decay, 'warmup_epochs': _wu,
-                           'lambda_ph': lambda_ph, 'grad_clip': grad_clip},
+                           'lambda_ph': lambda_ph, 'grad_clip': grad_clip,
+                           'scale_mode': scale_mode, 'freeze_backbone': freeze_backbone,
+                           'init_ckpt': init_ckpt, 'scale_sup_w': scale_sup_w},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
 
@@ -194,6 +199,23 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
 
     total_params = sum(p.numel() for p in model.model['transformer'].parameters() if p.requires_grad)
     logger.info(f"[{model_name}] Verified Trainable Parameters: {total_params:,} ({total_params/1e6:.3f}M)")
+
+    # C2.4 Phase A: init from trained backbone (strict=False tolerates new head),
+    # optionally freeze everything except the scale head.
+    if init_ckpt:
+        _ck = torch.load(init_ckpt, map_location='cpu')
+        _st = _ck['model'] if isinstance(_ck, dict) and 'model' in _ck else _ck
+        _miss, _unexp = model.model['transformer'].load_state_dict(_st, strict=False)
+        logger.info(f"[{model_name}] init_ckpt loaded: missing={list(_miss)[:5]} unexpected={list(_unexp)[:5]}")
+        model.to(device)
+    if freeze_backbone:
+        model.model['transformer'].requires_grad_(False)
+        ntr = 0
+        for n, p in model.model['transformer'].named_parameters():
+            if 'scale_head_c24' in n:
+                p.requires_grad_(True)
+                ntr += p.numel()
+        logger.info(f"[{model_name}] backbone frozen, trainable scale params: {ntr:,}")
 
     optimizer = model.optimizer['transformer']
     # B3 fix (latent bug): --lr was accepted but never applied (optimizer kept
@@ -589,10 +611,14 @@ if __name__ == '__main__':
     parser.add_argument('--warmup_epochs', type=int, default=None, help='B4 warmup epochs (default 5)')
     parser.add_argument('--lambda_ph', type=float, default=None, help='B4 phonon loss weight (default 1.0)')
     parser.add_argument('--grad_clip', type=float, default=None, help='B4 grad clip max-norm (default off)')
+    parser.add_argument('--scale_mode', type=str, default='none', choices=['none', 'decoupled'], help='C2.4 supervised scale head')
+    parser.add_argument('--freeze_backbone', action='store_true', help='C2.4 Phase A: train scale head only')
+    parser.add_argument('--init_ckpt', type=str, default='', help='C2.4 init weights (strict=False)')
+    parser.add_argument('--scale_sup_w', type=float, default=1.0, help='C2.4 scale supervision weight')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w)
