@@ -52,6 +52,9 @@ class basemodel(nn.Module):
         self.tail_start = int(self.params.get("tail_start", -1))
         # C2.3: coverage-mask the loss (default off; eval protocol unchanged).
         self.use_mask = bool(self.params.get("use_mask", False))
+        # B4: phonon loss weight + grad clip (defaults = legacy behavior).
+        self.lambda_ph = float(self.params.get("lambda_ph", 1.0))
+        self.grad_clip = float(self.params.get("grad_clip", 0.0))
         # C2.1: SumNorm-KL/W dual track + Huber (default smoothl1 legacy).
         self.loss_form = str(self.params.get("loss_form", "smoothl1"))
         self.w_w1 = float(self.params.get("w_w1", 1.0))
@@ -244,7 +247,7 @@ class basemodel(nn.Module):
                          * _w(edos_target)).mean()
             loss_phdos = (F.smooth_l1_loss(predict_phdos, phdos_target, reduction="none")
                           * _w(phdos_target, tail=True)).mean()
-        total_loss = loss_edos + 1.0 * loss_phdos
+        total_loss = loss_edos + self.lambda_ph * loss_phdos
         # C1.3: TV(毛刺惩罚) + 梯度(峰形)正则
         loss_tv = torch.tensor(0.0, device=total_loss.device)
         loss_grad = torch.tensor(0.0, device=total_loss.device)
@@ -263,6 +266,8 @@ class basemodel(nn.Module):
         if len(self.optimizer) == 1:
             self.optimizer[list(self.optimizer.keys())[0]].zero_grad()
             total_loss.backward()
+            if self.grad_clip > 0:
+                torch.nn.utils.clip_grad_norm_(self.model[list(self.model.keys())[0]].parameters(), self.grad_clip)
             self.optimizer[list(self.optimizer.keys())[0]].step()
         else:
             raise NotImplementedError('Invalid model type.')

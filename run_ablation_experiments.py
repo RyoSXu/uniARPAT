@@ -105,7 +105,7 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "sumnorm", use_mask: bool = False):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "sumnorm", use_mask: bool = False, dropout: float = None, weight_decay: float = None, warmup_epochs: int = None, lambda_ph: float = None, grad_clip: float = None):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -142,6 +142,16 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         cfg['model']['params'][_k] = _v
     # C2.1: sumnorm norm => KL/W+Huber loss form (dataset flag mirrored here).
     cfg['model']['params']['use_mask'] = bool(use_mask)
+    # B4 hyperparams (None = config default, preserves legacy behavior).
+    if dropout is not None:
+        cfg['model']['params']['sub_model']['transformer']['dropout'] = float(dropout)
+    if weight_decay is not None:
+        cfg['model']['params']['optimizer']['transformer']['params']['weight_decay'] = float(weight_decay)
+    if lambda_ph is not None:
+        cfg['model']['params']['lambda_ph'] = float(lambda_ph)
+    if grad_clip is not None:
+        cfg['model']['params']['grad_clip'] = float(grad_clip)
+    _wu = warmup_epochs
     cfg['model']['params']['loss_form'] = "sumnorm_klw" if norm == "sumnorm" else "smoothl1"
     _sn = (norm == "sumnorm")
     cfg['model']['params']['sub_model']['transformer']['energy_code'] = energy_code
@@ -166,7 +176,9 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                            'tv_w': tv_w, 'grad_w': grad_w, 'peak_w': peak_w,
                            'tail_w': tail_w, 'tail_start': tail_start,
                            'augment': augment, 'disp_sigma': disp_sigma,
-                           'norm': norm, 'use_mask': use_mask},
+                           'norm': norm, 'use_mask': use_mask, 'dropout': dropout,
+                           'weight_decay': weight_decay, 'warmup_epochs': _wu,
+                           'lambda_ph': lambda_ph, 'grad_clip': grad_clip},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
 
@@ -192,7 +204,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     logger.info(f"[{model_name}] Effective optimizer LR set to {lr:.2e}")
     # H4 hygiene: warmup+cosine shared with train.py semantics (was bare cosine).
     from utils.builder import build_warmup_cosine_scheduler
-    scheduler = build_warmup_cosine_scheduler(optimizer, epochs)
+    scheduler = build_warmup_cosine_scheduler(optimizer, epochs) if _wu is None else build_warmup_cosine_scheduler(optimizer, epochs, warmup_epochs=int(_wu))
 
     best_val_score = float('inf')
     best_epoch = 0
@@ -572,10 +584,15 @@ if __name__ == '__main__':
     parser.add_argument('--disp_sigma', type=float, default=0.01, help='C1.4 displacement sigma (frac)')
     parser.add_argument('--norm', type=str, default='sumnorm', choices=['minmax', 'sumnorm'], help='Target norm (C2.1 merged default; minmax recovers legacy)')
     parser.add_argument('--use_mask', action='store_true', help='C2.3 coverage-mask the loss (eval protocol unchanged)')
+    parser.add_argument('--dropout', type=float, default=None, help='B4 transformer dropout (default config 0.1)')
+    parser.add_argument('--weight_decay', type=float, default=None, help='B4 AdamW weight decay (default 0.01)')
+    parser.add_argument('--warmup_epochs', type=int, default=None, help='B4 warmup epochs (default 5)')
+    parser.add_argument('--lambda_ph', type=float, default=None, help='B4 phonon loss weight (default 1.0)')
+    parser.add_argument('--grad_clip', type=float, default=None, help='B4 grad clip max-norm (default off)')
     args = parser.parse_args()
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip)
