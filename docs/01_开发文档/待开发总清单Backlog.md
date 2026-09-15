@@ -28,7 +28,8 @@
   网格eDOS[-6,6]/128+phDOS[-280,980]/64盒平均；THz密度除33.356（Si对上v1）；
   JARVIS按3N重归一；原胞symprec0.1+82格式；标签MP>pheasy/dfpt>PhononDB(w1)>JARVIS(w0.5)；
   winsorize clip1,612/宽峰保留530（单点bin修复后重跑值）；CIF round-trip 1000/1000。
-- [x] **A5 processed落盘**（`data/train4ARPAT-v2/` 20,040/2,477/2,471，--check+forward冒烟通过）。
+- [x] **A5 processed落盘**（`data/train4ARPAT/` 20,040/2,477/2,471，--check+forward冒烟通过；
+  2026-09-15：v2转正接管该名，v1归档`data/archive/`）。
 - [x] **A6 分层切分v2**（8:1:1 seed42，三层±2%，成分零跨集断言，探针1条，He跳过）。
 - [ ] **A7 映射v2** → [Design-A7](2026-09-10-Design-A7映射.md)（L1✅49,942零冲突；L2待议；L3标记）。
   - 2026-09-12决议：死ID（PhononDB 96 / JARVIS死leg 4,686+昵称37，MP已删库）**永久出池**，
