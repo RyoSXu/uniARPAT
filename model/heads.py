@@ -143,6 +143,32 @@ class PostDecoderGatedCrossAttention(nn.Module):
         return out_edos, out_phdos
 
 
+class EtaHead(nn.Module):
+    """
+    H1 bounded coverage head: predicts (eta_phonon, gamma_edos) in [0,1]
+    from pooled crystal features. Sigmoid output; zero-init bias => day-0
+    (0.5, 0.5). Supervised by windowed/total ratios (labels + Z0 sidecar).
+    Params: ~74k (same skeleton as ScaleHead).
+    Output: [B, 2] -> [eta_ph, gamma_e].
+    """
+    def __init__(self, d_model=512, hidden_dim=128, out_dim=2):
+        super().__init__()
+        self.mlp = nn.Sequential(
+            nn.Linear(d_model, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.GELU(),
+            nn.Linear(hidden_dim // 2, out_dim),
+            nn.Sigmoid()
+        )
+        with torch.no_grad():
+            self.mlp[-2].bias.zero_()  # pre-sigmoid bias 0 => eta_0 = 0.5
+
+    def forward(self, h_crystal):
+        # h_crystal: [B, d_model] -> [B, 2]
+        return self.mlp(h_crystal)
+
+
 class ScaleHead(nn.Module):
     """
     Scale Head MLP: Predicts log-scale factors for eDOS and phDOS from pooled crystal features.

@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 
 from model.heads import (
-    CNN, DeepConv1dHead, EnergyCode, MultiScaleResidualHead,
+    CNN, DeepConv1dHead, EnergyCode, EtaHead, MultiScaleResidualHead,
     PostDecoderGatedCrossAttention, ScaleHead, global_masked_pool
 )
 from utils.atom_feature import AtomFeatureEncoder
@@ -35,7 +35,8 @@ class Transformer(nn.Module):
                  activation="gelu", normalize_before=False,
                  decoupled_decoder=False, use_gated_cross_attn=False,
                  head_type="legacy", predict_scale=False, atom_feat_mode="legacy3",
-                 energy_code="none", edos_grid=None, scale_mode="none"):
+                  energy_code="none", edos_grid=None, scale_mode="none",
+                  scalar_mode="none"):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
@@ -44,6 +45,7 @@ class Transformer(nn.Module):
         self.atom_feat_mode = atom_feat_mode
         self.energy_code = energy_code
         self.scale_mode = scale_mode
+        self.scalar_mode = scalar_mode
         # C2.4 decoupled scale head: log per-atom eDOS scale + log phDOS sum.
         # Semantics differ from M5's ScaleHead (log-min/max); fresh bias init.
         if scale_mode == "decoupled":
@@ -51,6 +53,14 @@ class Transformer(nn.Module):
             with torch.no_grad():
                 self.scale_head_c24.mlp[-1].bias.copy_(
                     torch.tensor([1.5, 3.2]))  # ~log(4.4), ~log(25)
+        # H1: bounded coverage head (eta_phonon, gamma_edos); aux-only, no
+        # phys_* outputs here (blind verdict stays offline; eval untouched).
+        if scale_mode == "eta":
+            self.eta_head = EtaHead(d_model, hidden_dim=128, out_dim=2)
+        # S1: boundary scalars (wmax_n, eg_n, eval_n); bounded [0,1] MLP,
+        # same skeleton as EtaHead; aux-only.
+        if scalar_mode == "s1":
+            self.scalar_head = EtaHead(d_model, hidden_dim=128, out_dim=3)
         # C1.2: eDOS bin-energy code (zero-init residual; phDOS untouched).
         if energy_code == "edos":
             assert edos_grid is not None, "edos_grid bin centers required"
@@ -234,6 +244,16 @@ class Transformer(nn.Module):
         if self.scale_mode == "decoupled":
             h_cry = global_masked_pool(memory, mask_atom)
             results['log_scale'] = self.scale_head_c24(h_cry)  # [B,2]
+
+        # H1 bounded coverage (aux-only).
+        if self.scale_mode == "eta":
+            h_cry = global_masked_pool(memory, mask_atom)
+            results['eta'] = self.eta_head(h_cry)  # [B,2]: [:,0]=eta_ph, [:,1]=gamma_e
+
+        # S1 boundary scalars (aux-only). [:,0]=wmax_n, [:,1]=eg_n, [:,2]=eval_n.
+        if self.scalar_mode == "s1":
+            h_cry = global_masked_pool(memory, mask_atom)
+            results['scalars'] = self.scalar_head(h_cry)  # [B,3]
 
         # Shape-Scale branch if enabled
         if self.predict_scale:

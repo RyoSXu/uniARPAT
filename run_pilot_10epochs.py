@@ -113,7 +113,7 @@ def main():
                 inp, pos, mask, edos_tgt, phdos_tgt, \
                 edos_m, edos_s, edos_min, edos_max, \
                 phdos_m, phdos_s, phdos_min, phdos_max, \
-                edos_cov, phdos_cov = model.data_preprocess(batch)
+                edos_cov, phdos_cov, _nvalence = model.data_preprocess(batch)
 
                 outputs = model.model['transformer'](inp, mask, pos)
 

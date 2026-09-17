@@ -105,7 +105,7 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "sumnorm", use_mask: bool = False, dropout: float = None, weight_decay: float = None, warmup_epochs: int = None, lambda_ph: float = None, grad_clip: float = None, scale_mode: str = "none", freeze_backbone: bool = False, init_ckpt: str = "", scale_sup_w: float = 1.0):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "sumnorm", use_mask: bool = False, dropout: float = None, weight_decay: float = None, warmup_epochs: int = None, lambda_ph: float = None, grad_clip: float = None, scale_mode: str = "eta", freeze_backbone: bool = False, init_ckpt: str = "", scale_sup_w: float = 1.0, eta_sup_w: float = 1.0, delta_edos: float = 0.09375, delta_phdos: float = 19.6875, scalar_mode: str = "none", scalar_sup_w: float = 1.0):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -145,6 +145,12 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     # C2.4 decoupled scale head (default off).
     cfg['model']['params']['sub_model']['transformer']['scale_mode'] = scale_mode
     cfg['model']['params']['scale_sup_w'] = float(scale_sup_w)
+    cfg['model']['params']['eta_sup_w'] = float(eta_sup_w)
+    cfg['model']['params']['delta_edos'] = float(delta_edos)
+    cfg['model']['params']['delta_phdos'] = float(delta_phdos)
+    # S1 boundary scalars (default off).
+    cfg['model']['params']['sub_model']['transformer']['scalar_mode'] = scalar_mode
+    cfg['model']['params']['scalar_sup_w'] = float(scalar_sup_w)
     # B4 hyperparams (None = config default, preserves legacy behavior).
     if dropout is not None:
         cfg['model']['params']['sub_model']['transformer']['dropout'] = float(dropout)
@@ -183,6 +189,9 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                            'weight_decay': weight_decay, 'warmup_epochs': _wu,
                            'lambda_ph': lambda_ph, 'grad_clip': grad_clip,
                            'scale_mode': scale_mode, 'freeze_backbone': freeze_backbone,
+                            'eta_sup_w': eta_sup_w,
+                            'delta_edos': delta_edos, 'delta_phdos': delta_phdos,
+                            'scalar_mode': scalar_mode, 'scalar_sup_w': scalar_sup_w,
                            'init_ckpt': init_ckpt, 'scale_sup_w': scale_sup_w},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
@@ -212,7 +221,7 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         model.model['transformer'].requires_grad_(False)
         ntr = 0
         for n, p in model.model['transformer'].named_parameters():
-            if 'scale_head_c24' in n:
+            if 'scale_head_c24' in n or 'eta_head' in n or 'scalar_head' in n:
                 p.requires_grad_(True)
                 ntr += p.numel()
         logger.info(f"[{model_name}] backbone frozen, trainable scale params: {ntr:,}")
@@ -432,7 +441,7 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
             inp, pos, mask, edos_tgt, phdos_tgt, \
             edos_m, edos_s, edos_min, edos_max, \
             phdos_m, phdos_s, phdos_min, phdos_max, \
-            edos_cov, phdos_cov = model.data_preprocess(batch)
+            edos_cov, phdos_cov, _nvalence = model.data_preprocess(batch)
 
             outputs = model.model['transformer'](inp, mask, pos)
 
@@ -611,7 +620,12 @@ if __name__ == '__main__':
     parser.add_argument('--warmup_epochs', type=int, default=None, help='B4 warmup epochs (default 5)')
     parser.add_argument('--lambda_ph', type=float, default=None, help='B4 phonon loss weight (default 1.0)')
     parser.add_argument('--grad_clip', type=float, default=None, help='B4 grad clip max-norm (default off)')
-    parser.add_argument('--scale_mode', type=str, default='none', choices=['none', 'decoupled'], help='C2.4 supervised scale head')
+    parser.add_argument('--scale_mode', type=str, default='eta', choices=['none', 'decoupled', 'eta'], help='C2.4/H1 supervised scale/coverage head')
+    parser.add_argument('--eta_sup_w', type=float, default=1.0, help='H1 eta/gamma supervision weight')
+    parser.add_argument('--delta_edos', type=float, default=0.09375, help='H1 eDOS bin width (E0)')
+    parser.add_argument('--delta_phdos', type=float, default=19.6875, help='H1 phDOS bin width (P0)')
+    parser.add_argument('--scalar_mode', type=str, default='none', choices=['none', 's1'], help='S1 boundary scalar heads')
+    parser.add_argument('--scalar_sup_w', type=float, default=1.0, help='S1 scalar supervision weight')
     parser.add_argument('--freeze_backbone', action='store_true', help='C2.4 Phase A: train scale head only')
     parser.add_argument('--init_ckpt', type=str, default='', help='C2.4 init weights (strict=False)')
     parser.add_argument('--scale_sup_w', type=float, default=1.0, help='C2.4 scale supervision weight')
@@ -619,6 +633,6 @@ if __name__ == '__main__':
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w, eta_sup_w=args.eta_sup_w, delta_edos=args.delta_edos, delta_phdos=args.delta_phdos, scalar_mode=args.scalar_mode, scalar_sup_w=args.scalar_sup_w)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w, eta_sup_w=args.eta_sup_w, delta_edos=args.delta_edos, delta_phdos=args.delta_phdos, scalar_mode=args.scalar_mode, scalar_sup_w=args.scalar_sup_w)

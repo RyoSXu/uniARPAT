@@ -44,6 +44,8 @@ class Dos_Dataset(Dataset):
 
         self.edos_mask = self.get_mask_data(prefix="edos_mask")
         self.phdos_mask = self.get_mask_data(prefix="phdos_mask")
+        # H1: per-sample N_valence sidecar (Z0 frozen; v1 cache lacks it -> None).
+        self.nvalence = self.get_nvalence()
         
         self.edos_mean = torch.mean(self.edos_tgtdos, dim=1, keepdim=True).float()
         self.edos_std = torch.std(self.edos_tgtdos, dim=1, keepdim=True).float()
@@ -128,6 +130,7 @@ class Dos_Dataset(Dataset):
             self.phdos_max[index],          # [11]
             self.edos_mask[index] if self.edos_mask is not None else None,   # [12]
             self.phdos_mask[index] if self.phdos_mask is not None else None,  # [13]
+            self.nvalence[index] if self.nvalence is not None else None,      # [14] H1 N_val
         ]
 
     def get_elements(self):
@@ -147,6 +150,12 @@ class Dos_Dataset(Dataset):
             return None
         filename = os.path.join(self.data_dir, f"{prefix}_{self.split}.npy")
         return torch.from_numpy(np.load(filename)).bool()
+
+    def get_nvalence(self):
+        filename = os.path.join(self.data_dir, f"nvalence_{self.split}.npy")
+        if not os.path.exists(filename):
+            return None
+        return torch.from_numpy(np.load(filename)).float()
 
 if __name__ == "__main__":
     test = Dos_Dataset(data_dir="./data/train4ARPAT", split="train")

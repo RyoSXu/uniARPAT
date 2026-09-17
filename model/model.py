@@ -58,6 +58,17 @@ class basemodel(nn.Module):
         # C2.4: supervised decoupled scale (log per-atom eDOS + log phDOS sum).
         # Requires sumnorm (sum slots); asserts instead of silently misreading minmax.
         self.scale_sup_w = float(self.params.get("scale_sup_w", 1.0))
+        # H1: bounded coverage supervision weight (eta/gamma MSE; sumnorm only).
+        self.eta_sup_w = float(self.params.get("eta_sup_w", 1.0))
+        # H1: production-grid bin widths (E0/P0 verified in grids.json).
+        # Sum slots carry box-avg sums S_win/Delta => coverage = S*Delta/N.
+        self.delta_edos = float(self.params.get("delta_edos", 0.09375))
+        self.delta_phdos = float(self.params.get("delta_phdos", 19.6875))
+        # S1: boundary-scalar supervision weight + frozen production grids.
+        self.scalar_sup_w = float(self.params.get("scalar_sup_w", 1.0))
+        self.e_lo, self.e_hi, self.e_n = -6.0, 6.0, 128
+        self.p_lo, self.p_hi, self.p_n = -280.0, 980.0, 64
+        self._eta_missing_warned = False
         # C2.1: SumNorm-KL/W dual track + Huber (default smoothl1 legacy).
         self.loss_form = str(self.params.get("loss_form", "smoothl1"))
         self.w_w1 = float(self.params.get("w_w1", 1.0))
@@ -119,11 +130,12 @@ class basemodel(nn.Module):
                         state[k] = v.to(device)
 
     def data_preprocess(self, data):
-        # 按照 dataset.py 中 __getitem__ 的返回顺序解包（C2.3掩膜附后，无文件时为None）
+        # 按照 dataset.py 中 __getitem__ 的返回顺序解包（C2.3掩膜附后，无文件时为None；H1 N_val第15位）
         inp, pos, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
-        edos_cov, phdos_cov = data
+        edos_cov, phdos_cov = data[:14]
+        nvalence = data[14] if len(data) > 14 else None
         
         mask = (inp == 0)
         inp = inp.to(self.device, non_blocking=True)
@@ -155,10 +167,18 @@ class basemodel(nn.Module):
         else:
             phdos_cov = phdos_cov.to(dtype=torch.bool, device=self.device)
 
+        # H1: N_valence sidecar (None -> aux supervision disabled downstream).
+        if nvalence is None:
+            pass
+        elif torch.is_tensor(nvalence):
+            nvalence = nvalence.to(device=self.device, non_blocking=True).float()
+        else:
+            nvalence = torch.as_tensor(nvalence, device=self.device).float()
+
         return inp, pos, mask, edos_target, phdos_target, \
                edos_mean, edos_std, edos_min, edos_max, \
                phdos_mean, phdos_std, phdos_min, phdos_max, \
-               edos_cov, phdos_cov
+               edos_cov, phdos_cov, nvalence
 
     def loss(self, predict, target):
 
@@ -180,7 +200,7 @@ class basemodel(nn.Module):
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
-        edos_cov, phdos_cov = self.data_preprocess(batch_data)
+        edos_cov, phdos_cov, nvalence = self.data_preprocess(batch_data)
 
         if len(self.model) == 1:
             outputs = self.model[list(self.model.keys())[0]](inp, mask, pos)
@@ -262,6 +282,84 @@ class basemodel(nn.Module):
             loss_scale_e = F.mse_loss(ls[:, 0:1], tgt_e)
             loss_scale_p = F.mse_loss(ls[:, 1:2], tgt_p)
             total_loss = total_loss + self.scale_sup_w * (loss_scale_e + loss_scale_p)
+        # H1: bounded coverage supervision (needs sumnorm sum slots + Z0 sidecar).
+        # eta_true = S_win_ph*D_ph/(3N); gamma_true = S_win_e*D_e/N_val.
+        # Graceful when the sidecar is absent (v1 cache): aux stays 0, warn once.
+        loss_eta = torch.tensor(0.0, device=total_loss.device)
+        if "eta" in outputs:
+            assert self.loss_form == "sumnorm_klw", "eta head needs sumnorm sums"
+            if nvalence is None:
+                if not self._eta_missing_warned:
+                    self.logger.warning("H1: nvalence sidecar missing, eta supervision OFF")
+                    self._eta_missing_warned = True
+            else:
+                eg = outputs["eta"]
+                eta_true = (phdos_max.clamp_min(1e-12) * self.delta_phdos
+                            / (3.0 * NATOMS)).clamp(0.0, 1.0)
+                nval = nvalence.reshape(-1, 1).clamp_min(1e-12)
+                gamma_true = (edos_max.clamp_min(1e-12) * self.delta_edos
+                              / nval).clamp(0.0, 1.0)
+                finite = torch.isfinite(nvalence.reshape(-1, 1))
+                tgt = torch.cat([eta_true, gamma_true], dim=-1)
+                se = (eg - tgt) ** 2
+                loss_eta = torch.where(finite.expand_as(se), se,
+                                       torch.zeros_like(se)).mean()
+                total_loss = total_loss + self.eta_sup_w * loss_eta
+        # S1: boundary scalars from label support (covered bins, relative
+        # thresholds; scale-invariant under sumnorm). Targets in [0,1]:
+        # wmax_n=(last active phDOS bin)/64; eg_n=quiet bins around Ef/128;
+        # eval_n=(first active eDOS bin)/128. Eg touching a window edge =>
+        # ignore (-1, masked). Aux-only, needs sumnorm + masks-side shapes.
+        loss_scalar = torch.tensor(0.0, device=total_loss.device)
+        if "scalars" in outputs:
+            assert self.loss_form == "sumnorm_klw", "scalar heads need sumnorm"
+            sc = outputs["scalars"]
+            B = sc.shape[0]
+            ar_e = torch.arange(self.e_n, device=sc.device).unsqueeze(0).expand(B, -1)
+            ar_p = torch.arange(self.p_n, device=sc.device).unsqueeze(0).expand(B, -1)
+            cov_e = edos_cov.float()
+            cov_p = phdos_cov.float()
+            emax = edos_target.amax(dim=-1, keepdim=True).clamp_min(1e-12)
+            pmax = phdos_target.amax(dim=-1, keepdim=True).clamp_min(1e-12)
+            act_e = (cov_e.bool() & (edos_target > 1e-4 * emax)).float()
+            act_p = (cov_p.bool() & (phdos_target > 1e-4 * pmax)).float()
+            # wmax: last active covered phDOS bin.
+            last_p = (ar_p * act_p).amax(dim=-1)
+            wmax_n = ((last_p + 0.5) / self.p_n).clamp(0.0, 1.0)
+            # eval: first active covered eDOS bin.
+            first_e = (ar_e * act_e + (1.0 - act_e) * 1e9).amin(dim=-1)
+            first_e = torch.where(act_e.sum(dim=-1) > 0, first_e,
+                                  torch.zeros_like(first_e))
+            eval_n = ((first_e + 0.5) / self.e_n).clamp(0.0, 1.0)
+            # eg: quiet run around Ef (E=0 falls between bins 63/64).
+            quiet = (cov_e.bool() & (edos_target < 1e-3 * emax))
+            l = torch.full((B,), 63, device=sc.device, dtype=torch.long)
+            r = torch.full((B,), 64, device=sc.device, dtype=torch.long)
+            edge = torch.zeros(B, device=sc.device, dtype=torch.bool)
+            for _ in range(self.e_n):
+                # NOTE: indices clamped: boolean guards don't short-circuit
+                # eager tensor indexing (r+1==128 would OOB when r==127).
+                li = (l - 1).clamp_min(0)
+                ri = (r + 1).clamp_max(self.e_n - 1)
+                can_l = (l > 0) & quiet[torch.arange(B, device=sc.device), li]
+                can_r = (r < self.e_n - 1) & quiet[torch.arange(B, device=sc.device), ri]
+                l = torch.where(can_l, l - 1, l)
+                r = torch.where(can_r, r + 1, r)
+                edge = edge | ((l == 0) | (r == self.e_n - 1))
+                if not (can_l | can_r).any():
+                    break
+            eg_bins = (r - l - 1).float()
+            gate = quiet[torch.arange(B, device=sc.device), 63] & \
+                quiet[torch.arange(B, device=sc.device), 64]
+            eg_bins = torch.where(gate, eg_bins, torch.zeros_like(eg_bins))
+            eg_n = (eg_bins * self.delta_edos / (self.e_hi - self.e_lo)).clamp(0.0, 1.0)
+            eg_n = torch.where(edge | (eg_bins <= 0),
+                               torch.full_like(eg_n, -1.0), eg_n)
+            tgt_s = torch.stack([wmax_n, eg_n, eval_n], dim=-1)
+            keep = (tgt_s >= 0).float()
+            tgt_s = torch.where(keep.bool(), tgt_s, torch.zeros_like(tgt_s))
+            loss_scalar = ((sc - tgt_s) ** 2 * keep).sum() / keep.sum().clamp_min(1.0)
+            total_loss = total_loss + self.scalar_sup_w * loss_scalar
         # C1.3: TV(毛刺惩罚) + 梯度(峰形)正则
         loss_tv = torch.tensor(0.0, device=total_loss.device)
         loss_grad = torch.tensor(0.0, device=total_loss.device)
@@ -296,7 +394,8 @@ class basemodel(nn.Module):
             'loss_shape_p': loss_shape_p.item() if 'loss_shape_p' in locals() else 0.0,
             'loss_scale_e': loss_scale_e.item() if 'loss_scale_e' in locals() else 0.0,
             'loss_scale_p': loss_scale_p.item() if 'loss_scale_p' in locals() else 0.0,
-            'loss_gap': loss_gap.item() if 'loss_gap' in locals() else 0.0,
+            'loss_eta': loss_eta.item() if 'loss_eta' in locals() else 0.0,
+            'loss_scalar': loss_scalar.item() if 'loss_scalar' in locals() else 0.0,            'loss_gap': loss_gap.item() if 'loss_gap' in locals() else 0.0,
             'loss_sum': loss_sum.item() if 'loss_sum' in locals() else 0.0,
         }
 
@@ -304,11 +403,11 @@ class basemodel(nn.Module):
         pass
 
     def test_one_step(self, batch_data, step=None, save_predict=False):
-        # 1. 解包数据 (对应 dataset.py 返回的 14 个元素，末2为C2.3掩膜)
+        # 1. 解包数据 (对应 dataset.py 返回的 15 个元素，末3为C2.3掩膜+H1 N_val)
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
-        edos_cov, phdos_cov = self.data_preprocess(batch_data)
+        edos_cov, phdos_cov, _nvalence = self.data_preprocess(batch_data)
 
         # 2. 模型预测
         if len(self.model) == 1:
