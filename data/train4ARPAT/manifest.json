@@ -1,180 +1,180 @@
 {
  "splits": {
   "train": {
-   "n": 20040,
+   "n": 18706,
    "buckets": [
-    8623,
-    5475,
-    3611,
-    1990,
-    341
+    8609,
+    5433,
+    3490,
+    1115,
+    59
    ]
   },
   "valid": {
-   "n": 2477,
+   "n": 2313,
    "buckets": [
-    1069,
-    693,
-    423,
-    250,
-    42
+    1066,
+    685,
+    411,
+    142,
+    9
    ]
   },
   "test": {
-   "n": 2471,
+   "n": 2287,
    "buckets": [
-    1076,
-    667,
-    420,
-    253,
-    55
+    1073,
+    659,
+    407,
+    143,
+    5
    ]
   }
  },
  "files": {
   "train/elements_train.npy": {
    "shape": [
-    20040,
+    18706,
     82
    ],
-   "sha": "4101180c6ce40956"
+   "sha": "c35d50cf9504cf78"
   },
   "train/positions_train.npy": {
    "shape": [
-    20040,
+    18706,
     246
    ],
-   "sha": "97e4bf04080d52f7"
+   "sha": "5a7069e16aa7dd58"
   },
   "train/edos_tgtdos_train.npy": {
    "shape": [
-    20040,
+    18706,
     128
    ],
-   "sha": "09111d100c2028d0"
+   "sha": "db5e14c57127515c"
   },
   "train/phdos_tgtdos_train.npy": {
    "shape": [
-    20040,
+    18706,
     64
    ],
-   "sha": "45b369491ea2fb11"
+   "sha": "67756034c91fd0ea"
   },
   "train/edos_mask_train.npy": {
    "shape": [
-    20040,
+    18706,
     128
    ],
-   "sha": "ba8394ef1a6470be"
+   "sha": "3417ed66a8825344"
   },
   "train/phdos_mask_train.npy": {
    "shape": [
-    20040,
+    18706,
     64
    ],
-   "sha": "ed08ff484acb2eb3"
+   "sha": "fb27321e2a8c4718"
   },
   "train/train_index.npy": {
    "shape": [
-    20040
+    18706
    ],
-   "sha": "b2bbfeabfe447172"
+   "sha": "f792232911a1c2c8"
   },
   "valid/elements_valid.npy": {
    "shape": [
-    2477,
+    2313,
     82
    ],
-   "sha": "a226f9bf4654462e"
+   "sha": "5abd3351f456ad3b"
   },
   "valid/positions_valid.npy": {
    "shape": [
-    2477,
+    2313,
     246
    ],
-   "sha": "2780d5b948aa1f9f"
+   "sha": "f15cd98b7e34808b"
   },
   "valid/edos_tgtdos_valid.npy": {
    "shape": [
-    2477,
+    2313,
     128
    ],
-   "sha": "8e22d6638edeefc3"
+   "sha": "ab0b858a506d6639"
   },
   "valid/phdos_tgtdos_valid.npy": {
    "shape": [
-    2477,
+    2313,
     64
    ],
-   "sha": "63df06164ed93400"
+   "sha": "f202d67d7cc80718"
   },
   "valid/edos_mask_valid.npy": {
    "shape": [
-    2477,
+    2313,
     128
    ],
-   "sha": "0f7fd80be76cb204"
+   "sha": "ca2f0ef4fb73d5df"
   },
   "valid/phdos_mask_valid.npy": {
    "shape": [
-    2477,
+    2313,
     64
    ],
-   "sha": "228bcce3c7f2866f"
+   "sha": "b008de7e7100ec49"
   },
   "valid/valid_index.npy": {
    "shape": [
-    2477
+    2313
    ],
-   "sha": "dd641c102d3149bb"
+   "sha": "f043ccd29e52f213"
   },
   "test/elements_test.npy": {
    "shape": [
-    2471,
+    2287,
     82
    ],
-   "sha": "5c5420f1d514e2f6"
+   "sha": "d271fe0b6fc8ad7a"
   },
   "test/positions_test.npy": {
    "shape": [
-    2471,
+    2287,
     246
    ],
-   "sha": "324ecd6b0b5aabae"
+   "sha": "1ef1240cf3588138"
   },
   "test/edos_tgtdos_test.npy": {
    "shape": [
-    2471,
+    2287,
     128
    ],
-   "sha": "2de1a2d96b4c9aab"
+   "sha": "0a9f6bf565018a9b"
   },
   "test/phdos_tgtdos_test.npy": {
    "shape": [
-    2471,
+    2287,
     64
    ],
-   "sha": "c0599c374ddacc45"
+   "sha": "1af16e861718ecf6"
   },
   "test/edos_mask_test.npy": {
    "shape": [
-    2471,
+    2287,
     128
    ],
-   "sha": "d8dd8c2de2d30a24"
+   "sha": "c163e74a1a89a7ee"
   },
   "test/phdos_mask_test.npy": {
    "shape": [
-    2471,
+    2287,
     64
    ],
-   "sha": "8893ae6c06a7c766"
+   "sha": "f25fee4ce6f699c4"
   },
   "test/test_index.npy": {
    "shape": [
-    2471
+    2287
    ],
-   "sha": "cf7f7313b569ab33"
+   "sha": "a2ae6fa2cd7025d8"
   }
  },
  "stats_v2": {
@@ -194,5 +194,17 @@
   "valid": 2477,
   "test": 2471
  },
- "code_sha": "2eef7e928d469df4"
+ "quarantine": {
+  "version": "Q1-20260916",
+  "criterion": "C(full)/N_val<0.5 (MP-DOS NBANDS truncation; see index/z0_REPORT.md D1-D4); +14 delta-unreadable with gamma_label<0.1 (same truncation signature; 2 readable-gamma unknowns retained)",
+  "date": "2026-09-16",
+  "n_removed": 1682,
+  "per_split_removed": {
+   "train": 1334,
+   "test": 184,
+   "valid": 164
+  },
+  "list": "../quarantine_q1.json"
+ },
+ "code_sha": "b5674921d51aa0b9"
 }

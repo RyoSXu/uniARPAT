@@ -1,0 +1,386 @@
+{
+ "H": {
+  "zval": 1,
+  "conf": 2
+ },
+ "He": {
+  "zval": 2,
+  "conf": 2
+ },
+ "Li": {
+  "zval": 1,
+  "conf": 1
+ },
+ "Be": {
+  "zval": 2,
+  "conf": 1
+ },
+ "B": {
+  "zval": 3,
+  "conf": 2
+ },
+ "C": {
+  "zval": 4,
+  "conf": 2
+ },
+ "N": {
+  "zval": 5,
+  "conf": 2
+ },
+ "O": {
+  "zval": 6,
+  "conf": 2
+ },
+ "F": {
+  "zval": 7,
+  "conf": 2
+ },
+ "Ne": {
+  "zval": 8,
+  "conf": 1
+ },
+ "Na": {
+  "zval": 7,
+  "conf": 2
+ },
+ "Mg": {
+  "zval": 2,
+  "conf": 2
+ },
+ "Al": {
+  "zval": 3,
+  "conf": 2
+ },
+ "Si": {
+  "zval": 4,
+  "conf": 2
+ },
+ "P": {
+  "zval": 5,
+  "conf": 2
+ },
+ "S": {
+  "zval": 6,
+  "conf": 2
+ },
+ "Cl": {
+  "zval": 7,
+  "conf": 2
+ },
+ "Ar": {
+  "zval": 8,
+  "conf": 1
+ },
+ "K": {
+  "zval": 9,
+  "conf": 2
+ },
+ "Ca": {
+  "zval": 10,
+  "conf": 2
+ },
+ "Sc": {
+  "zval": 11,
+  "conf": 1
+ },
+ "Ti": {
+  "zval": 10,
+  "conf": 2
+ },
+ "V": {
+  "zval": 11,
+  "conf": 2
+ },
+ "Cr": {
+  "zval": 12,
+  "conf": 2
+ },
+ "Mn": {
+  "zval": 13,
+  "conf": 0
+ },
+ "Fe": {
+  "zval": 8,
+  "conf": 2
+ },
+ "Co": {
+  "zval": 9,
+  "conf": 2
+ },
+ "Ni": {
+  "zval": 10,
+  "conf": 1
+ },
+ "Cu": {
+  "zval": 11,
+  "conf": 2
+ },
+ "Zn": {
+  "zval": 12,
+  "conf": 2
+ },
+ "Ga": {
+  "zval": 13,
+  "conf": 2
+ },
+ "Ge": {
+  "zval": 14,
+  "conf": 2
+ },
+ "As": {
+  "zval": 5,
+  "conf": 2
+ },
+ "Se": {
+  "zval": 6,
+  "conf": 2
+ },
+ "Br": {
+  "zval": 7,
+  "conf": 2
+ },
+ "Kr": {
+  "zval": 8,
+  "conf": 1
+ },
+ "Rb": {
+  "zval": 9,
+  "conf": 2
+ },
+ "Sr": {
+  "zval": 10,
+  "conf": 2
+ },
+ "Y": {
+  "zval": 11,
+  "conf": 2
+ },
+ "Zr": {
+  "zval": 12,
+  "conf": 2
+ },
+ "Nb": {
+  "zval": 11,
+  "conf": 2
+ },
+ "Mo": {
+  "zval": 12,
+  "conf": 2
+ },
+ "Tc": {
+  "zval": 13,
+  "conf": 1
+ },
+ "Ru": {
+  "zval": 14,
+  "conf": 1
+ },
+ "Rh": {
+  "zval": 15,
+  "conf": 1
+ },
+ "Pd": {
+  "zval": 10,
+  "conf": 2
+ },
+ "Ag": {
+  "zval": 11,
+  "conf": 2
+ },
+ "Cd": {
+  "zval": 12,
+  "conf": 2
+ },
+ "In": {
+  "zval": 13,
+  "conf": 2
+ },
+ "Sn": {
+  "zval": 14,
+  "conf": 2
+ },
+ "Sb": {
+  "zval": 5,
+  "conf": 2
+ },
+ "Te": {
+  "zval": 6,
+  "conf": 2
+ },
+ "I": {
+  "zval": 7,
+  "conf": 2
+ },
+ "Xe": {
+  "zval": 8,
+  "conf": 1
+ },
+ "Cs": {
+  "zval": 9,
+  "conf": 2
+ },
+ "Ba": {
+  "zval": 10,
+  "conf": 2
+ },
+ "La": {
+  "zval": 11,
+  "conf": 1
+ },
+ "Ce": {
+  "zval": 12,
+  "conf": 1
+ },
+ "Pr": {
+  "zval": 11,
+  "conf": 1
+ },
+ "Nd": {
+  "zval": 11,
+  "conf": 1
+ },
+ "Pm": {
+  "zval": 11,
+  "conf": 0
+ },
+ "Sm": {
+  "zval": 11,
+  "conf": 0
+ },
+ "Eu": {
+  "zval": 9,
+  "conf": 0
+ },
+ "Gd": {
+  "zval": 9,
+  "conf": 0
+ },
+ "Tb": {
+  "zval": 9,
+  "conf": 1
+ },
+ "Dy": {
+  "zval": 9,
+  "conf": 1
+ },
+ "Ho": {
+  "zval": 9,
+  "conf": 1
+ },
+ "Er": {
+  "zval": 9,
+  "conf": 1
+ },
+ "Tm": {
+  "zval": 9,
+  "conf": 1
+ },
+ "Yb": {
+  "zval": 8,
+  "conf": 1
+ },
+ "Lu": {
+  "zval": 9,
+  "conf": 1
+ },
+ "Hf": {
+  "zval": 10,
+  "conf": 2
+ },
+ "Ta": {
+  "zval": 11,
+  "conf": 2
+ },
+ "W": {
+  "zval": 12,
+  "conf": 2
+ },
+ "Re": {
+  "zval": 13,
+  "conf": 1
+ },
+ "Os": {
+  "zval": 14,
+  "conf": 1
+ },
+ "Ir": {
+  "zval": 9,
+  "conf": 2
+ },
+ "Pt": {
+  "zval": 10,
+  "conf": 2
+ },
+ "Au": {
+  "zval": 11,
+  "conf": 2
+ },
+ "Hg": {
+  "zval": 12,
+  "conf": 2
+ },
+ "Tl": {
+  "zval": 13,
+  "conf": 2
+ },
+ "Pb": {
+  "zval": 14,
+  "conf": 2
+ },
+ "Bi": {
+  "zval": 5,
+  "conf": 2
+ },
+ "Po": {
+  "zval": 6,
+  "conf": 0
+ },
+ "At": {
+  "zval": 7,
+  "conf": 0
+ },
+ "Rn": {
+  "zval": 8,
+  "conf": 0
+ },
+ "Fr": {
+  "zval": 9,
+  "conf": 0
+ },
+ "Ra": {
+  "zval": 10,
+  "conf": 0
+ },
+ "Ac": {
+  "zval": 11,
+  "conf": 1
+ },
+ "Th": {
+  "zval": 12,
+  "conf": 2
+ },
+ "Pa": {
+  "zval": 13,
+  "conf": 1
+ },
+ "U": {
+  "zval": 14,
+  "conf": 1
+ },
+ "Np": {
+  "zval": 15,
+  "conf": 0
+ },
+ "Pu": {
+  "zval": 14,
+  "conf": 0
+ },
+ "Am": {
+  "zval": 13,
+  "conf": 0
+ },
+ "Cm": {
+  "zval": 13,
+  "conf": 0
+ }
+}

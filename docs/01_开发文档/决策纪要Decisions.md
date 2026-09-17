@@ -24,6 +24,10 @@
 11. 存储双轨：Parquet canonical + npy训练缓存；raw JSONL不可变；manifest sha。
 12. Checkpoint统一全量dict；ablation落盘有效config；环境lockfile。
 
+**数据口径（2026-09-16增补）**
+13. Q1截断隔离：C(full)/N_val<0.5（+14个不可读且γ_label<0.1）计1682出池，train/valid/test同步；
+    旧缓存归档、新缓存同名接管、旧基线标注pre-Q；此后成绩一律Q1口径。离群归因表（#6）新增“截断（NBANDS不足）→剔除”条目。
+
 ## 二、实测数字（证据，不随意见改变）
 
 - 基线：M3 eDOS med 0.493 / phDOS med 0.682；M5 blind崩（0.279/-0.130，fail 33.5%）。
