@@ -105,7 +105,7 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
-def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "sumnorm", use_mask: bool = False, dropout: float = None, weight_decay: float = None, warmup_epochs: int = None, lambda_ph: float = None, grad_clip: float = None, scale_mode: str = "eta", freeze_backbone: bool = False, init_ckpt: str = "", scale_sup_w: float = 1.0, eta_sup_w: float = 1.0, delta_edos: float = 0.09375, delta_phdos: float = 19.6875, scalar_mode: str = "none", scalar_sup_w: float = 1.0):
+def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr: float = 5e-5, skip_existing: bool = False, seed: int = 42, tag: str = "", data_dir: str = "./data/train4ARPAT", edos_num: int = 128, phdos_num: int = 64, atom_feat: str = "legacy3", energy_code: str = "none", edos_grid: str = "", tv_w: float = 0.0, grad_w: float = 0.0, peak_w: float = 1.0, tail_w: float = 1.0, tail_start: int = -1, augment: bool = False, disp_sigma: float = 0.01, norm: str = "sumnorm", use_mask: bool = False, dropout: float = None, weight_decay: float = None, warmup_epochs: int = None, lambda_ph: float = None, grad_clip: float = None, scale_mode: str = "eta", freeze_backbone: bool = False, init_ckpt: str = "", scale_sup_w: float = 1.0, eta_sup_w: float = 1.0, delta_edos: float = 0.09375, delta_phdos: float = 19.6875, scalar_mode: str = "none", scalar_sup_w: float = 1.0, use_g1: bool = False, g1_r_cut: float = 5.5, g1_max_neighbors: int = 48, q1_coord: bool = False, q1_hidden: int = 128, q2_fourier: bool = False, w_w1: float = None, w_huber: float = None):
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model name: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
 
@@ -151,6 +151,15 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
     # S1 boundary scalars (default off).
     cfg['model']['params']['sub_model']['transformer']['scalar_mode'] = scalar_mode
     cfg['model']['params']['scalar_sup_w'] = float(scalar_sup_w)
+    # E9-P0 G1 exact sparse graph (default off: off-path bit-identical).
+    cfg['model']['params']['sub_model']['transformer']['use_g1'] = bool(use_g1)
+    cfg['model']['params']['sub_model']['transformer']['g1_r_cut'] = float(g1_r_cut)
+    cfg['model']['params']['sub_model']['transformer']['g1_max_neighbors'] = int(g1_max_neighbors)
+    # E9-P0 Q1 coordinate trunks (default off).
+    cfg['model']['params']['sub_model']['transformer']['q1_coord'] = bool(q1_coord)
+    cfg['model']['params']['sub_model']['transformer']['q1_hidden'] = int(q1_hidden)
+    # E9-P0 Q2 Fourier trunk (default off; implies the trunk pathway).
+    cfg['model']['params']['sub_model']['transformer']['q2_fourier'] = bool(q2_fourier)
     # B4 hyperparams (None = config default, preserves legacy behavior).
     if dropout is not None:
         cfg['model']['params']['sub_model']['transformer']['dropout'] = float(dropout)
@@ -160,6 +169,11 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
         cfg['model']['params']['lambda_ph'] = float(lambda_ph)
     if grad_clip is not None:
         cfg['model']['params']['grad_clip'] = float(grad_clip)
+    # L3: KL/W1/Huber term ablation (None = config default 1.0/1.0, B4-style).
+    if w_w1 is not None:
+        cfg['model']['params']['w_w1'] = float(w_w1)
+    if w_huber is not None:
+        cfg['model']['params']['w_huber'] = float(w_huber)
     _wu = warmup_epochs
     cfg['model']['params']['loss_form'] = "sumnorm_klw" if norm == "sumnorm" else "smoothl1"
     _sn = (norm == "sumnorm")
@@ -188,10 +202,15 @@ def train_and_eval(model_name: str, epochs: int = 100, batch_size: int = 32, lr:
                            'norm': norm, 'use_mask': use_mask, 'dropout': dropout,
                            'weight_decay': weight_decay, 'warmup_epochs': _wu,
                            'lambda_ph': lambda_ph, 'grad_clip': grad_clip,
+                           'w_w1': w_w1, 'w_huber': w_huber,
                            'scale_mode': scale_mode, 'freeze_backbone': freeze_backbone,
                             'eta_sup_w': eta_sup_w,
                             'delta_edos': delta_edos, 'delta_phdos': delta_phdos,
                             'scalar_mode': scalar_mode, 'scalar_sup_w': scalar_sup_w,
+                            'use_g1': use_g1, 'g1_r_cut': g1_r_cut,
+                            'g1_max_neighbors': g1_max_neighbors,
+                            'q1_coord': q1_coord, 'q1_hidden': q1_hidden,
+                            'q2_fourier': q2_fourier,
                            'init_ckpt': init_ckpt, 'scale_sup_w': scale_sup_w},
                    'config': cfg}, f, indent=2, sort_keys=False,
                   default_flow_style=False)
@@ -441,9 +460,9 @@ def evaluate_split(model, dataloader, is_m5: bool = False, return_sample_level: 
             inp, pos, mask, edos_tgt, phdos_tgt, \
             edos_m, edos_s, edos_min, edos_max, \
             phdos_m, phdos_s, phdos_min, phdos_max, \
-            edos_cov, phdos_cov, _nvalence = model.data_preprocess(batch)
+            edos_cov, phdos_cov, _nvalence, edos_x, phdos_x = model.data_preprocess(batch)
 
-            outputs = model.model['transformer'](inp, mask, pos)
+            outputs = model.model['transformer'](inp, mask, pos, edos_x, phdos_x)
 
             # Targets in true physical space
             t_e = edos_tgt * (edos_max - edos_min) + edos_min
@@ -620,12 +639,20 @@ if __name__ == '__main__':
     parser.add_argument('--warmup_epochs', type=int, default=None, help='B4 warmup epochs (default 5)')
     parser.add_argument('--lambda_ph', type=float, default=None, help='B4 phonon loss weight (default 1.0)')
     parser.add_argument('--grad_clip', type=float, default=None, help='B4 grad clip max-norm (default off)')
+    parser.add_argument('--w_w1', type=float, default=None, help='L3 W1/CDF term weight (default 1.0)')
+    parser.add_argument('--w_huber', type=float, default=None, help='L3 Huber term weight (default 1.0)')
     parser.add_argument('--scale_mode', type=str, default='eta', choices=['none', 'decoupled', 'eta'], help='C2.4/H1 supervised scale/coverage head')
     parser.add_argument('--eta_sup_w', type=float, default=1.0, help='H1 eta/gamma supervision weight')
     parser.add_argument('--delta_edos', type=float, default=0.09375, help='H1 eDOS bin width (E0)')
     parser.add_argument('--delta_phdos', type=float, default=19.6875, help='H1 phDOS bin width (P0)')
     parser.add_argument('--scalar_mode', type=str, default='none', choices=['none', 's1'], help='S1 boundary scalar heads')
     parser.add_argument('--scalar_sup_w', type=float, default=1.0, help='S1 scalar supervision weight')
+    parser.add_argument('--use_g1', action='store_true', help='E9-P0 G1 exact sparse graph + hub token')
+    parser.add_argument('--g1_r_cut', type=float, default=5.5, help='G1 cutoff Angstrom (Design-E: 5.5)')
+    parser.add_argument('--g1_max_neighbors', type=int, default=48, help='G1 per-atom neighbor cap (Design-E: 48)')
+    parser.add_argument('--q1_coord', action='store_true', help='E9-P0 Q1 coordinate trunk MLPs')
+    parser.add_argument('--q1_hidden', type=int, default=128, help='Q1 trunk hidden dim')
+    parser.add_argument('--q2_fourier', action='store_true', help='E9-P0 Q2 RFF trunk (implies trunk pathway)')
     parser.add_argument('--freeze_backbone', action='store_true', help='C2.4 Phase A: train scale head only')
     parser.add_argument('--init_ckpt', type=str, default='', help='C2.4 init weights (strict=False)')
     parser.add_argument('--scale_sup_w', type=float, default=1.0, help='C2.4 scale supervision weight')
@@ -633,6 +660,6 @@ if __name__ == '__main__':
 
     if args.model == 'all':
         for m in ['M1', 'M2', 'M3', 'M4', 'M5']:
-            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w, eta_sup_w=args.eta_sup_w, delta_edos=args.delta_edos, delta_phdos=args.delta_phdos, scalar_mode=args.scalar_mode, scalar_sup_w=args.scalar_sup_w)
+            train_and_eval(m, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, w_w1=args.w_w1, w_huber=args.w_huber, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w, eta_sup_w=args.eta_sup_w, delta_edos=args.delta_edos, delta_phdos=args.delta_phdos, scalar_mode=args.scalar_mode, scalar_sup_w=args.scalar_sup_w, use_g1=args.use_g1, g1_r_cut=args.g1_r_cut, g1_max_neighbors=args.g1_max_neighbors, q1_coord=args.q1_coord, q1_hidden=args.q1_hidden, q2_fourier=args.q2_fourier)
     else:
-        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w, eta_sup_w=args.eta_sup_w, delta_edos=args.delta_edos, delta_phdos=args.delta_phdos, scalar_mode=args.scalar_mode, scalar_sup_w=args.scalar_sup_w)
+        train_and_eval(args.model, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr, skip_existing=args.skip_existing, seed=args.seed, tag=args.tag, data_dir=args.data_dir, edos_num=args.edos_num, phdos_num=args.phdos_num, atom_feat=args.atom_feat, energy_code=args.energy_code, edos_grid=args.edos_grid, tv_w=args.tv_w, grad_w=args.grad_w, peak_w=args.peak_w, tail_w=args.tail_w, tail_start=args.tail_start, augment=args.augment, disp_sigma=args.disp_sigma, norm=args.norm, use_mask=args.use_mask, dropout=args.dropout, weight_decay=args.weight_decay, warmup_epochs=args.warmup_epochs, lambda_ph=args.lambda_ph, grad_clip=args.grad_clip, w_w1=args.w_w1, w_huber=args.w_huber, scale_mode=args.scale_mode, freeze_backbone=args.freeze_backbone, init_ckpt=args.init_ckpt, scale_sup_w=args.scale_sup_w, eta_sup_w=args.eta_sup_w, delta_edos=args.delta_edos, delta_phdos=args.delta_phdos, scalar_mode=args.scalar_mode, scalar_sup_w=args.scalar_sup_w, use_g1=args.use_g1, g1_r_cut=args.g1_r_cut, g1_max_neighbors=args.g1_max_neighbors, q1_coord=args.q1_coord, q1_hidden=args.q1_hidden, q2_fourier=args.q2_fourier)

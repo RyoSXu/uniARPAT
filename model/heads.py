@@ -35,6 +35,67 @@ class EnergyCode(nn.Module):
         feats += [torch.sin(r), torch.cos(r)]
         return self.proj(torch.cat(feats, dim=-1))  # [E, 2B+2D] -> d_model
 
+
+class CoordTrunk(nn.Module):
+    """E9-P0 Q1: plain coordinate MLP, zero-init residual add-on (Design-E 9).
+
+    Trunk(x) = ZeroInitLinear(GELU(Linear(x_norm))) -> d_model, added to the
+    learned decoder query. Day-0 output is exactly zero => base behavior
+    preserved; any pilot delta is attributable to coordinate information.
+    One trunk per task (units/zeros differ: eDOS eV@Fermi, phDOS cm^-1@nu=0);
+    normalization is a fixed zero-preserving scale (no shift, no fitting).
+    Fourier/RFF generalization is Q2 scope, NOT here.
+    """
+
+    def __init__(self, d_model, hidden_dim=128, x_scale=1.0):
+        super().__init__()
+        self.x_scale = float(x_scale)
+        self.fc1 = nn.Linear(1, hidden_dim)
+        self.act = nn.GELU()
+        self.proj = nn.Linear(hidden_dim, d_model)
+        nn.init.zeros_(self.proj.weight)
+        nn.init.zeros_(self.proj.bias)
+
+    def forward(self, x):
+        """x: [..., E] bin centers in task physical units."""
+        h = self.fc1(x.unsqueeze(-1) / self.x_scale)
+        return self.proj(self.act(h))  # [..., E, d_model]
+
+
+class FourierTrunk(nn.Module):
+    """E9-P0 Q2: RFF coordinate trunk, zero-init residual add-on (Design-E 9).
+
+    feats(x) = [x_norm, sin(2πBx_norm), cos(2πBx_norm)] -> MLP -> ZeroInit
+    Day-0 output is exactly zero => base behavior preserved.
+    Task sigmas (frozen B ~ N(0, sigma^2), seed-fixed): eDOS HIGH frequency
+    (Van Hove spikes, 64 freqs sigma=8) / phDOS LOW frequency (smooth
+    phonons, 32 freqs sigma=2). Inputs clip to the training range at
+    inference (no-op on the frozen grid; future warp grids need it).
+    Q1's plain MLP is the ablation control for the Fourier factor.
+    """
+
+    def __init__(self, d_model, hidden_dim=128, n_freq=64, sigma=8.0,
+                 x_scale=1.0, seed=42, x_min=-1.0, x_max=1.0):
+        super().__init__()
+        self.x_scale = float(x_scale)
+        g = torch.Generator().manual_seed(seed)
+        self.register_buffer("freq_B", torch.randn(n_freq, generator=g) * sigma)
+        self.register_buffer("x_min", torch.tensor(float(x_min)))
+        self.register_buffer("x_max", torch.tensor(float(x_max)))
+        self.fc1 = nn.Linear(1 + 2 * n_freq, hidden_dim)
+        self.act = nn.GELU()
+        self.proj = nn.Linear(hidden_dim, d_model)
+        nn.init.zeros_(self.proj.weight)
+        nn.init.zeros_(self.proj.bias)
+
+    def forward(self, x):
+        """x: [..., E] bin centers in task physical units."""
+        xn = (x / self.x_scale).clamp(self.x_min.item(), self.x_max.item())
+        ang = 2 * np.pi * xn.unsqueeze(-1) * self.freq_B  # [..., E, F]
+        h = self.fc1(torch.cat(
+            [xn.unsqueeze(-1), torch.sin(ang), torch.cos(ang)], dim=-1))
+        return self.proj(self.act(h))  # [..., E, d_model]
+
 class CNN(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers=3, kernel_size=3, padding=1):
         super().__init__()

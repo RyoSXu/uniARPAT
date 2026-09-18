@@ -8,7 +8,14 @@
 | `census.py` / `census_rebuild.py` | eDOS全集+声子映射census（旧/新两版，rebuild为正统） | 🔄跑中 |
 | `census_repair*.py` / `census_final.py` | 中间修复稿，保留备查，勿直接跑 | 🔕 |
 | `fetch_mp_raw.py` / `fetch_raw_pilot.py` | 单批/试点抓取 | ✅pilot完成 |
-| `process.py` | 加工骨架（待填CAP/GRID） | ⚪待A4 |
+| `process.py` | 加工骨架旧稿（已被 `a4_process.py`/`a4_pass2.py` 替代，勿用） | 🔕存档 |
+| `c2b_grids.py` | C2b网格臂定义（E0–E3/P0–P2，见 `data/grids_c2b/grids.json`） | ✅2026-09-14（生产冻结E0+P0） |
+| `q1_rebuild.py` | Q1隔离物化（A5同构，干净池18706/2313/2287） | ✅2026-09-16 |
+| `recompute_phonondb.py` | A3b PhononDB复算入库（10,034零错误） | ✅2026-09-11 |
+| `download_phonondb.py` | PhononDB MDR包下载 | ✅已完成 |
+| `extract_dual.py` / `extract_phdos.py` | 双谱/声子抽取旧稿（被A4管线替代，勿用） | 🔕存档 |
+| `fetch_structures.py` | 结构批量抓取 | ✅Top-up已用 |
+| `dump_atom_features.py` | 原子特征导出（一次性） | 🔕存档 |
 | `a3c_phonondb_coverage.py` | A3c：MDR serial→legacy→canonical + 交集统计（断点续跑） | ✅2026-09-11（9938映射） |
 | `a3c_validate.py` | A3c分布验证（元素/maxfreq/晶系，全本地） | ✅2026-09-11（通过） |
 | `a7b_jarvis_coverage.py` | A7b：JVASP→canonical + 交集（A3c免费复用+API补） | ✅2026-09-11（45154映射） |

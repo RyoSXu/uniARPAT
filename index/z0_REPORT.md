@@ -19,3 +19,11 @@
 ## 用途
 - H1 η_e 监督分母：γ_true = S_win_e / N_val（S_win_e 取 sumnorm 和槽）。
 - 注意：N_val 口径 = MP-PBE-DOS 任务实际价电子数；corrupt-DOS 样本已回退，标签形状不受影响（sumnorm），仅 γ 目标用表值。
+
+## 附录：Q1 截断隔离判定（D1–D4）
+> Backlog 与 `data/quarantine_q1.json` 引用的 D1–D4 即本节。此前版本缺失，现补齐。
+
+- D1 定义：截断率 `trunc = C_win / C_full`。`C_win` 为固定窗 E0 内电子数（盒平均和槽×Δ_e），`C_full` 为全谱电子数；`trunc < 0.5` 判截断（MP-DOS 任务 NBANDS 不足，截断集胞中位 54 原子 vs 健康 8 原子，全谱电子数中位仅 9%）。
+- D2 名单：`trunc < 0.5` 计 1668 条 + Delta 不可读且 `γ_label < 0.1` 计 14 条，共 1682 出池（train 1334 / valid 164 / test 184）；2 个不可读但 γ 健康保留（无罪推定）。名单见 `data/quarantine_q1.json`，物化脚本 `tools/getdata/q1_rebuild.py`。
+- D3 口径：新缓存 `data/train4ARPAT/` 为干净口径 18706/2313/2287，γ 地板 0.002→0.106+，零泄漏；旧缓存归档 `data/archive/train4ARPAT_20260916_preQ1/`（20040/2477/2471），旧成绩一律标注 pre-Q。
+- D4 影响：eDOS 形状监督毒药出池后，B7 电子 med 0.463→0.518；phDOS 为独立任务，保持健康。此后成绩一律 Q1 口径。

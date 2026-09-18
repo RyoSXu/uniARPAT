@@ -130,12 +130,15 @@ class basemodel(nn.Module):
                         state[k] = v.to(device)
 
     def data_preprocess(self, data):
-        # 按照 dataset.py 中 __getitem__ 的返回顺序解包（C2.3掩膜附后，无文件时为None；H1 N_val第15位）
+        # 按照 dataset.py 中 __getitem__ 的返回顺序解包（C2.3掩膜附后，无文件时为None；H1 N_val第15位；Q1坐标第16/17位）
         inp, pos, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
         edos_cov, phdos_cov = data[:14]
         nvalence = data[14] if len(data) > 14 else None
+        # Q1: bin centers ride the batch (grid constants, not labels).
+        edos_x = data[15] if len(data) > 15 else None
+        phdos_x = data[16] if len(data) > 16 else None
         
         mask = (inp == 0)
         inp = inp.to(self.device, non_blocking=True)
@@ -175,10 +178,16 @@ class basemodel(nn.Module):
         else:
             nvalence = torch.as_tensor(nvalence, device=self.device).float()
 
+        # Q1: coordinates to device (None -> transformer asserts iff q1 on).
+        if torch.is_tensor(edos_x):
+            edos_x = edos_x.to(device=self.device, non_blocking=True).float()
+        if torch.is_tensor(phdos_x):
+            phdos_x = phdos_x.to(device=self.device, non_blocking=True).float()
+
         return inp, pos, mask, edos_target, phdos_target, \
                edos_mean, edos_std, edos_min, edos_max, \
                phdos_mean, phdos_std, phdos_min, phdos_max, \
-               edos_cov, phdos_cov, nvalence
+               edos_cov, phdos_cov, nvalence, edos_x, phdos_x
 
     def loss(self, predict, target):
 
@@ -200,10 +209,10 @@ class basemodel(nn.Module):
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
-        edos_cov, phdos_cov, nvalence = self.data_preprocess(batch_data)
+        edos_cov, phdos_cov, nvalence, edos_x, phdos_x = self.data_preprocess(batch_data)
 
         if len(self.model) == 1:
-            outputs = self.model[list(self.model.keys())[0]](inp, mask, pos)
+            outputs = self.model[list(self.model.keys())[0]](inp, mask, pos, edos_x, phdos_x)
             predict_edos = outputs['edos']
             predict_phdos = outputs['phdos']
             if predict_edos.dim() == 3:
@@ -403,16 +412,16 @@ class basemodel(nn.Module):
         pass
 
     def test_one_step(self, batch_data, step=None, save_predict=False):
-        # 1. 解包数据 (对应 dataset.py 返回的 15 个元素，末3为C2.3掩膜+H1 N_val)
+        # 1. 解包数据 (对应 dataset.py 返回的 17 个元素，末5为C2.3掩膜+H1 N_val+Q1坐标)
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
-        edos_cov, phdos_cov, _nvalence = self.data_preprocess(batch_data)
+        edos_cov, phdos_cov, _nvalence, edos_x, phdos_x = self.data_preprocess(batch_data)
 
         # 2. 模型预测
         if len(self.model) == 1:
             # transformer.py 返回结果字典和 attention
-            outputs = self.model[list(self.model.keys())[0]](inp, mask, pos)
+            outputs = self.model[list(self.model.keys())[0]](inp, mask, pos, edos_x, phdos_x)
             predict_edos = outputs['edos']
             predict_phdos = outputs['phdos']
             # 假设你还需要 attention 用于保存，取其中一个任务的即可

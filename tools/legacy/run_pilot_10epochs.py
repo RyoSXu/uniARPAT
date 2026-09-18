@@ -113,9 +113,9 @@ def main():
                 inp, pos, mask, edos_tgt, phdos_tgt, \
                 edos_m, edos_s, edos_min, edos_max, \
                 phdos_m, phdos_s, phdos_min, phdos_max, \
-                edos_cov, phdos_cov, _nvalence = model.data_preprocess(batch)
+                edos_cov, phdos_cov, _nvalence, edos_x, phdos_x = model.data_preprocess(batch)
 
-                outputs = model.model['transformer'](inp, mask, pos)
+                outputs = model.model['transformer'](inp, mask, pos, edos_x, phdos_x)
 
                 # 1. Blind Physical Prediction (M5)
                 p_e_blind = outputs['phys_edos']

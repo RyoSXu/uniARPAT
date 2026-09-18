@@ -6,8 +6,9 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 
 from model.heads import (
-    CNN, DeepConv1dHead, EnergyCode, EtaHead, MultiScaleResidualHead,
-    PostDecoderGatedCrossAttention, ScaleHead, global_masked_pool
+    CNN, CoordTrunk, DeepConv1dHead, EnergyCode, EtaHead, FourierTrunk,
+    MultiScaleResidualHead, PostDecoderGatedCrossAttention, ScaleHead,
+    global_masked_pool
 )
 from utils.atom_feature import AtomFeatureEncoder
 from utils.relative_features import compute_relative_features
@@ -36,7 +37,9 @@ class Transformer(nn.Module):
                  decoupled_decoder=False, use_gated_cross_attn=False,
                  head_type="legacy", predict_scale=False, atom_feat_mode="legacy3",
                   energy_code="none", edos_grid=None, scale_mode="none",
-                  scalar_mode="none"):
+                  scalar_mode="none", use_g1=False, g1_r_cut=5.5,
+                  g1_max_neighbors=48, g1_t_range=2, q1_coord=False,
+                  q1_hidden=128, q2_fourier=False):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
@@ -46,6 +49,33 @@ class Transformer(nn.Module):
         self.energy_code = energy_code
         self.scale_mode = scale_mode
         self.scalar_mode = scalar_mode
+        # E9-P0 G1 exact sparse periodic graph (Design-E section 6, default
+        # off: off-path is bit-identical to legacy). Hub token starts silent.
+        self.use_g1 = bool(use_g1)
+        self.g1_r_cut = float(g1_r_cut)
+        self.g1_max_neighbors = int(g1_max_neighbors)
+        self.g1_t_range = int(g1_t_range)
+        if self.use_g1:
+            self.g1_global = nn.Parameter(torch.zeros(1, 1, d_model))
+        # E9-P0 Q1/Q2 coordinate trunks (Design-E section 9, default off).
+        # Separate units/zeros per task: eDOS eV @ Fermi (x_scale=6),
+        # phDOS cm^-1 @ nu=0 (x_scale=980). Zero-init => day-0 == base.
+        # q2_fourier swaps the plain MLP for RFF (task sigmas); the x
+        # pathway (dataset/model.py/runner) is shared, so Q2-vs-Q1exp
+        # isolates the Fourier factor exactly.
+        self.q1_coord = bool(q1_coord or q2_fourier)
+        self.q2_fourier = bool(q2_fourier)
+        if self.q1_coord:
+            if self.q2_fourier:
+                self.edos_trunk = FourierTrunk(
+                    d_model, hidden_dim=q1_hidden, n_freq=64, sigma=8.0,
+                    x_scale=6.0, seed=42, x_min=-1.0, x_max=1.0)
+                self.phdos_trunk = FourierTrunk(
+                    d_model, hidden_dim=q1_hidden, n_freq=32, sigma=2.0,
+                    x_scale=980.0, seed=43, x_min=-280.0 / 980.0, x_max=1.0)
+            else:
+                self.edos_trunk = CoordTrunk(d_model, hidden_dim=q1_hidden, x_scale=6.0)
+                self.phdos_trunk = CoordTrunk(d_model, hidden_dim=q1_hidden, x_scale=980.0)
         # C2.4 decoupled scale head: log per-atom eDOS scale + log phDOS sum.
         # Semantics differ from M5's ScaleHead (log-min/max); fresh bias init.
         if scale_mode == "decoupled":
@@ -131,6 +161,16 @@ class Transformer(nn.Module):
             with torch.no_grad():
                 self.edos_energy.proj.weight.zero_()
                 self.edos_energy.proj.bias.zero_()
+        if self.use_g1:
+            # G1 hub token stays silent at init (long-range path grows by grad).
+            with torch.no_grad():
+                self.g1_global.zero_()
+        if self.q1_coord:
+            # Q1 trunks stay silent at init (coordinate path grows by grad).
+            with torch.no_grad():
+                for _tr in (self.edos_trunk, self.phdos_trunk):
+                    _tr.proj.weight.zero_()
+                    _tr.proj.bias.zero_()
 
         # Output Heads (~0.788M params each for symmetric configuration)
         if head_type == "symmetric":
@@ -161,8 +201,10 @@ class Transformer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_normal_(p)
 
-    def forward(self, src, mask, pos):
+    def forward(self, src, mask, pos, edos_x=None, phdos_x=None):
         # src: [B, L] atom indices; pos carries lattice+coords
+        # edos_x/phdos_x: [E]/[B,E] bin centers in task units (Q1 source of
+        # truth is the dataset batch; required iff q1_coord is on).
         B, Lp, _ = pos.shape
         atom_len = Lp - 2
         mask_atom = mask[:, 2:2 + atom_len]  # 严格对齐 src[:, 2:] 剥离哨兵后的原子区间
@@ -181,16 +223,53 @@ class Transformer(nn.Module):
         atom_src = self.fuse_proj(fused)                # [B, L, d_model]
 
         # Compute relative geometry features
-        distances, unit_dirs = compute_relative_features(pos)
+        if self.use_g1:
+            # E9-P0 G1: exact enumeration graph + hub token (Design-E section 6).
+            # Decoder/memory contract unchanged: hub is stripped before return.
+            from utils.g1_graph import build_g1_graph
+            g_d, g_u, g_adj, g_sm = build_g1_graph(
+                pos, mask_atom, r_cut=self.g1_r_cut,
+                max_neighbors=self.g1_max_neighbors, t_range=self.g1_t_range)
+            L = atom_src.size(1)
+            atom_src_ext = torch.cat([atom_src, self.g1_global.expand(B, -1, -1)], dim=1)
+            mask_ext = torch.cat(
+                [mask_atom, torch.zeros(B, 1, dtype=torch.bool, device=mask_atom.device)], dim=1)
+            Le = L + 1
+            d_ext = torch.zeros(B, Le, Le, device=pos.device, dtype=g_d.dtype)
+            d_ext[:, :L, :L] = g_d
+            u_ext = torch.zeros(B, Le, Le, 3, device=pos.device, dtype=g_u.dtype)
+            u_ext[:, :L, :L] = g_u
+            adj_ext = torch.zeros(B, Le, Le, dtype=torch.bool, device=mask_atom.device)
+            adj_ext[:, :L, :L] = g_adj
+            valid_ext = ~mask_ext
+            adj_ext[:, L, :] = valid_ext  # hub query sees all valid + self
+            adj_ext[:, :, L] = True  # every query sees the hub (padded rows: harmless)
+            sm_ext = torch.zeros(B, Le, Le, device=pos.device, dtype=g_sm.dtype)
+            sm_ext[:, :L, :L] = g_sm
+            sm_ext[:, L, :] = 1.0  # hub edges carry no geometry (rp==0 there)
+            sm_ext[:, :, L] = 1.0
+            sm_ext = torch.where(adj_ext, sm_ext, torch.zeros_like(sm_ext))
+            memory_ext = self.encoder(
+                src=atom_src_ext,
+                src_key_padding_mask=mask_ext,
+                pos=pos,
+                rel_diss=d_ext,
+                rel_dirs=u_ext,
+                g1_adj=adj_ext,
+                g1_smooth=sm_ext,
+            )
+            memory = memory_ext[:, :L, :]
+        else:
+            distances, unit_dirs = compute_relative_features(pos)
 
-        # Encoder -- sharing
-        memory = self.encoder(
-            src=atom_src,
-            src_key_padding_mask=mask_atom,
-            pos=pos,
-            rel_diss=distances,
-            rel_dirs=unit_dirs
-        )
+            # Encoder -- sharing
+            memory = self.encoder(
+                src=atom_src,
+                src_key_padding_mask=mask_atom,
+                pos=pos,
+                rel_diss=distances,
+                rel_dirs=unit_dirs
+            )
 
         results = {}
 
@@ -198,9 +277,20 @@ class Transformer(nn.Module):
         edos_query = self.edos_query_embed.unsqueeze(0).repeat(B, 1, 1)
         if self.edos_energy is not None:
             edos_query = edos_query + self.edos_energy(self.edos_grid).unsqueeze(0)
+        if self.q1_coord:
+            # Q1: coordinate-conditioned residual (zero-init => day-0 == base).
+            assert edos_x is not None and phdos_x is not None, \
+                "q1_coord needs edos_x/phdos_x from the dataset batch"
+            assert edos_x.shape[-1] == edos_query.shape[1], \
+                f"edos_x bins {edos_x.shape[-1]} != {edos_query.shape[1]}"
+            edos_query = edos_query + self.edos_trunk(edos_x.to(dtype=edos_query.dtype))
         edos_tgt_input = self.edos_tgt.unsqueeze(0).repeat(B, 1, 1)
         phdos_query = self.phdos_query_embed.unsqueeze(0).repeat(B, 1, 1)
         phdos_tgt_input = self.phdos_tgt.unsqueeze(0).repeat(B, 1, 1)
+        if self.q1_coord:
+            assert phdos_x.shape[-1] == phdos_query.shape[1], \
+                f"phdos_x bins {phdos_x.shape[-1]} != {phdos_query.shape[1]}"
+            phdos_query = phdos_query + self.phdos_trunk(phdos_x.to(dtype=phdos_query.dtype))
 
         if self.decoupled_decoder:
             hs_edos, _ = self.edos_decoder(
@@ -299,18 +389,24 @@ class TransformerEncoder(nn.Module):
             src_key_padding_mask: Optional[Tensor] = None,
             pos: Optional[Tensor] = None,
             rel_diss=None,
-            rel_dirs=None):
+            rel_dirs=None,
+            g1_adj=None,
+            g1_smooth=None):
         
         output = src
         # Compute once, reuse across all layers (H3).
         rp_base = self.rp_encoder(rel_diss, rel_dirs) if rel_diss is not None else None
+        if rp_base is not None and g1_smooth is not None:
+            # G1: quintic envelope on geometry (C2 at r_cut; hub edges rp==const).
+            rp_base = rp_base * g1_smooth.unsqueeze(-1)
     
         for layer in self.layers:
             output = layer(output,
                            src_mask=mask,
                            src_key_padding_mask=src_key_padding_mask,
                            pos=pos,
-                           rp_base=rp_base)
+                           rp_base=rp_base,
+                           g1_adj=g1_adj)
         if self.norm is not None:
             output = self.norm(output)
         return output
@@ -373,7 +469,8 @@ class TransformerEncoderLayer(nn.Module):
     def forward(self, src, src_mask: Optional[torch.Tensor] = None,
                      src_key_padding_mask: Optional[torch.Tensor] = None,
                      pos: Optional[torch.Tensor] = None,
-                     rp_base=None):
+                     rp_base=None,
+                     g1_adj=None):
 
         B, L, _ = src.size()
         
@@ -405,6 +502,13 @@ class TransformerEncoderLayer(nn.Module):
             mask_expanded = src_key_padding_mask.unsqueeze(1).unsqueeze(2)  # [B, 1, 1, L]
             mask_expanded = mask_expanded.repeat(1, self.nhead, L_, 1).view(B_ * self.nhead, L_, L_)
             total_scores = total_scores.masked_fill(mask_expanded, -1e9)
+
+        # G1: exact sparse periodic adjacency (union with padding mask above).
+        if g1_adj is not None:
+            B_, L_ = src.size(0), src.size(1)
+            g1_blocked = (~g1_adj).unsqueeze(1).repeat(
+                1, self.nhead, 1, 1).view(B_ * self.nhead, L_, L_)
+            total_scores = total_scores.masked_fill(g1_blocked, -1e9)
 
         # 计算新的注意力权重并输出
         attn_weights_new = F.softmax(total_scores, dim=-1)

@@ -1,6 +1,7 @@
 # 开发文档索引（README）
 
 > 状态：🟢现行 ｜ ✅完成（archive备查）｜ ⚪待办只进Backlog
+> 新人先看 `docs/STATUS.md`（活状态）→ `docs/INDEX.md`（地图）→ `docs/GLOSSARY.md`（术语）。
 
 ## 现行（4+1篇）
 

@@ -2,12 +2,11 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2%2B-orange.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Base Paper](https://img.shields.io/badge/npj%20Comput%20Mater-2026%20In%20Press-red.svg)](https://doi.org/10.1038/s41524-026-02199-3)
+[![License](https://img.shields.io/badge/License-TBD-lightgrey.svg)](#-license)
 
 **uniARPAT** is the next-generation unified physical deep learning framework for the joint, end-to-end prediction of **electronic density of states (eDOS)** and **phonon density of states (phDOS)** directly from unrelaxed crystal structures.
 
-Built upon the foundations of **ARPAT** (*npj Computational Materials*, 2026, Article in Press, [DOI: 10.1038/s41524-026-02199-3](https://doi.org/10.1038/s41524-026-02199-3)), uniARPAT introduces architectural decoupling, zero-initialized cross-modal gated modulation, leakage-free Shape-Scale inference, and material-specific thermodynamic property integration.
+Built upon the foundations of **ARPAT**, uniARPAT introduces leakage-free Shape-Scale inference (H1 η/γ heads), self-healing bandgap preservation, and material-specific thermodynamic integration. Week-2 的解耦/对称头/门控三假设已被 h1 否决（见下），当前默认回退 M1。
 
 ---
 
@@ -32,13 +31,15 @@ Built upon the foundations of **ARPAT** (*npj Computational Materials*, 2026, Ar
                   (~0.788M)                          (~0.788M)
                          │                               │
                          ▼                               ▼
-                 [eDOS Shape [0,1]]              [phDOS Shape [0,1]]
-                         │                               │
-                         └──────────────┬────────────────┘
-                                        ▼
-                            [ScaleHead (Log-Scales)]
-                                        │
-                                        ▼
+                  [eDOS Shape [0,1]]              [phDOS Shape [0,1]]
+                          │                               │
+                          └──────────────┬────────────────┘
+                                         ▼
+                     [H1 η/γ Heads from global features]
+                      声子 Scale=3N·η̂/Δ，电子 Scale=N_val·γ̂/Δ
+                         （图中汇合箭头仅示意相乘，不表示因果）
+                                         │
+                                         ▼
                          [True Physical Absolute Spectra]
                                         │
                                         ▼
@@ -65,43 +66,33 @@ Built upon the foundations of **ARPAT** (*npj Computational Materials*, 2026, Ar
 
 ```text
 uniARPAT/
-├── README.md                      # Publication-grade documentation
-├── requirements.txt               # Strict package dependencies
-├── .gitignore                     # Git tracking configuration
-│
-├── model/                         # Core neural network architectures
-│   ├── transformer.py             # Decoupled Transformer with safe_shape_norm
-│   ├── heads.py                   # DeepConv1dHead, MultiScaleResidualHead, GatedAttention
-│   └── model.py                   # Multi-task loss functions & vectorized metrics
-│
-├── datasets/                      # Data loaders and dataset definitions
-│   └── dataset.py                 # Multi-task crystal & DOS dataset
-│
-├── tests/                         # Automated unit test suite (10/10 passing)
-│   ├── test_model_heads.py        # Output head capacity and parameter verification
-│   ├── test_scale_norm.py         # Shape-Scale & Dying ReLU self-healing tests
-│   ├── test_gated_attention.py    # Zero-init identity & gate parameter tests
-│   └── test_thermo_props.py       # Julian-Slack and high-T Dulong-Petit tests
-│
-├── docs/                          # Comprehensive technical documentation
-│   ├── 01_开发文档/                # Core R&D proposal & Pilot acceptance report
-│   ├── 02_审查复核/                # 4-stage independent peer review records
-│   └── 03_工作日志/                # Full chronological development log
-│
-├── figures/                       # Publication-quality benchmark figures (Fig 1 - Fig 4)
-├── results/                       # Per-sample test metrics CSV and pilot checkpoints
-├── run_ablation_experiments.py    # Week-2 end-to-end ablation runner (M1 - M5)
-├── run_pilot_10epochs.py          # Week-1 10-epoch pilot verification script
-├── evaluate_and_plot.py           # Evaluation analysis and figure plotting script
-└── thermo_props.py                # Thermodynamic integration & Julian-Slack calculator
+├── README.md / AGENTS.md / docs/STATUS.md   # 入口：项目说明 / agent导航 / 活状态
+├── requirements.txt / requirements-lock.txt
+├── model/ / datasets/ / utils/              # 骨干+头 / 数据集 / 特征与调度
+├── tools/getdata/ / tools/eval/ / tools/legacy/  # 抓数加工 / verdict脚本（禁/tmp）/ 退役入口存档
+├── run_ablation_experiments.py / cif2dos.py / thermo_props.py  # 唯一训练入口 / 盲推 / 热力学库（根目录仅此3个py）
+├── configs/config.yaml                      # 被runner改写；可复现看 output/ablation_*/config_used.yaml
+├── data/train4ARPAT/                        # Q1干净缓存 18706/2313/2287；旧缓存 data/archive/*_preQ1/
+├── index/z0_*.parquet+json + z0_REPORT.md   # ZVAL表+Q1 D1–D4
+├── tests/                                   # 单测（截至09-18为34项，见下）
+├── docs/INDEX.md+GLOSSARY.md                # 文档地图+术语；中文历史目录名冻结保留
+├── results/                                 # history_*.csv + test_*_summary.csv（入库）
+└── output/                                  # checkpoint+config（不入库，以results为准）
 ```
 
 ---
 
 ## 🚀 Quickstart
 
+### 0. 数据前置（必做）
+本仓库训练依赖 Q1 干净缓存。先校验：
+```bash
+ls data/train4ARPAT/manifest.json   # 期望 train 18706 / valid 2313 / test 2287
+```
+缺数时用 `tools/getdata/q1_rebuild.py` 物化，不要重跑 A1–A6。旧缓存只在 `data/archive/*_preQ1/` 存档。
+
 ### 1. Environment Installation
-Ensure Python 3.10+ and CUDA 12.0+ are installed. Then install requirements:
+Ensure Python 3.10+ and CUDA are installed (V100 实测用 CUDA 11 系镜像；CUDA 12 仅在新卡验证过）。Then install requirements:
 
 ```bash
 pip install -r requirements.txt
@@ -113,47 +104,40 @@ Verify model parameters, self-healing activations, and physical equations:
 ```bash
 python3 -m unittest discover tests
 ```
-*(All 10 tests should pass in under 0.2 seconds).*
+*(截至 09-18 为 34 项，约 1 分钟；CPU 机约 75 秒。）*
 
-### 3. Week-1 Pilot Verification (10 Epochs)
-Quickly test training stability, VRAM consumption, and convergence:
-
+### 3. Pilot 初筛（10 Epochs）
 ```bash
-python3 run_pilot_10epochs.py
+python3 run_ablation_experiments.py --model M1 --epochs 10 --tag _xxx
 ```
-- **Tested Performance (Tesla V100)**: 107.8 s/epoch, 9.16 GB peak VRAM, Loss drops by 43.7%.
+- Q1 实测（V100，M1）：约 190 s/epoch，峰值显存约 7.2 GB。旧 `107.8 s / 9.16 GB` 为 v1 存档值，勿引。
 
-### 4. Week-2 Full Ablation Suite (100 Epochs)
-Launch the 5 ablation variants (M1 through M5) sequentially:
-
+### 4. 生产对照（B7 配方，不要裸跑）
 ```bash
-# Run all variants sequentially (approx. 16 hours on Tesla V100)
-python3 run_ablation_experiments.py --model all --epochs 100
-
-# Or run a single variant
-python3 run_ablation_experiments.py --model M5 --epochs 100
+# 唯一合法对照（Q1，sumnorm+E0P0+eta+dropout0.05）
+python3 run_ablation_experiments.py --model M1 --epochs 35 --tag _e9ctl
 ```
+禁 ` --model all --epochs 100`：会用旧默认跑出污染成绩并覆盖结果。`--tag` 必加，跨归一化禁复用 checkpoint。
 
 ---
 
 ## 📊 Baseline Benchmarks & Ablation Design
 
-### 1. Independent Baseline Audit (1,371 Unseen Test Materials)
-Evaluated strictly per-sample on completely unseen test crystals:
+### 1. 现行基线 B7（Q1 干净池，2,287 测试样本，2026-09-17）
+生产配方（sumnorm + E0P0 + H1 η/γ + dropout 0.05），best ep33：
 
-| Physical Target | Metric | Value (Mean ± Std / Median) | Notes |
-| :--- | :--- | :---: | :--- |
-| **phDOS** (64 bins) | MAE<br>$R^2$ | $0.0170 \pm 0.016$ / **0.0129**<br>$0.585 \pm 0.42$ / **0.694** | Failure rate ($R^2 < 0$): **7.37%** (101 / 1,371) |
-| **eDOS** (128 bins) | MAE<br>$R^2$ | $2.70 \pm 2.82$ / **1.77**<br>$0.374 \pm 0.65$ / **0.521** | Failure rate ($R^2 < 0$): **14.66%** (201 / 1,371) |
-| **Lattice Thermodynamics** | $\Theta_D$ MAE<br>$C_v$ MAE (300K)<br>$\kappa_L$ Pred (True) | **41.09 K**<br>**0.364 J/(mol-atom·K)**<br>**22.44 (19.56) W/(m·K)** | Relative error on $C_v$ vs Dulong-Petit is only 1.4% |
+| Physical Target | eDOS med / fail | phDOS med / fail | Notes |
+| :--- | :---: | :---: | :--- |
+| **B7 `_e9ctl`（唯一合法对照）** | **0.518 / 5.73%** | **0.741 / 3.50%** | Cv MAE 0.30 J/(mol-atom·K)；盲声子 0.735（gap p50 0.0008），盲电子 0.480（gap p50 0.010） |
+| 存档 pre-Q（B5/B6/H1，旧缓存） | 0.463–0.510 / 5.67–8.86% | 0.696–0.738 / 3.16–4.69% | 跨池禁直接比涨点 |
 
-### 2. Ablation Planning Matrix (Table 1)
+旧 1,371 样本 oracle 值（phDOS 0.694 / eDOS 0.521，Cv 0.364）为 v0-legacy 存档，勿引。
 
-> NOTE (2026-09-09 correction): M1 baseline numbers below (0.521/0.694) are the
-> original planning values. Measured 100-epoch results: eDOS med/mean 0.472/0.382,
-> phDOS med/mean 0.684/0.555 (see `results/test_m*_summary.csv`); hygiene rerun
-> (h1) in progress as the new reference. M2–M5 "Ablation run" cells were never
-> filled with measured values — do not cite them as results.
+### 2. Ablation Planning Matrix (Table 1；Week-2 规划值，参数为规划值)
+
+> NOTE（现行对照是 B7 Q1，见上表）：下表 M1 的 0.521/0.694 为 Week-2 规划初值；
+> h1（09-11）已收官，B5/B6（pre-Q）已存档。M2–M5 "Ablation run" 为空表示未测得可用值——不要引用为成绩。
+> 参数列为规划值（hygiene 后实测约 71.1M，相对关系仍有效）。
 
 | Variant | Decoder | Cross-Modal Interaction | eDOS Head | phDOS Head | Loss & Scale Scheme | Params | eDOS $R^2$ (med/mean) | phDOS $R^2$ (med/mean) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -161,26 +145,18 @@ Evaluated strictly per-sample on completely unseen test crystals:
 | **M2** | Decoupled | None | 1-layer (1.5k) | 3-layer (0.78M) | MSE (Oracle scale) | **72.96M** | *Ablation run* | *Ablation run* |
 | **M3** | Decoupled | None | Multi-Scale (0.78M) | 3-layer (0.78M) | MSE (Oracle scale) | **73.75M** | *Ablation run* | *Ablation run* |
 | **M4** | Decoupled | Zero-Init Gated | Multi-Scale (0.78M) | 3-layer (0.78M) | MSE (Oracle scale) | **75.85M** | *Ablation run* | *Ablation run* |
-| **M5 (Full)** | Decoupled | Zero-Init Gated | Multi-Scale (0.78M) | 3-layer (0.78M) | Physical Loss + Shape-Scale | **75.93M** | Pilot (val/Blind): -0.346 / -0.659 | Pilot (val/Blind): 0.461 / 0.121 |
+| **M5 (Full)** | Decoupled | Zero-Init Gated | Multi-Scale (0.78M) | 3-layer (0.78M) | Physical Loss + Shape-Scale | **75.93M** | 旧ScaleHead零梯度已作废，勿引（盲测曾崩） | — |
+
+> h1 verdict（09-11）：解耦≈零（砍回共享）、对称头负（回退轻量）、门控负（判死刑转MoE）。
+> 当前默认回退 M1，上表 M2–M4 为历史规划假设，不代表现行最优。
 
 ---
 
 ## 📖 Citation
 
-If you use uniARPAT or ARPAT in your research, please cite:
-
-```bibtex
-@article{arpat2026,
-  title={Unified Representation and Joint Learning for Electronic and Vibrational Band Structures of Crystals},
-  author={uniARPAT Research Team},
-  journal={npj Computational Materials},
-  year={2026},
-  note={Article in Press},
-  doi={10.1038/s41524-026-02199-3}
-}
-```
+Manuscript in preparation. ARPAT base reference to be added after peer-review confirmation.
 
 ---
 
 ## 📜 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+License 待补（原 MIT 链接无文件，暂按内部使用）。

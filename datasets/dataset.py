@@ -5,7 +5,7 @@ import torch
 
 
 class Dos_Dataset(Dataset):
-    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, dos_sumnorm=False, **kwargs) -> None:
+    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", **kwargs) -> None:
         super().__init__()
         self.split = split
         # C2.1: SumNorm replaces minmax (mutually exclusive; sumnorm wins if both).
@@ -46,6 +46,22 @@ class Dos_Dataset(Dataset):
         self.phdos_mask = self.get_mask_data(prefix="phdos_mask")
         # H1: per-sample N_valence sidecar (Z0 frozen; v1 cache lacks it -> None).
         self.nvalence = self.get_nvalence()
+        # E9-P0 Q1: task bin centers in physical units (Design-E section 9).
+        # eDOS eV @ Fermi=0 (E0), phDOS cm^-1 @ nu=0 (P0); constant per grid,
+        # returned per-sample so the model stays grid-agnostic (future warp
+        # grids only change the dataset, never the model). Coordinates are
+        # grid constants, NOT labels: no leakage.
+        # coords="auto" (default): production grids (128/64) attach [15]/[16];
+        # non-production grids (e.g. C2b E1/E2/P1/P2) fall back to legacy
+        # 15-item batch so off-path runs never crash. coords="on" asserts.
+        self.coords_mode = coords if isinstance(coords, str) else "auto"
+        try:
+            self.edos_x, self.phdos_x = self.get_grid_coords(
+                data_dir, edos_edges, phdos_edges)
+        except AssertionError:
+            if self.coords_mode == "on":
+                raise
+            self.edos_x, self.phdos_x = None, None
         
         self.edos_mean = torch.mean(self.edos_tgtdos, dim=1, keepdim=True).float()
         self.edos_std = torch.std(self.edos_tgtdos, dim=1, keepdim=True).float()
@@ -114,8 +130,9 @@ class Dos_Dataset(Dataset):
                 pos[2:2 + n_atom] = (pos[2:2 + n_atom] + torch.from_numpy(noise).to(pos.dtype)) % 1.0
             else:
                 pos[2:2 + n_atom] = (pos[2:2 + n_atom] + noise) % 1.0
-        # 返回 12 个元素，C2.3 掩膜附后（无文件时为None，下游转全1）
-        return [
+        # 返回 15 个基础元素；Q1 坐标按需附后（生产网格才有，无文件/非生产网格为None，下游转None）。
+        # [0-11] legacy 12 元组，[12-13] C2.3 掩膜（无文件时为None，下游转全1），[14] H1 N_val。
+        items = [
             self.elements[index],           # [0]
             pos.reshape(-1, 3),             # [1] (82,3; 与原格式一致)
             self.edos_tgtdos[index],        # [2]
@@ -132,6 +149,12 @@ class Dos_Dataset(Dataset):
             self.phdos_mask[index] if self.phdos_mask is not None else None,  # [13]
             self.nvalence[index] if self.nvalence is not None else None,      # [14] H1 N_val
         ]
+        if self.edos_x is not None and self.phdos_x is not None:
+            items += [
+                self.edos_x.clone(),  # [15] Q1 eDOS bin centers (eV @ Fermi)
+                self.phdos_x.clone(),  # [16] Q1 phDOS bin centers (cm^-1 @ nu=0)
+            ]
+        return items
 
     def get_elements(self):
         filename = os.path.join(self.data_dir, f"elements_{self.split}.npy")
@@ -156,6 +179,34 @@ class Dos_Dataset(Dataset):
         if not os.path.exists(filename):
             return None
         return torch.from_numpy(np.load(filename)).float()
+
+    @staticmethod
+    def _production_edges():
+        """Frozen production anchor E0+P0 from grids.json (C2b verdict)."""
+        import json
+        here = os.path.dirname(os.path.abspath(__file__))
+        cand = os.path.join(here, "..", "data", "grids_c2b", "grids.json")
+        with open(os.path.normpath(cand)) as f:
+            grids = json.load(f)
+        return (np.asarray(grids["E0"], dtype=np.float64),
+                np.asarray(grids["P0"], dtype=np.float64))
+
+    def get_grid_coords(self, data_dir, edos_edges, phdos_edges):
+        if edos_edges is None or phdos_edges is None:
+            _e0, _p0 = self._production_edges()
+            if edos_edges is None:
+                edos_edges = _e0
+            if phdos_edges is None:
+                phdos_edges = _p0
+        edos_edges = np.asarray(edos_edges, dtype=np.float64)
+        phdos_edges = np.asarray(phdos_edges, dtype=np.float64)
+        assert len(edos_edges) - 1 == self.edos_tgtdos.shape[1], \
+            f"Q1 edos bins {len(edos_edges)-1} != targets {self.edos_tgtdos.shape[1]}"
+        assert len(phdos_edges) - 1 == self.phdos_tgtdos.shape[1], \
+            f"Q1 phdos bins {len(phdos_edges)-1} != targets {self.phdos_tgtdos.shape[1]}"
+        edos_x = torch.tensor((edos_edges[:-1] + edos_edges[1:]) / 2, dtype=torch.float32)
+        phdos_x = torch.tensor((phdos_edges[:-1] + phdos_edges[1:]) / 2, dtype=torch.float32)
+        return edos_x, phdos_x
 
 if __name__ == "__main__":
     test = Dos_Dataset(data_dir="./data/train4ARPAT", split="train")

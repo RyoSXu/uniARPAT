@@ -2,7 +2,7 @@
 
 **建档**：2026-09-09 ｜ **状态**：待开发 ｜ **前置完成**：对照Hygiene五项（`3e6df8f`）、工程E1–E4（`5b3d280`）
 **关联文档**：[技术路线Roadmap.md](./技术路线Roadmap.md)、archive/Hygiene实施记录、[数据加工规范DataSpec.md](./数据加工规范DataSpec.md)
-**冻结基线**：v0-legacy（旧成绩）→ h1（hygiene重跑，待执行）
+**冻结基线**：B7 `_e9ctl`（Q1 干净池 18706/2313/2287，M1×35 best ep33，e med 0.518/fail 5.73%，p med 0.741/fail 3.50%）；v0-legacy/h1/B5/B6 一律 pre-Q 存档，不再引用。术语与口径见 `docs/GLOSSARY.md`，活状态见 `docs/STATUS.md`。
 
 ---
 
@@ -12,15 +12,15 @@
 |---|---|---|---|
 | Phase 0 | Z0 ZVAL对照表 + H1 η/γ头实现+冒烟 | CPU半天 | 表冻结、冒烟过 |
 | Phase 1 | H1 η pilot（M1+η/γ vs 对照） | GPU~2h | 总体+盲gap分布见 verdict |
-| Phase 2 | B5 生产百轮（sumnorm+dropout0+E0P0+η若合并） | GPU~7h | 一趟还三债：dropout长跑验证+B2生产基线+E9对照基线 |
-| Phase 3 | S1 边界标量+98/2 flag → 固定窗盲推全闭环 | GPU~2h | blind pipeline运营化 |
-| Phase 4 | E9-P0（合同§1–4），后Q/G/L串行，P0预训练再后 | 另议 | 拿B5当对照基线 |
+| Phase 2 | B5 生产百轮（sumnorm+E0P0+eta）+ B6 dropout复赛（0/0.05/0.1×35轮→默认0.05） | GPU~7h+~4h | B5 test+blind落盘 verdict；B6定dropout默认 |
+| Phase 3 | S1 边界标量（wmax/Eval已验证未合并）+ Eg死刑 + flag兑现为Q1隔离 → 固定窗盲推全闭环 | GPU~2h | blind pipeline运营化 |
+| Phase 4 | E9-P0（合同§1–4），后Q/G/L串行，P0预训练再后 | 另议 | 拿B7（Q1）当对照基线 |
 
 - **Gate铁律**：上一步verdict落盘才开下一步；挂起项进队列标注，不返工已冻部分。
 - **明确不排（E9后队列）**：C5新读出（含逐点解码验收）→ warp网格pilot → 非均匀大窗mechanization（C5门槛）→ 密度臂（备选）→ C1会师/D3/C3 → 连续谱场（E9-R&D）。
 - **主线零数据返工**：Phase 0–4标签一根不动（η/标量信号全从现有标签+掩膜+ZVAL现算）；重切只发生在E9后队列，纯CPU活，不挡路。
-- **执行状态（2026-09-17）**：Phase 0✓（Z0冻结+H1实现）→ Phase 1✓（η合并）→ Phase 2✓（B5收官+B6改dropout0.05）
-  → Phase 3半（S1：wmax/Eval已验证未合并，Eg死刑，flag兑现为Q1）→ **Q1截断隔离已执行（缓存18706/2313/2287）** → Phase 4 E9已开（对照_e9ctl收官见下，配方sumnorm+E0P0+eta+dropout0.05）。
+- **执行状态（2026-09-18）**：Phase 0✓（Z0冻结+H1实现）→ Phase 1✓（η合并）→ Phase 2✓（B5收官+B6改dropout0.05）
+  → Phase 3半（S1：wmax/Eval已验证未合并，Eg死刑，flag兑现为Q1）→ **Q1截断隔离已执行（缓存18706/2313/2287）** → Phase 4 E9进行中（B7对照收官；G1挂起→Qc1 park→Qc2 park→L3 pilot进行中，配方sumnorm+E0P0+eta+dropout0.05）。
 
 ---
 
@@ -28,7 +28,7 @@
 
 - [x] **A1 Delta整表下载**（eDOS 4.35GB/phDOS 0.35GB已落地）。
 - [x] **A2 对齐验证**（MP↔v1中位0.9935；83%单自旋；3%细胞不一致；MP↔JARVIS gap：eDOS 0.54/phDOS 0.85）。
-- [x] **A3 census收尾** → [Design-A3](2026-09-10-Design-A3census收尾.md)：有效全集154,373；声子26,609；**真双谱18,644**（7,965有声子无eDOS，已逐个复核，见`edos_absent.json`）；unresolved=0。
+- [x] **A3 census收尾** → [Design-A3](archive/2026-09-10-Design-A3census收尾.md)：有效全集154,373；声子26,609；**真双谱18,644**（7,965有声子无eDOS，已逐个复核，见`edos_absent.json`）；unresolved=0。
 - [x] **A3b PhononDB复算入库**（10,034/10,034零错误，184MB；maxfreq中位22.7THz；日志见03工作日志）。
 - [x] **A3c PhononDB覆盖映射**（2026-09-11收官，日志见03工作日志）：
   10,034 serial与复算1:1；9,938译出唯一canonical（96死ID挂unresolved，`mp-867xxx`系为主）；
@@ -92,7 +92,7 @@
 - [x] **B4 超参扫描**（2026-09-15收官，M1@E0P2+sumnorm，10轮/臂，旧网格pilot口径）：
   dropout 0（0.466/4.9%）唯一胜出并入默认；wd0.1/wu2/clip平；λ0.5边缘(+0.01)不追，λ2.0负向；
   C1.3重审（T2系数+lr1e-5）：崩塌解除但仍逊对照0.06，维持挂起。过拟合警告：下次长跑val监控守。
-- [x] **B2 v2基线重标定** → [Design-B2](2026-09-10-Design-B2v2基线重标定.md)（2026-09-14由C2b终考兼任，不另跑：
+- [x] **B2 v2基线重标定** → [Design-B2](archive/2026-09-10-Design-B2v2基线重标定.md)（2026-09-14由C2b终考兼任，不另跑：
   M1@E0P2-100：eDOS med 0.438/fail 17.1%，phDOS med 0.833/fail 2.5%。**此为旧网格成绩，存档**；生产E0P0基线见B5）。
 - [x] **B5 生产百轮**（Phase 2，2026-09-16收官，M1×100 tag _b5，E0P0+sumnorm+dropout0+eta）：
   best ep33（balanced-score选型）；test：eDOS med 0.463/fail 8.86%，phDOS med 0.696/fail 4.69%；
@@ -116,7 +116,18 @@
   η MAE 0.041/γ MAE 0.067。判决：盲能力Q1成立，尾巴仍是数据病理（E_F错位，S1/Eg队列客户），不挡E9-P0。
 
 ## 0. 最高优先级（2026-09-10置顶）
-- [ ] **E9 Encoder v2** → [Design-E](2026-09-10-Design-E编码器v2.md)（**Phase 4**，P0合同§1–4先行，Q/G/L串行，轮数另定）：自研稀疏周期图+低阶等变（G1必做/G2G3选做）+坐标query（Q1Q2必做/Q3选做）+守恒前面积审计，接口`[B,L,512]+[B,512]`不变。开工门槛B5；与C1/C2见Design-E§5分工。训练与对照一律Q1干净池，旧基线对比须标注pre-Q。
+- [ ] **E9 Encoder v2** → [Design-E](2026-09-10-Design-E编码器v2.md)（**Phase 4**，P0合同§1–4先行，Q/G/L串行，轮数另定）：自研稀疏周期图+低阶等变（G1必做/G2G3选做）+坐标query（Qc1Qc2必做/Q3选做）+守恒前面积审计，接口`[B,L,512]+[B,512]`不变。开工门槛B7（Q1池；B5仅pre-Q存档，跨池对比须标注pre-Q vs Q1）。与C1/C2见Design-E§5分工。训练与对照一律Q1干净池，旧基线对比须标注pre-Q。
+  - 2026-09-17：G1（全枚举+5.5Å+48邻居+hub，`--use_g1`默认off，7单测全过）35轮head-to-head全面打平
+    （e 0.514/5.64 vs 0.518/5.73，p 0.733/3.50 vs 0.741/3.50；盲gap一致；偏斜/小胞切片无条件胜）
+    → **G1挂起**，下一棒Qc1坐标MLP。详见日志E9P0-G1。
+  - 2026-09-18：Qc1坐标MLP（双trunk plain-MLP，`--q1_coord`默认off，5单测全过；区别于数据Q1隔离，见术语表）10轮双臂全面打平
+    （test med -0.006/-0.005，valid全差<0.005，成本中性）→ **Qc1 park不合并**（合并须有win），
+    Qc2带trunk一起做臂、对`_q1exp`裁Fourier单因子。详见日志E9P0-Q1。
+  - 2026-09-18：Qc2 Fourier（RFF trunk，eDOS64频σ8/phDOS32频σ2，`--q2_fourier`默认off，4单测全过；
+    held-out训练因撞冻结#10移交Q3/warp队列）10轮全面打平（med差<0.008，fail±0.7pt噪声）
+    → **Qc2 park，Q组关闭**（G1→Qc1→Qc2无win）。E9-P0下一候选：L3或C5前移，待总指挥定。
+  - 2026-09-18：L3（KL/W1/Huber消融：`--w_w1/--w_huber`默认None，3单测全过；
+    对照盘上`_q1ctl`）三臂pilot进行中（`_l3kl/_l3now1/_l3nohub`各10轮）。
 
 ## C. 模型线（B1/B2开门后）
 
@@ -175,7 +186,8 @@
 - [ ] **E5 结构重构批**：12元组→dict；ConfigBuilder拆分；metrics气象遗留清理；评估入口收敛；model.py拆分；constants.py；注释规范。以h1成绩为回归网（R²对齐到1e-3）。
 - [ ] **E6 数据加载升级**：长度分桶batching（数学等价，省30–50%）；v2 dataset（dict batch）。
 - [ ] **E7 lint/CI**：ruff + 单测CI。
-- [ ] **E8 入口去重**：`test_cif.py` vs `cif2dos.py` 留一；`test.py` stale修复或删除。
+- [x] **E8 入口去重**（2026-09-18执行，见 `tools/legacy/README.md`）：胜者 `cif2dos.py` + `run_ablation_experiments.py` 留根目录；
+  `test_cif.py`（v1死路径）/`test.py`+`test_script.sh`/`train.py`+`train_script.sh`（旧链）/`run_pilot_10epochs.py`（作废M5头）/`evaluate_and_plot.py`（旧布局）已 `git mv` 至 `tools/legacy/` 冻结。
 
 ## F. Backlog
 

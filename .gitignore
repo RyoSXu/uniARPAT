@@ -28,6 +28,11 @@ dosdata/
 
 # Raw Datasets
 data/*.csv
+# Local data caches (GB级， machine-local； manifest 入库，npy 缓存不入库）
+data/archive/
+data/train4ARPAT/
+!data/train4ARPAT/manifest.json
+!data/train4ARPAT/stats_v2.json
 
 # Benchmark preservation
 *.npy
