@@ -161,6 +161,9 @@ def train_and_eval(cfg: ExperimentConfig):
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_hidden']=int (cfg.q1_hidden )
     # Fourier variant of the coordinate-conditioned trunk.
     yaml_cfg ['model']['params']['sub_model']['transformer']['q2_fourier']=bool (cfg.q2_fourier )
+    # C5 fixed token-level MoE design; only the enable flag is tunable.
+    yaml_cfg ['model']['params']['sub_model']['transformer']['c5_moe']=bool (cfg.c5_moe )
+    yaml_cfg ['model']['params']['c5_moe_balance_w']=float (cfg.c5_moe_balance_w )
     # Optional optimization overrides; None keeps the template value.
     if cfg.dropout is not None :
         yaml_cfg ['model']['params']['sub_model']['transformer']['dropout']=float (cfg.dropout )
@@ -212,6 +215,7 @@ def train_and_eval(cfg: ExperimentConfig):
         'g1_max_neighbors':cfg.g1_max_neighbors ,
         'q1_coord':cfg.q1_coord ,'q1_hidden':cfg.q1_hidden ,
         'q2_fourier':cfg.q2_fourier ,
+        'c5_moe':cfg.c5_moe ,'c5_moe_balance_w':cfg.c5_moe_balance_w ,
         'init_ckpt':cfg.init_ckpt ,'scale_sup_w':cfg.scale_sup_w },
         'config':yaml_cfg },f ,indent =2 ,sort_keys =False ,
         default_flow_style =False )
@@ -304,6 +308,7 @@ def train_and_eval(cfg: ExperimentConfig):
         model .model ['transformer'].train ()
         train_loss =0.0 
         sub_loss_accum ={}
+        c5_load_accum =None
         n_batches =len (train_loader )
         t_start =time .time ()
 
@@ -312,6 +317,10 @@ def train_and_eval(cfg: ExperimentConfig):
             train_loss +=loss_dict ['loss']
             for k ,v in loss_dict .items ():
                 sub_loss_accum [k ]=sub_loss_accum .get (k ,0.0 )+v 
+            if cfg.c5_moe:
+                c5_load =model .model ['transformer'].last_c5_moe_load
+                if c5_load is not None and c5_load.numel ():
+                    c5_load_accum =c5_load.detach ().cpu ()if c5_load_accum is None else c5_load_accum +c5_load.detach ().cpu ()
             if (step +1 )%100 ==0 or (step +1 )==n_batches :
                 logger .info (
                 f"[{cfg.model_name }] Epoch [{epoch +1 :03d}/{cfg.epochs :03d}] Step [{step +1 :03d}/{n_batches :03d}] | "
@@ -323,6 +332,10 @@ def train_and_eval(cfg: ExperimentConfig):
         ep_time =time .time ()-t_start 
         train_loss /=n_batches 
         avg_sub_losses ={f"train_{k }":v /n_batches for k ,v in sub_loss_accum .items ()}
+        c5_load_metrics ={}
+        if c5_load_accum is not None:
+            c5_load =c5_load_accum /n_batches
+            c5_load_metrics ={f'c5_expert_load_{i }':float (v )for i ,v in enumerate (c5_load )}
 
         # Record peak GPU memory for this epoch in the history CSV.
         peak_vram_mb =torch .cuda .max_memory_allocated ()/(1024 **2 )if torch .cuda .is_available ()else 0.0 
@@ -348,6 +361,9 @@ def train_and_eval(cfg: ExperimentConfig):
             log_str +=f" | Oracle eDOS R2: {val_metrics ['oracle_r2_edos_median']:.3f}, phDOS R2: {val_metrics ['oracle_r2_phdos_median']:.3f}"
         if model .model ['transformer'].use_gated_cross_attn :
             log_str +=f" | Gate (a_e={alpha_e :.4f}, a_p={alpha_p :.4f})"
+        if c5_load_metrics :
+            load_text =','.join (f"{v :.2f}"for v in c5_load_metrics .values ())
+            log_str +=f" | C5 load ({load_text})"
         logger .info (log_str )
 
         history .append ({
@@ -358,6 +374,7 @@ def train_and_eval(cfg: ExperimentConfig):
         'alpha_e':alpha_e ,
         'alpha_p':alpha_p ,
         **avg_sub_losses ,
+        **c5_load_metrics ,
         **val_metrics ,
         'balanced_score':balanced 
         })
@@ -644,6 +661,7 @@ if __name__ == '__main__':
     parser.add_argument('--q1_coord', action='store_true', help='Enable coordinate-conditioned output trunks')
     parser.add_argument('--q1_hidden', type=int, default=128, help='Hidden size of coordinate trunks')
     parser.add_argument('--q2_fourier', action='store_true', help='Use Fourier features in coordinate trunks')
+    parser.add_argument('--c5_moe', action='store_true', help='Enable C5 fixed token-level Top-2 decoder MoE')
     parser.add_argument('--freeze_backbone', action='store_true', help='Train only auxiliary heads after initialization')
     parser.add_argument('--init_ckpt', type=str, default='', help='Checkpoint used to initialize the model')
     parser.add_argument('--scale_sup_w', type=float, default=1.0, help='Weight of scale-prediction supervision')

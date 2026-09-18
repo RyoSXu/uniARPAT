@@ -3,7 +3,7 @@
 ## 首先阅读
 
 每次会话先阅读 `docs/status.md`，再阅读 `docs/index.md`；涉及术语或指标时，继续阅读
-`docs/glossary.md`。模型或实验工作还要阅读 `docs/backlog.md` 中对应条目；数据工作还要
+`docs/glossary.md`。模型或实验工作还要阅读 `docs/status.md` 中对应条目；数据工作还要
 阅读 `docs/data.md` 和 `index/z0_REPORT.md`。
 
 `docs/workflow.md` 是必须遵守的会话流程，其中规定了计划、决策、日志、结果和设计文档
@@ -36,4 +36,4 @@ python3 run_ablation_experiments.py --model M1 --epochs 35 --tag _e9ctl
 - 平局线为 `|Δmed| < 0.02` 且 `|Δfail| < 1 个百分点`。
 - 工作树有未提交改动时保留无关改动。未经逐项明确批准，不得删除检查点。
 - 启动下一项实验前，确保上一项结论已写入日志、`status.md`，并在会影响后续工作时
-  同步写入 `backlog.md`。
+同步写入 `status.md`。

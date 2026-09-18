@@ -57,6 +57,8 @@ class basemodel(nn.Module):
         self.w_w1 = float(self.params.get("w_w1", 1.0))
         self.w_huber = float(self.params.get("w_huber", 1.0))
         self.huber_delta = float(self.params.get("huber_delta", 0.02))
+        # C5 token-MoE load balancing.  It is zero for every non-C5 run.
+        self.c5_moe_balance_w = float(self.params.get("c5_moe_balance_w", 0.01))
         self.begin_epoch = 0
         self.metric_best = 1000
 
@@ -206,6 +208,10 @@ class basemodel(nn.Module):
                 self.use_mask, self.peak_w, self.tail_w, self.tail_start
             )
         total_loss = loss_edos + self.lambda_ph * loss_phdos
+        loss_c5_moe_balance = torch.tensor(0.0, device=total_loss.device)
+        if "c5_moe_balance" in outputs:
+            loss_c5_moe_balance = outputs["c5_moe_balance"]
+            total_loss = total_loss + self.c5_moe_balance_w * loss_c5_moe_balance
         # Scale supervision requires sum-normalized totals.
         loss_scale_e = torch.tensor(0.0, device=total_loss.device)
         loss_scale_p = torch.tensor(0.0, device=total_loss.device)
@@ -327,6 +333,7 @@ class basemodel(nn.Module):
             'loss_eta': loss_eta.item() if 'loss_eta' in locals() else 0.0,
             'loss_scalar': loss_scalar.item() if 'loss_scalar' in locals() else 0.0,            'loss_gap': loss_gap.item() if 'loss_gap' in locals() else 0.0,
             'loss_sum': loss_sum.item() if 'loss_sum' in locals() else 0.0,
+            'loss_c5_moe_balance': loss_c5_moe_balance.item(),
         }
 
     def test_one_step(self, batch_data, step=None, save_predict=False):

@@ -39,7 +39,7 @@ class Transformer(nn.Module):
                   energy_code="none", edos_grid=None, scale_mode="none",
                   scalar_mode="none", use_g1=False, g1_r_cut=5.5,
                   g1_max_neighbors=48, g1_t_range=2, q1_coord=False,
-                  q1_hidden=128, q2_fourier=False):
+                  q1_hidden=128, q2_fourier=False, c5_moe=False):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
@@ -49,6 +49,11 @@ class Transformer(nn.Module):
         self.energy_code = energy_code
         self.scale_mode = scale_mode
         self.scalar_mode = scalar_mode
+        # C5: token-level mixture-of-experts is intentionally restricted to
+        # M1's shared decoder.  PhysMoE/decoupled routing is a later C3 task.
+        self.c5_moe = bool(c5_moe)
+        if self.c5_moe:
+            assert not decoupled_decoder, "C5 token MoE requires M1's shared decoder"
         # Optional sparse periodic graph. The hub token starts with zero weight.
         self.use_g1 = bool(use_g1)
         self.g1_r_cut = float(g1_r_cut)
@@ -129,7 +134,9 @@ class Transformer(nn.Module):
                 dropout, activation, normalize_before
             )
             decoder_norm = nn.LayerNorm(d_model)
-            self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm)
+            self.decoder = TransformerDecoder(
+                decoder_layer, num_decoder_layers, decoder_norm,
+                c5_moe=self.c5_moe)
 
         # Post-Decoder Zero-Initialized Gated Multi-Head Cross-Attention
         if use_gated_cross_attn:
@@ -304,12 +311,16 @@ class Transformer(nn.Module):
                 pos=pos,
                 query_pos=edos_query
             )
+            c5_balance_edos = self.decoder.last_c5_moe_balance
+            c5_load_edos = self.decoder.last_c5_moe_load
             hs_phdos, _ = self.decoder(
                 phdos_tgt_input, memory,
                 memory_key_padding_mask=mask_atom,
                 pos=pos,
                 query_pos=phdos_query
             )
+            c5_balance_phdos = self.decoder.last_c5_moe_balance
+            c5_load_phdos = self.decoder.last_c5_moe_load
 
         # Post-Decoder Gated Cross Attention
         if self.use_gated_cross_attn:
@@ -321,6 +332,13 @@ class Transformer(nn.Module):
 
         results['edos'] = out_edos
         results['phdos'] = out_phdos
+        if self.c5_moe:
+            # The shared decoder runs once for each task; balance both paths
+            # equally so the auxiliary term cannot favor the longer eDOS axis.
+            results['c5_moe_balance'] = 0.5 * (c5_balance_edos + c5_balance_phdos)
+            self.last_c5_moe_load = 0.5 * (c5_load_edos + c5_load_phdos)
+        else:
+            self.last_c5_moe_load = None
 
         # Optional scale predictions from pooled crystal features.
         if self.scale_mode == "decoupled":
@@ -405,11 +423,26 @@ class TransformerEncoder(nn.Module):
 
 
 class TransformerDecoder(nn.Module):
-    def __init__(self, decoder_layer, num_layers, norm=None):
+    def __init__(self, decoder_layer, num_layers, norm=None, c5_moe=False):
         super().__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.num_layers = num_layers
         self.norm = norm
+        self.c5_moe = bool(c5_moe)
+        # C5 changes only the final two decoder FFNs.  Keeping the earlier
+        # layers untouched makes the factor and its parameter budget explicit.
+        if self.c5_moe:
+            assert num_layers >= 2, "C5 needs at least two decoder layers"
+            for layer in self.layers[-2:]:
+                layer.c5_moe = C5TokenMoEResidual(
+                    d_model=layer.linear1.in_features,
+                    expert_hidden=768,
+                    num_experts=4,
+                    top_k=2,
+                    dropout=layer.dropout.p,
+                )
+        self.last_c5_moe_balance = None
+        self.last_c5_moe_load = None
 
     def forward(self, tgt, memory,
                 tgt_mask: Optional[Tensor] = None,
@@ -420,15 +453,27 @@ class TransformerDecoder(nn.Module):
                 query_pos: Optional[Tensor] = None):
         output = tgt
 
+        balance_terms = []
+        load_terms = []
         for layer in self.layers:
             output, attention = layer(output, memory, tgt_mask=tgt_mask,
                            memory_mask=memory_mask,
                            tgt_key_padding_mask=tgt_key_padding_mask,
                            memory_key_padding_mask=memory_key_padding_mask,
                            pos=pos, query_pos=query_pos)
+            if layer.last_c5_moe_balance is not None:
+                balance_terms.append(layer.last_c5_moe_balance)
+                load_terms.append(layer.last_c5_moe_load)
 
         if self.norm is not None:
             output = self.norm(output)
+
+        if balance_terms:
+            self.last_c5_moe_balance = torch.stack(balance_terms).mean()
+            self.last_c5_moe_load = torch.stack(load_terms).mean(dim=0)
+        else:
+            self.last_c5_moe_balance = output.new_zeros(())
+            self.last_c5_moe_load = output.new_zeros(0)
 
         return output, attention
 
@@ -520,6 +565,57 @@ class TransformerEncoderLayer(nn.Module):
         src = self.norm2(src)
         return src
 
+class C5TokenMoEResidual(nn.Module):
+    """Top-2 token MoE used only by C5's final shared-decoder FFNs.
+
+    The base FFN remains in place.  A zero-initialized scalar controls this
+    residual branch, so loading a B7 checkpoint into C5 is exactly output
+    preserving before optimization.  The auxiliary value is the standard
+    importance/load product minus its constant minimum of one.
+    """
+
+    def __init__(self, d_model=512, expert_hidden=768, num_experts=4,
+                 top_k=2, dropout=0.05):
+        super().__init__()
+        assert 1 <= top_k <= num_experts
+        self.num_experts = int(num_experts)
+        self.top_k = int(top_k)
+        self.gate = nn.Linear(d_model, num_experts)
+        self.experts = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(d_model, expert_hidden),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(expert_hidden, d_model),
+            )
+            for _ in range(num_experts)
+        ])
+        self.alpha = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x):
+        # x: [batch, spectrum tokens, d_model].  Only selected experts are
+        # evaluated, rather than materializing all-expert activations.
+        logits = self.gate(x)
+        top_logits, top_indices = torch.topk(logits, self.top_k, dim=-1)
+        top_weights = torch.softmax(top_logits, dim=-1)
+        self.last_top_indices = top_indices.detach()
+        routed = torch.zeros_like(x)
+        dispatch = F.one_hot(top_indices, num_classes=self.num_experts).float()
+        for expert_id, expert in enumerate(self.experts):
+            selected = dispatch[..., expert_id].any(dim=-1)
+            if not selected.any():
+                continue
+            weights = (top_weights * dispatch[..., expert_id]).sum(dim=-1)
+            routed[selected] = expert(x[selected]) * weights[selected].unsqueeze(-1)
+
+        # Both soft routing importance and hard Top-2 load participate.  The
+        # subtraction removes the constant one at uniform routing.
+        importance = torch.softmax(logits, dim=-1).mean(dim=(0, 1))
+        load = dispatch.mean(dim=(0, 1, 2))
+        balance = self.num_experts * (importance * load).sum() - 1.0
+        return self.alpha * routed, balance, load
+
+
 class TransformerDecoderLayer(nn.Module):
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
                  activation="relu", normalize_before=False):
@@ -536,6 +632,9 @@ class TransformerDecoderLayer(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
         self.dropout3 = nn.Dropout(dropout)
+        self.c5_moe = None
+        self.last_c5_moe_balance = None
+        self.last_c5_moe_load = None
 
         self.activation = _get_activation_fn(activation)
 
@@ -561,6 +660,12 @@ class TransformerDecoderLayer(nn.Module):
         tgt = tgt + self.dropout2(tgt2)
         tgt = self.norm2(tgt)
         tgt2 = self.linear2(self.dropout(self.activation(self.linear1(tgt))))
+        if self.c5_moe is not None:
+            c5_delta, self.last_c5_moe_balance, self.last_c5_moe_load = self.c5_moe(tgt)
+            tgt2 = tgt2 + c5_delta
+        else:
+            self.last_c5_moe_balance = None
+            self.last_c5_moe_load = None
         tgt = tgt + self.dropout3(tgt2)
         tgt = self.norm3(tgt)
         return tgt, attention_v

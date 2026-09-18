@@ -80,6 +80,10 @@ class ExperimentConfig:
     q1_hidden: int = 128
     q2_fourier: bool = False
 
+    # --- C5 token-level decoder MoE (frozen pilot design) ---
+    c5_moe: bool = False
+    c5_moe_balance_w: float = 0.01
+
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "ExperimentConfig":
         """Build config from parsed argparse namespace."""
