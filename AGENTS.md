@@ -1,38 +1,78 @@
-# AGENTS.md — 给 agent 的导航页（稳定约定，不记流水）
+# AGENTS.md — Agent Navigation
 
-> 活状态看 `docs/STATUS.md`（3分钟读完），再看本页。流水记工作日志，结论进 Backlog/Decisions。
+> Read `docs/status.md` first (3 min), then this page.
+> Work logs go to `docs/logs/`, conclusions go to `docs/backlog.md` and `docs/decisions.md`.
 
-## 1. 这是什么
-uniARPAT：由晶体结构端到端预测 eDOS + phDOS。当前默认：M1 共享骨干 + sumnorm-KL/W1/Huber + H1 η/γ 盲推头 + dropout 0.05 + Q1 干净池。唯一合法对照：B7 `_e9ctl`（Q1 口径，e med 0.518/fail 5.73%，p med 0.741/fail 3.50%）。
+## 1. What Is This
 
-## 2. 先读什么
-| 改哪里 | 先读 |
-|---|---|
-| 任何任务 | `docs/STATUS.md` → `docs/INDEX.md` → `docs/GLOSSARY.md` |
-| 跑实验/改模型 | `README.md` Quickstart + `docs/01_开发文档/待开发总清单Backlog.md` Phase 表 |
-| 数据口径疑问 | `docs/01_开发文档/待开发总清单Backlog.md` Q1 条 + `index/z0_REPORT.md` D1–D4 |
-| 术语（med/fail/gap/park/pre-Q） | `docs/GLOSSARY.md` |
+uniARPAT: end-to-end prediction of electronic DOS (eDOS) and phonon DOS (phDOS) from crystal structures.
 
-## 3. 常用命令
+Current default recipe: M1 shared backbone + sumnorm-KL/W1/Huber + H1 η/γ blind heads + dropout 0.05 + Q1 clean pool.
+
+Baseline: B7 `_e9ctl` (Q1, M1×35 best ep33, e med 0.518 / fail 5.73%, p med 0.741 / fail 3.50%).
+
+## 2. Read-First Checklist
+
+| Task | Read first |
+|------|------------|
+| Any task | `docs/status.md` → `docs/index.md` → `docs/glossary.md` |
+| Run experiments / modify model | `README.md` Quickstart + `docs/backlog.md` Phase table |
+| Data pipeline questions | `docs/backlog.md` Q1 section + `index/z0_REPORT.md` D1–D4 |
+| Terminology (med/fail/gap/park/pre-Q) | `docs/glossary.md` |
+
+## 3. Key Commands
+
 ```bash
-python3 -m unittest discover tests        # 全套单测（截至09-18为34项，约1分钟）
-python3 run_ablation_experiments.py --model M1 --epochs 35 --tag _e9ctl   # B7对照配方
-python3 run_ablation_experiments.py --model M1 --epochs 10 --tag _xxx      # pilot初筛
+python3 -m unittest discover tests        # Full test suite (~34 tests, ~1 min)
+python3 run_ablation_experiments.py --model M1 --epochs 35 --tag _e9ctl   # B7 baseline recipe
+python3 run_ablation_experiments.py --model M1 --epochs 10 --tag _xxx     # Pilot screening
 ```
-禁：裸跑 `--model all --epochs 100`（会污染成绩）；跨归一化复用 checkpoint（见 Backlog 跨归一化对口径）。
 
-## 4. 目录地图
-- `model/` 骨干+头、`datasets/` 数据集、`utils/` 特征/调度、`tools/getdata/` 抓数加工、`tools/eval/` 评估脚本
-- `configs/config.yaml` 被 runner 改写，唯一可复现的是 `output/ablation_*/config_used.yaml` + `results/history_*.csv`
-- `data/train4ARPAT/` Q1干净缓存（18706/2313/2287），旧缓存 `data/archive/*_preQ1/`，`output/` 不入库
-- `docs/` 见 `docs/INDEX.md`；中文历史目录名冻结保留，只加英文索引不改名
+**Forbidden:**
+- `--model all --epochs 100` without explicit approval (contaminates results)
+- Reusing checkpoints across different normalization schemes (see backlog)
 
-## 5. 实验纪律
-- 单因子、一臂一 verdict；10轮 pilot 胜者才进长跑；等算力对照；盲推报 gap 分布 p50/p90/p99。
-- 数字后缀模板：`e med/fail + p med/fail + (test|valid, epN, oracle|blind, Q1|pre-Q)`。
-- 五态：合并(win)/park(打平留代码默认off)/挂起(待长跑)/死刑(永不重做)/关闭(可重开)。详见 `docs/GLOSSARY.md`。
+## 4. Directory Map
 
-## 6. Session 协议
-- 开工：读 `docs/STATUS.md`，认领下一棒，检查上一 verdict 是否落盘（Gate铁律）。
-- 收尾必做：工作日志 `docs/03_工作日志/日志-YYYY-MM-DD-<主题>.md`（改了什么/实测/verdict/下一步）+ 更新 `docs/STATUS.md` + 结论同步 Backlog。
-- 长跑用 `setsid+nohup`，产物 `results/history_*.csv + test_*_summary.csv + samples_*.csv`，verdict 脚本入库 `tools/eval/` 不放 `/tmp`。
+```
+uniARPAT/
+├── model/          Backbone + heads + losses
+├── datasets/       Dataset class
+├── utils/          Features, metrics, config, scheduling
+├── tools/
+│   ├── data/       Data pipeline (fetch/ process/ census/)
+│   ├── eval/       Evaluation & verdict scripts
+│   └── legacy/     Archived entry points
+├── configs/        default.yaml (template only, overwritten by CLI)
+├── tests/          Unit tests
+├── docs/           Documentation (see docs/index.md)
+├── data/           Training data cache (gitignored)
+├── output/         Checkpoints (gitignored, ~74 GB)
+├── results/        Experiment CSVs (archive/ for historical)
+├── figures/        Publication figures
+└── index/          Data indices & Z0 report
+```
+
+## 5. Experiment Discipline
+
+- **Single-factor**: one arm, one verdict per experiment.
+- **Pilot first**: 10-epoch pilot; only winners proceed to long runs.
+- **Equal compute**: control and experiment arms use same epoch budget.
+- **Report format**: `e med/fail + p med/fail + (test|valid, epN, oracle|blind, Q1|pre-Q)`
+- **Five states**: win (merge) / park (neutral, code kept, default off) / pending (awaiting long run) / dead (disproven, never redo) / closed (paused, can reopen)
+- **Draw line**: |Δmed| < 0.02 and |Δfail| < 1pp = draw.
+
+## 6. Session Protocol
+
+**Start of session:**
+1. Read `docs/status.md`
+2. Claim next task
+3. Verify previous verdict is recorded (gate rule)
+
+**End of session (mandatory):**
+1. Write work log: `docs/logs/log-YYYY-MM-DD-<topic>.md`
+2. Update `docs/status.md`
+3. Sync conclusions to `docs/backlog.md`
+
+**Long runs:** use `setsid + nohup`. Artifacts go to `results/` (history_*.csv + test_*_summary.csv + samples_*.csv). Verdict scripts go to `tools/eval/`, never `/tmp`.
+```

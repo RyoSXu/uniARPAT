@@ -434,7 +434,7 @@ def build_warmup_cosine_scheduler(optimizer, epochs, warmup_epochs=5,
                                   warmup_lr=1e-5, min_lr=1e-6):
     """H4 hygiene: single LR schedule shared by train.py semantics, ablation & pilot.
 
-    Mirrors configs/config.yaml (cosine, warmup 5 epochs from warmup_lr,
+    Mirrors configs/default.yaml (cosine, warmup 5 epochs from warmup_lr,
     floor min_lr). Replaces the bare CosineAnnealingLR (no warmup) previously
     hardcoded in run_ablation_experiments.py / run_pilot_10epochs.py, so pilot
     LR curves extrapolate to full training. Stepped once per epoch.

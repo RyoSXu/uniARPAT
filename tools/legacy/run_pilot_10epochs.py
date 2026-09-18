@@ -34,7 +34,7 @@ def main():
     os.makedirs('./figures', exist_ok=True)
     os.makedirs('./output/pilot_m5', exist_ok=True)
 
-    with open('configs/config.yaml') as f:
+    with open('configs/default.yaml') as f:
         cfg = yaml.load(f, Loader=yaml.FullLoader)
 
     # Configure M5 architecture

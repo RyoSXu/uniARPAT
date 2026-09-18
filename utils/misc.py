@@ -1,5 +1,4 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-from ipaddress import ip_address
 import torch.distributed as dist
 import torch
 import os

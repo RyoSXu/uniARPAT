@@ -39,7 +39,9 @@ data/train4ARPAT/
 *.npz
 !results/*.csv
 # Data-fetch tooling runtime (scripts versioned, payloads never)
-tools/getdata/__pycache__/
-tools/getdata/*.log
-tools/getdata/raw/
+tools/data/__pycache__/
+tools/data/**/*.log
+tools/data/*/raw/
 *.jsonl
+
+results/archive/

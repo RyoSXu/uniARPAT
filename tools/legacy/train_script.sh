@@ -2,7 +2,7 @@
 python data/csv2npy.py
 python -u train.py \
   --init_method "tcp://127.0.0.1:$PORT" \
-  -c ./configs/config.yaml \
+  -c ./configs/default.yaml \
   --outdir "./output" \
   --world_size 1 \
   --desc "ARPAT" \

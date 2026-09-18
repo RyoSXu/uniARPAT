@@ -1,47 +1,6 @@
 import torch
 
 
-@torch.jit.script
-def lat(j: torch.Tensor, num_lat: int) -> torch.Tensor:
-    return 90. - j * 180./float(num_lat-1)
-
-@torch.jit.script
-def latitude_weighting_factor_torch(j: torch.Tensor, num_lat: int, s: torch.Tensor) -> torch.Tensor:
-    return num_lat * torch.cos(3.1416/180. * lat(j, num_lat))/s
-
-@torch.jit.script
-def weighted_rmse_torch_channels(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    #takes in arrays of size [n, c, h, w]  and returns latitude-weighted rmse for each chann
-    num_lat = pred.shape[2]
-    #num_long = target.shape[2]
-    lat_t = torch.arange(start=0, end=num_lat, device=pred.device)
-
-    s = torch.sum(torch.cos(3.1416/180. * lat(lat_t, num_lat)))
-    weight = torch.reshape(latitude_weighting_factor_torch(lat_t, num_lat, s), (1, 1, -1, 1))
-    result = torch.sqrt(torch.mean(weight * (pred - target)**2., dim=(-1,-2)))
-    return result
-
-@torch.jit.script
-def weighted_rmse_torch(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    result = weighted_rmse_torch_channels(pred, target)
-    return torch.mean(result, dim=0)
-
-@torch.jit.script
-def weighted_acc_torch_channels(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    #takes in arrays of size [n, c, h, w]  and returns latitude-weighted acc
-    num_lat = pred.shape[2]
-    #num_long = target.shape[2]
-    lat_t = torch.arange(start=0, end=num_lat, device=pred.device)
-    s = torch.sum(torch.cos(3.1416/180. * lat(lat_t, num_lat)))
-    weight = torch.reshape(latitude_weighting_factor_torch(lat_t, num_lat, s), (1, 1, -1, 1))
-    result = torch.sum(weight * pred * target, dim=(-1,-2)) / torch.sqrt(torch.sum(weight * pred * pred, dim=(-1,-2)) * torch.sum(weight * target *
-    target, dim=(-1,-2)))
-    return result
-
-@torch.jit.script
-def weighted_acc_torch(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    result = weighted_acc_torch_channels(pred, target)
-    return torch.mean(result, dim=0)
 
 class Metrics(object):
     """
@@ -126,83 +85,6 @@ class Metrics(object):
         sample_mae = torch.mean(torch.abs(pred - gt))
         return sample_mae.item()
 
-    # def WRMSE(self, pred, gt, data_mask, clim_time_mean_daily, data_std):
-    #     """
-    #     WRMSE metric.
-
-    #     Parameters
-    #     ----------
-
-    #     pred: tensor, required, the predicted;
-
-    #     gt: tensor, required, the ground-truth;
-
-
-    #     Returns
-    #     -------
-
-    #     The WRMSE metric.
-    #     """
-    #     return weighted_rmse_torch(pred, gt)
-
-    def WRMSE(self, pred, gt, data_mask, clim_time_mean_daily, data_std):
-        """
-        WRMSE metric.
-
-        Parameters
-        ----------
-
-        pred: tensor, required, the predicted;
-
-        gt: tensor, required, the ground-truth;
-
-
-        Returns
-        -------
-
-        The WRMSE metric.
-        """
-
-        return weighted_rmse_torch(pred, gt) * data_std
-
-    # def WACC(self, pred, gt, data_mask, clim_time_mean_daily, data_std):
-    #     """
-    #     WACC metric.
-
-    #     Parameters
-    #     ----------
-
-    #     pred: tensor, required, the predicted;
-
-    #     gt: tensor, required, the ground-truth;
-
-
-    #     Returns
-    #     -------
-
-    #     The WACC metric.
-    #     """
-    #     return weighted_acc_torch(pred, gt)
-
-    def WACC(self, pred, gt, data_mask, clim_time_mean_daily, data_std):
-        """
-        WACC metric.
-
-        Parameters
-        ----------
-
-        pred: tensor, required, the predicted;
-
-        gt: tensor, required, the ground-truth;
-
-
-        Returns
-        -------
-
-        The WACC metric.
-        """
-
-        return weighted_acc_torch(pred - clim_time_mean_daily, gt - clim_time_mean_daily)
 
 class MetricsRecorder(object):
     """

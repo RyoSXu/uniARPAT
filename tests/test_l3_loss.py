@@ -15,7 +15,7 @@ from utils.builder import ConfigBuilder
 
 def _model_with(w_w1=None, w_huber=None, seed=0):
     torch.manual_seed(seed)
-    with open("configs/config.yaml") as f:
+    with open("configs/default.yaml") as f:
         cfg = yaml.load(f, Loader=yaml.FullLoader)
     cfg["model"]["params"]["loss_form"] = "sumnorm_klw"
     cfg["model"]["params"]["dos_minmax"] = True

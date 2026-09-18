@@ -12,23 +12,7 @@ import torch.cuda.amp as amp
 import numpy as np
 import os
 
-def compute_shape_loss(pred_shape, tgt_shape):
-    pred_mean = torch.mean(pred_shape, dim=-1, keepdim=True)
-    tgt_mean = torch.mean(tgt_shape, dim=-1, keepdim=True)
-    pred_diff = pred_shape - pred_mean
-    tgt_diff = tgt_shape - tgt_mean
-    var_tgt = torch.mean(tgt_diff ** 2, dim=-1)
-
-    cov = torch.sum(pred_diff * tgt_diff, dim=-1)
-    std_p = torch.sqrt(torch.sum(pred_diff ** 2, dim=-1) + 1e-8)
-    std_t = torch.sqrt(torch.sum(tgt_diff ** 2, dim=-1) + 1e-8)
-    r_pearson = cov / (std_p * std_t + 1e-8)
-    loss_pearson = 1.0 - r_pearson
-
-    loss_mse = torch.mean((pred_shape - tgt_shape)**2, dim=-1)
-    flat_mask = (var_tgt < 1e-4)
-    loss_sample = torch.where(flat_mask, loss_mse, loss_pearson + 0.5 * loss_mse)
-    return loss_sample.mean()
+from model.losses import compute_shape_loss, sumnorm_klw_loss, tv_loss, gradient_loss, weighted_smooth_l1_loss
 
 class basemodel(nn.Module):
     def __init__(self, logger, **params) -> None:
@@ -42,7 +26,6 @@ class basemodel(nn.Module):
         self.scale_factor = self.params.get("scale_factor", 1.0)
         self.logger = logger
         self.save_best_param = self.params.get("save_best", "MSE")
-        self.metric_best = None
         self.constants_len = self.params.get("constants_len", 0)
         # C1.3: TV/gradient loss + physical weighting (defaults = legacy behavior).
         self.tv_w = float(self.params.get("tv_w", 0.0))
@@ -79,13 +62,8 @@ class basemodel(nn.Module):
 
         self.gscaler = amp.GradScaler(init_scale=1024, growth_interval=2000)
         
-        # self.whether_final_test = self.params.get("final_test", False)
-        # self.predict_length = self.params.get("predict_length", 20)
-
         # load model
-        # print(params)
         sub_model = params.get('sub_model', {})
-        # print(sub_model)
         for key in sub_model:
             if key == "transformer":
                 self.model[key] = Transformer(**sub_model["transformer"])
@@ -100,8 +78,6 @@ class basemodel(nn.Module):
 
         optimizer = params.get('optimizer', {})
         lr_scheduler = params.get('lr_scheduler', {})
-        # print(optimizer)
-        # print(lr_scheduler)
         for key in self.sub_model_name:
             if key in optimizer:
                 self.optimizer[key] = get_optimizer(self.model[key], optimizer[key])
@@ -233,52 +209,14 @@ class basemodel(nn.Module):
             # C2.1: targets arrive sum-normalized (dataset dos_sumnorm; denorm via
             # sum slots keeps eval identical). Dual track KL + W1 + Huber on dists.
             # C2.3: masked softmax (covered bins only) when use_mask.
-            def _klw(p_raw, q, cov):
-                if self.use_mask:
-                    eff = cov.clone()
-                    eff[eff.sum(dim=-1) == 0] = True  # 全空行回退无掩膜
-                    p_raw = p_raw.masked_fill(~eff, float("-inf"))
-                logp = F.log_softmax(p_raw, dim=-1)
-                # q含精确零(掩膜bin): 内层0*inf恒nan, 用where按eff选取丢弃(非传播).
-                _inner = q * (q.clamp_min(1e-12).log() - logp)
-                _sel = eff if self.use_mask else torch.ones_like(q, dtype=torch.bool)
-                kl = torch.where(_sel, _inner, torch.zeros_like(_inner)).sum(dim=-1)
-                p = logp.exp()
-                if self.use_mask:
-                    cw = eff.float()
-                    w1 = ((p.cumsum(dim=-1) - q.cumsum(dim=-1)).abs() * cw).sum(dim=-1) / cw.sum(dim=-1).clamp_min(1)
-                    hub = (F.huber_loss(p, q, reduction="none", delta=self.huber_delta) * cw).sum(dim=-1) / cw.sum(dim=-1).clamp_min(1)
-                else:
-                    w1 = (p.cumsum(dim=-1) - q.cumsum(dim=-1)).abs().mean(dim=-1)
-                    hub = F.huber_loss(p, q, reduction="none", delta=self.huber_delta).mean(dim=-1)
-                return kl + self.w_w1 * w1 + self.w_huber * hub
-            loss_edos = _klw(predict_edos, edos_target, edos_cov).mean()
-            loss_phdos = _klw(predict_phdos, phdos_target, phdos_cov).mean()
-        elif self.peak_w == 1.0 and self.tail_w == 1.0:
-            if self.use_mask:
-                # C2.3: 覆盖bin内平均，全空行回退
-                def _mmean(elem, cov):
-                    cw = cov.float()
-                    cw[cw.sum(dim=-1) == 0] = 1.0
-                    return ((elem * cw).sum(dim=-1) / cw.sum(dim=-1).clamp_min(1)).mean()
-                loss_edos = _mmean(F.smooth_l1_loss(predict_edos, edos_target, reduction="none"), edos_cov)
-                loss_phdos = _mmean(F.smooth_l1_loss(predict_phdos, phdos_target, reduction="none"), phdos_cov)
-            else:
-                loss_edos = F.smooth_l1_loss(predict_edos, edos_target)
-                loss_phdos = F.smooth_l1_loss(predict_phdos, phdos_target)
+            loss_edos = sumnorm_klw_loss(predict_edos, edos_target, edos_cov, self.use_mask, self.w_w1, self.w_huber, self.huber_delta).mean()
+            loss_phdos = sumnorm_klw_loss(predict_phdos, phdos_target, phdos_cov, self.use_mask, self.w_w1, self.w_huber, self.huber_delta).mean()
         else:
-            # C1.3 物理加权: 峰区(>均值+标准差)×peak_w + 声子尾部×tail_w
-            def _w(tgt, tail=False):
-                w = torch.ones_like(tgt)
-                peak = tgt > (tgt.mean(dim=-1, keepdim=True) + tgt.std(dim=-1, keepdim=True))
-                w = torch.where(peak, torch.full_like(w, self.peak_w), w)
-                if tail and self.tail_start >= 0 and tgt.shape[-1] > self.tail_start:
-                    w[..., self.tail_start:] *= self.tail_w
-                return w
-            loss_edos = (F.smooth_l1_loss(predict_edos, edos_target, reduction="none")
-                         * _w(edos_target)).mean()
-            loss_phdos = (F.smooth_l1_loss(predict_phdos, phdos_target, reduction="none")
-                          * _w(phdos_target, tail=True)).mean()
+            loss_edos, loss_phdos = weighted_smooth_l1_loss(
+                predict_edos, edos_target, edos_cov,
+                predict_phdos, phdos_target, phdos_cov,
+                self.use_mask, self.peak_w, self.tail_w, self.tail_start
+            )
         total_loss = loss_edos + self.lambda_ph * loss_phdos
         # C2.4: supervised decoupled scale (needs sumnorm sum slots).
         loss_scale_e = torch.tensor(0.0, device=total_loss.device)
@@ -373,15 +311,10 @@ class basemodel(nn.Module):
         loss_tv = torch.tensor(0.0, device=total_loss.device)
         loss_grad = torch.tensor(0.0, device=total_loss.device)
         if self.tv_w > 0:
-            loss_tv = (predict_edos[:, 1:] - predict_edos[:, :-1]).abs().mean() \
-                + (predict_phdos[:, 1:] - predict_phdos[:, :-1]).abs().mean()
+            loss_tv = tv_loss(predict_edos, predict_phdos)
             total_loss = total_loss + self.tv_w * loss_tv
         if self.grad_w > 0:
-            ge = (predict_edos[:, 1:] - predict_edos[:, :-1]
-                  - (edos_target[:, 1:] - edos_target[:, :-1])).pow(2).mean()
-            gp = (predict_phdos[:, 1:] - predict_phdos[:, :-1]
-                  - (phdos_target[:, 1:] - phdos_target[:, :-1])).pow(2).mean()
-            loss_grad = ge + gp
+            loss_grad = gradient_loss(predict_edos, predict_phdos, edos_target, phdos_target)
             total_loss = total_loss + self.grad_w * loss_grad
 
         if len(self.optimizer) == 1:
@@ -407,9 +340,6 @@ class basemodel(nn.Module):
             'loss_scalar': loss_scalar.item() if 'loss_scalar' in locals() else 0.0,            'loss_gap': loss_gap.item() if 'loss_gap' in locals() else 0.0,
             'loss_sum': loss_sum.item() if 'loss_sum' in locals() else 0.0,
         }
-
-    def multi_step_predict(self, batch_data, clim_time_mean_daily, data_std, index, batch_len):
-        pass
 
     def test_one_step(self, batch_data, step=None, save_predict=False):
         # 1. 解包数据 (对应 dataset.py 返回的 17 个元素，末5为C2.3掩膜+H1 N_val+Q1坐标)
@@ -550,9 +480,6 @@ class basemodel(nn.Module):
                 self.lr_scheduler[key].step(epoch)
 
 
-        # test_logger = {}
-
-
         end_time = time.time()           
         for key in self.optimizer:              # only train model which has optimizer
             self.model[key].train()
@@ -602,8 +529,6 @@ class basemodel(nn.Module):
                         memory=torch.cuda.max_memory_allocated() / (1024. * 1024),
                         meters=str(metric_logger)
                     ))
-                # begin_time1 = time.time()
-                # print("logger output time:", begin_time1-end_time)
 
     def load_checkpoint(self, checkpoint_path):
         checkpoint_dict = torch.load(checkpoint_path, map_location=torch.device('cpu'))
@@ -669,29 +594,13 @@ class basemodel(nn.Module):
 
             train_data_loader.sampler.set_epoch(epoch)
             self.train_one_epoch(train_data_loader, epoch, max_epoches)
-            # # update lr_scheduler
-            # begin_time = time.time()
-
-            
-            # begin_time1 = time.time()
-            # print("lrscheduler time:", begin_time1 - begin_time)
-            # test model
-            #metric_logger = self.test(valid_data_loader, epoch)
             metric_logger = self.test(valid_data_loader, epoch)
-            
-
-            # begin_time2 = time.time()
-            # print("test time:", begin_time2 - begin_time1)
-
             
             # save model
             if checkpoint_savedir is not None:
                 if self.whether_save_best(metric_logger):
                     self.save_checkpoint(epoch, checkpoint_savedir, save_type='save_best')
-                if (epoch + 1) % 1 == 0:
-                    self.save_checkpoint(epoch, checkpoint_savedir, save_type='save_latest')
-            # end_time = time.time()
-            # print("save model time", end_time - begin_time2)
+                self.save_checkpoint(epoch, checkpoint_savedir, save_type='save_latest')
         
 
     @torch.no_grad()
@@ -726,41 +635,5 @@ class basemodel(nn.Module):
                  ))
 
         return metric_logger
-
-    @torch.no_grad()
-    def test_final(self, valid_data_loader, predict_length):
-        metric_logger = []
-        for i in range(predict_length):
-            metric_logger.append(utils.MetricLogger(delimiter="  "))
-        # set model to eval
-        for key in self.model:
-            self.model[key].eval()
-
-        data_mean, data_std = valid_data_loader.dataset.get_meanstd()
-        clim_time_mean_daily = valid_data_loader.dataset.get_clim_daily()
-        clim_time_mean_daily = clim_time_mean_daily.to(self.device)
-        data_std = data_std.to(self.device)
-        index = 0
-        for step, batch in enumerate(valid_data_loader):
-            #print(step)
-            batch_len = batch[0].shape[0]
-            losses = self.multi_step_predict(batch, clim_time_mean_daily, data_std, index, batch_len)
-            for i in range(len(losses)):
-                metric_logger[i].update(**losses[i])
-            index += batch_len
-
-            self.logger.info("#"*80)
-
-            for i in range(predict_length):
-                self.logger.info('  '.join(
-                        [f'final valid {i}th step predict (val stats)',
-                        "{meters}"]).format(
-                            meters=str(metric_logger[i])
-                        ))
-
-        return None
-
-    def stat(self):
-        pass
 
 
