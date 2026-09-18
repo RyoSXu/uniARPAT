@@ -47,7 +47,8 @@ def test_q1_grid_coordinates():
     """Dataset x == E0/P0 centers; widths match H1 deltas; zeros per Design."""
     from datasets.dataset import Dos_Dataset
     ds = Dos_Dataset(data_dir="./data/train4ARPAT", split="test")
-    grids = json.load(open("./data/grids_c2b/grids.json"))
+    with open("./data/grids_c2b/grids.json", encoding="utf-8") as f:
+        grids = json.load(f)
     e0 = np.asarray(grids["E0"], dtype=float)
     p0 = np.asarray(grids["P0"], dtype=float)
     ex = ds[0][15].numpy()

@@ -8,14 +8,14 @@ class Dos_Dataset(Dataset):
     def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", **kwargs) -> None:
         super().__init__()
         self.split = split
-        # C2.1: SumNorm replaces minmax (mutually exclusive; sumnorm wins if both).
+        # Sum normalization replaces min-max normalization when selected.
         # min/max slots are reused as (0, sum) so oracle denorm pred*(max-min)+min
         # == pred*sum keeps working UNCHANGED in all eval code. mean/std dummies.
         self.dos_sumnorm = bool(dos_sumnorm)
         if self.dos_sumnorm:
             dos_minmax = False
             dos_zscore = False
-        # C1.4: train-only stochastic displacement (valid/test stay deterministic).
+        # Coordinate displacement is applied only to training samples.
         # Rotation is intentionally ABSENT: the 82-format carries no orientation
         # (lattice scalars + frac coords; build_cell convention fixed), so any
         # global rotation maps to bit-identical inputs => provably no-op.
@@ -29,7 +29,7 @@ class Dos_Dataset(Dataset):
         
         self.elements  = self.get_elements()  #size (__len__, src_len)
         self.positions = self.get_positions() #size (__len__, src_len*3)
-        # C2.3: coverage masks (optional files; v1 cache lacks them -> None).
+        # Coverage masks are optional because older caches do not provide them.
         self.masks_available = (
             os.path.exists(os.path.join(self.data_dir, f"edos_mask_{split}.npy"))
             and os.path.exists(os.path.join(self.data_dir, f"phdos_mask_{split}.npy")))
@@ -44,16 +44,12 @@ class Dos_Dataset(Dataset):
 
         self.edos_mask = self.get_mask_data(prefix="edos_mask")
         self.phdos_mask = self.get_mask_data(prefix="phdos_mask")
-        # H1: per-sample N_valence sidecar (Z0 frozen; v1 cache lacks it -> None).
+        # Valence counts are optional metadata for blind scale supervision.
         self.nvalence = self.get_nvalence()
-        # E9-P0 Q1: task bin centers in physical units (Design-E section 9).
-        # eDOS eV @ Fermi=0 (E0), phDOS cm^-1 @ nu=0 (P0); constant per grid,
-        # returned per-sample so the model stays grid-agnostic (future warp
-        # grids only change the dataset, never the model). Coordinates are
-        # grid constants, NOT labels: no leakage.
-        # coords="auto" (default): production grids (128/64) attach [15]/[16];
-        # non-production grids (e.g. C2b E1/E2/P1/P2) fall back to legacy
-        # 15-item batch so off-path runs never crash. coords="on" asserts.
+        # Bin centers in physical units are metadata, not target labels.
+        # Coordinates are grid constants, not labels: eDOS is relative to Fermi
+        # energy and phDOS is relative to zero frequency. They are attached only
+        # when the output lengths match the production grid.
         self.coords_mode = coords if isinstance(coords, str) else "auto"
         try:
             self.edos_x, self.phdos_x = self.get_grid_coords(
@@ -118,8 +114,8 @@ class Dos_Dataset(Dataset):
         pos = self.positions[index].reshape(-1, 3).clone() \
             if torch.is_tensor(self.positions[index]) else self.positions[index].reshape(-1, 3).copy()
         if self.augment:
-            # C1.4 phonon displacement: frac rows only, periodic wrap.
-            # NOTE: elements[0:2] are sentinels (126/127, nonzero) -> count from [2:].
+            # Perturb fractional atom rows and wrap them into the unit cell.
+            # The first two element slots are non-atom sentinel tokens.
             el = self.elements[index]
             n_atom = int(((el[2:] != 0).sum()).item()) if torch.is_tensor(el) \
                 else int((el[2:] != 0).sum())
@@ -130,8 +126,8 @@ class Dos_Dataset(Dataset):
                 pos[2:2 + n_atom] = (pos[2:2 + n_atom] + torch.from_numpy(noise).to(pos.dtype)) % 1.0
             else:
                 pos[2:2 + n_atom] = (pos[2:2 + n_atom] + noise) % 1.0
-        # 返回 15 个基础元素；Q1 坐标按需附后（生产网格才有，无文件/非生产网格为None，下游转None）。
-        # [0-11] legacy 12 元组，[12-13] C2.3 掩膜（无文件时为None，下游转全1），[14] H1 N_val。
+        # The base batch has 15 fields; bin centers are appended only for the
+        # production grid. Missing masks are converted to all-ones downstream.
         items = [
             self.elements[index],           # [0]
             pos.reshape(-1, 3),             # [1] (82,3; 与原格式一致)

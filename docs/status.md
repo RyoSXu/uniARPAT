@@ -1,17 +1,30 @@
-# Status (living doc — update at end of each session; history goes to logs)
+# 当前状态
 
-Updated: 2026-09-18 | Baseline: B7 `_e9ctl` (Q1, M1×35 best ep33, e 0.518/5.73% p 0.741/3.50% Cv 0.30)
+更新日期：2026-09-18｜基线：B7 `_e9ctl`（Q1、M1×35、最佳 ep33；e 0.518/5.73%，p 0.741/3.50%，Cv 0.30）
 
-## Now
-- E9-P0: G1 pending → Qc1 parked → Qc2 parked (Q group closed) → L3 closed (three-arm draw; loss track graduated; see log E9P0-L3).
-- Data: Q1 clean pool 18,706 / 2,313 / 2,287; legacy cache archived at `data/archive/train4ARPAT_20260916_preQ1/`.
-- Default recipe: sumnorm + E0P0 + eta + dropout 0.05.
-- Structure cleanup (09-18): root has 3 .py entry points; legacy entry points archived to `tools/legacy/`; docs reorganized to English; dead code removed; ExperimentConfig dataclass + losses.py extracted.
+## 正在进行
 
-## Next (sequential — one at a time)
-1. Commander to decide: C5 fast-track or next E9-P0 candidate (after L3 closure).
-2. E9 backlog (do not start early): C5 new readout → warp grids → non-uniform large window → density arm → C1 reunion / D3 / C3 → continuous spectral field.
+- E9-P0：G1（周期图编码器）、E9-Q1（坐标 MLP）和 E9-Q2（Fourier）已搁置；L3（KL/W1/Huber 损失消融）在三组对照平局后关闭。下一项候选工作需要项目负责人决定。
+- 数据：Q1 清洁数据池的训练/验证/测试数量为 18,706 / 2,313 / 2,287；旧缓存归档于
+  `data/archive/train4ARPAT_20260916_preQ1/`。
+- 默认方案：在 E0/P0 网格上使用总和归一化损失、H1 eta/gamma 盲推理缩放，以及 0.05 dropout
+  （定义见 `glossary.md`）。
+- 信息架构清理（09-18）：当前工作文档职责明确；已删除重复文档、探索性 AI 调研报告、
+  过时计划和评审、同日重复的重构日志，以及绑定已退役外部工作区的一次性数据脚本。Git
+  历史保留已替代材料。受版本控制的数据工具中不再保留凭据字面量。
+- 推理：`cif2dos.py` 目前是 M4 兼容工具，不是 B7 M1 盲推理模型的导出路径。
+- 文本审计（09-18）：活跃文档、命令帮助和维护中代码的注释均使用当前术语；历史实验标签仅
+  保留于带日期的日志和 Git 历史中。历史日志中的退役路径均已标注为历史证据，不能作为当前
+  操作指引。所有说明性文档统一使用中文，命令、路径、项目代号和通用技术术语可保留英文。
 
-## Blockers / Watch
-- `dataset.py` coords default assertion regression fixed (auto fallback). Smoke test before C2b reruns.
-- `output/` ~74 GB checkpoints: do NOT delete any checkpoint without explicit per-item commander approval (irreversible GPU cost). `output/*/config_used.yaml` not tracked; use `results/` as source of truth.
+## 下一步（顺序执行，一次一项）
+
+1. 项目负责人决定：L3 关闭后，选择 C5 快速通道或下一项 E9-P0 候选工作。
+2. 作出决定后：C5 读出层关卡 → 可选的非均匀网格工作 → 辅助数据与表征候选工作。
+
+## 阻塞与关注点
+
+- `dataset.py` 中坐标默认断言的回归已修复（自动回退）。在重跑 C2b 前做冒烟测试。
+- `output/` 中约有 74 GB 检查点：未经项目负责人逐项明确批准，**不得删除任何检查点**，
+  因为重新训练的 GPU 成本不可逆。`output/*/config_used.yaml` 是本地文件；为保证复现，
+  应将 `results/` 与日志中的命令配对保存。

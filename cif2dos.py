@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""uniARPAT-v2 pure end-to-end production tool: CIF -> DOS (Step 4).
+"""Legacy M4 inference compatibility entry point: CIF -> eDOS/phDOS.
 
-Implements docs/01_开发文档/2026-09-09_uniARPAT_v2生产级集成与P0修复开发方案.md §3:
+The command accepts a compatible trained checkpoint and produces DOS,
+thermodynamic properties, and figures without ground-truth target spectra.
+This command is not the B7 M1 blind-inference export path. See README.md and
+docs/data.md for the current data and model contract.
 
   1. CLI: --cif / --cif_dir / --weights / --output / --device (+ --smoke)
   2. Pure pymatgen parsing: Structure -> elements (82) + positions (82,3 / flat 246),
      row-0 col-2 strictly stores 1/c (reciprocal contract, FIX-P0-02).
-  3. Zero-oracle forward with uniARPAT-v2 M4 backbone -> 128-d eDOS + 64-d phDOS.
+  3. Zero-oracle forward with the historical uniARPAT-v2 M4 backbone -> 128-d eDOS + 64-d phDOS.
   4. Macro-property linkage via thermo_props.ThermodynamicCalculator:
      kappa_L(300K, Julian-Slack) + Theta_D + Cv(T) over 50K~1000K.
   5. Publication multi-panel figure (eDOS Fermi@0eV + phDOS + Cv(T)) saved as PNG (+PDF).
@@ -77,8 +80,7 @@ E_EDOS = np.linspace(-10.0, 10.0, EDOS_DIM)
 FREQ_PHDOS = np.linspace(-280.0, 980.0, PHDOS_DIM)
 T_RANGE_DEFAULT = np.linspace(50.0, 1000.0, 100)
 
-# M4 robust backbone (Week-2 verdict): decoupled + gated cross-attn + symmetric
-# heads, direct regression, no oracle scale branch.
+# Historical M4 architecture used by this compatibility utility.
 M4_PARAMS = dict(
     token_num=118,
     d_model=512,
@@ -183,7 +185,7 @@ def parse_cif_to_features(cif_path):
 # ---------------------------------------------------------------------------
 
 def build_m4_model(device, weights_path=None):
-    """Build uniARPAT-v2 M4 Transformer and optionally load weights."""
+    """Build the historical M4 Transformer and optionally load its weights."""
     torch.manual_seed(0)
     model = Transformer(**M4_PARAMS)
     if weights_path:
@@ -194,7 +196,7 @@ def build_m4_model(device, weights_path=None):
 
 
 def load_weights_into_model(model, weights_path, device=None):
-    """Load checkpoint into an M4 model.
+    """Load a compatible M4 checkpoint.
 
     Accepts: raw Transformer state_dict (ablation checkpoints), or full
     basemodel dicts {'model': {'transformer': ...}} / {'state_dict': ...}.
@@ -247,7 +249,7 @@ def predict_dos(model, src, pos, device):
     outputs = model(inp, mask, p)
     edos = outputs["edos"]
     phdos = outputs["phdos"]
-    # M5-style checkpoints carry phys_* blind outputs; prefer them if present.
+    # Prefer model-provided physical spectra when the checkpoint supplies them.
     if "phys_edos" in outputs and "phys_phdos" in outputs:
         edos, phdos = outputs["phys_edos"], outputs["phys_phdos"]
     if edos.dim() == 3:
@@ -499,11 +501,11 @@ def run_smoke(device=None, save_dir=None):
 
 def build_argparser():
     p = argparse.ArgumentParser(
-        description="uniARPAT-v2 production tool: pure end-to-end CIF -> eDOS/phDOS + thermo + figure."
+        description="uniARPAT M4 compatibility tool: CIF -> eDOS/phDOS + thermo + figure."
     )
     p.add_argument("--cif", type=str, default=None, help="Single CIF file path")
     p.add_argument("--cif_dir", type=str, default=None, help="Batch directory of *.cif")
-    p.add_argument("--weights", type=str, default=None, help="M4 checkpoint (.pth)")
+    p.add_argument("--weights", type=str, default=None, help="Compatible M4 checkpoint (.pth)")
     p.add_argument("--output", type=str, default="./results/cif2dos_output", help="Output directory")
     p.add_argument("--device", type=str, default="cpu", help="cpu or cuda[:id]")
     p.add_argument("--smoke", action="store_true", help="Fast end-to-end smoke verification")

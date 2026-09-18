@@ -11,7 +11,6 @@ from timm.scheduler import create_scheduler
 
 
 # logging.setLoggerClass(ColoredLogger)
-# logger = logging.getLogger(__name__)
 
 
 class ConfigBuilder(object):
@@ -320,7 +319,6 @@ def get_optimizer(model, optimizer_params = None, resume = False, resume_lr = No
     An optimizer for the given model.
     """
     from torch.optim import SGD, ASGD, Adagrad, Adamax, Adadelta, Adam, AdamW, RMSprop
-    # from apex import optimizers
     type = optimizer_params.get('type', 'AdamW')
     params = optimizer_params.get('params', {})
 
@@ -347,85 +345,13 @@ def get_optimizer(model, optimizer_params = None, resume = False, resume_lr = No
         optimizer = AdamW(network_params, **params)
     elif type == 'RMSprop':
         optimizer = RMSprop(network_params, **params)
-    # elif type == 'FusedAdam':
-    #     optimizer = optimizers.FusedAdam(network_params, **params)
     else:
         raise NotImplementedError('Invalid optimizer type.')
     return optimizer
 
-# def get_lr_scheduler(optimizer, lr_scheduler_params = None, resume = False, resume_epoch = None):
-#     """
-#     Get the learning rate scheduler from configuration.
-    
-#     Parameters
-#     ----------
-    
-#     optimizer: an optimizer;
-    
-#     lr_scheduler_params: dict, optional, default: None. If lr_scheduler_params is provided, then use the parameters specified in the lr_scheduler_params to build the learning rate scheduler. Otherwise, the learning rate scheduler parameters in the self.params will be used to build the learning rate scheduler;
-
-#     resume: bool, optional, default: False, whether to resume training from an existing checkpoint;
-
-#     resume_epoch: int, optional, default: None, the epoch of the checkpoint.
-    
-#     Returns
-#     -------
-
-#     A learning rate scheduler for the given optimizer.
-#     """
-#     from torch.optim.lr_scheduler import MultiStepLR, ExponentialLR, CyclicLR, CosineAnnealingLR, LambdaLR, StepLR, OneCycleLR, ReduceLROnPlateau
-#     type = lr_scheduler_params.get('type', '')
-#     params = lr_scheduler_params.get('params', {})
-#     if resume:
-#         params.update(last_epoch = resume_epoch)
-#     if type == 'MultiStepLR':
-#         scheduler = MultiStepLR(optimizer, **params)
-#     elif type == 'ExponentialLR':
-#         scheduler = ExponentialLR(optimizer, **params)
-#     elif type == 'CyclicLR':
-#         scheduler = CyclicLR(optimizer, **params)
-#     elif type == 'CosineAnnealingLR':
-#         scheduler = CosineAnnealingLR(optimizer, **params)
-#     elif type == 'LambdaLR':
-#         scheduler = LambdaLR(optimizer, **params)
-#     elif type == 'ReduceLROnPlateau':
-#         scheduler = ReduceLROnPlateau(optimizer, **params)
-#     elif type == 'StepLR':
-#         scheduler = StepLR(optimizer, **params)
-#     elif type == 'OneCycleLR':
-#         scheduler = OneCycleLR(optimizer, **params)
-#     elif type == '':
-#         scheduler = None
-#     else:
-#         raise NotImplementedError('Invalid learning rate scheduler type.')
-#     return scheduler
-
 def get_lr_scheduler(optimizer, lr_scheduler_params = None, resume = False, resume_epoch = None):
-    """
-    Get the learning rate scheduler from configuration.
-    
-    Parameters
-    ----------
-    
-    optimizer: an optimizer;
-    
-    lr_scheduler_params: dict, optional, default: None. If lr_scheduler_params is provided, then use the parameters specified in the lr_scheduler_params to build the learning rate scheduler. Otherwise, the learning rate scheduler parameters in the self.params will be used to build the learning rate scheduler;
-
-    resume: bool, optional, default: False, whether to resume training from an existing checkpoint;
-
-    resume_epoch: int, optional, default: None, the epoch of the checkpoint.
-    
-    Returns
-    -------
-
-    A learning rate scheduler for the given optimizer.
-    """
-    # type = lr_scheduler_params.get('type', '')
-    # params = lr_scheduler_params.get('params', {})
-
+    """Build a scheduler from a configuration mapping."""
     scheduler_args = dictToObj(lr_scheduler_params)
-    # if resume:
-    #     params.update(last_epoch = resume_epoch)
     scheduler, _ = create_scheduler(scheduler_args, optimizer)
     return scheduler
 

@@ -1,26 +1,58 @@
-# Glossary (use these definitions consistently)
+# 术语表
 
-## Data Caliber (口径 — always state when reporting numbers)
-- **pre-Q**: Legacy cache 20,040 / 2,477 / 2,471, γ floor 0.002. Used by B5/B6/H1/S1. Archived — do not cite as current.
-- **Q1**: Clean pool 18,706 / 2,313 / 2,287, γ floor 0.106+. All experiments from B7 onward use Q1. Note: "Q1" = data quarantine (1,682 samples removed). "Qc1/Qc2" = model coordinate trunks (`--q1_coord` / `--q2_fourier`). Never write bare "Q1" without context.
-- **oracle / blind**: Oracle uses ground-truth sum-slots for denormalization. Blind uses η/γ head self-predictions. `gap = oracle_R² − blind_R²`. Report p50/p90/p99 of gap distribution.
-- **Number template**: `e med/fail + p med/fail + (test|valid, epN, oracle|blind, Q1|pre-Q)`. Example: `e 0.518/5.73% (test, best ep33, oracle, Q1)`. Use `pt`/`pp` for percentage points.
+在文档、代码注释和实验日志中统一使用这些术语。面向更广泛读者时，首次出现陌生术语应给出
+中文解释。
 
-## Experiment States (五态)
-| State | Meaning | Action |
-|-------|---------|--------|
-| **win** (merge) | med improves beyond draw line, fail doesn't worsen | Merge to default |
-| **park** | Draw — code + tests kept, default OFF | Keep behind flag |
-| **pending** | Awaiting long run confirmation | Do not start next arm |
-| **dead** | Mechanism disproven | Never redo |
-| **closed** | Paused, can reopen later | Available for future |
+## 数据与评估
 
-**Draw line**: |Δmed| < 0.02 AND |Δfail| < 1pp = draw.
+| 术语 | 含义 |
+|---|---|
+| **DOS / eDOS / phDOS** | 态密度；分别指电子态密度和声子态密度。 |
+| **CIF** | 晶体信息文件（Crystallographic Information File），是生产推理使用的晶体结构输入。 |
+| **Q1** | 当前清洁数据池：训练/验证/测试样本数为 18,706 / 2,313 / 2,287；已排除 1,682 条不适用记录。 |
+| **pre-Q** | 早期数据池。它仅为本地恢复而保留，其结果不能与 Q1 直接比较。 |
+| **Z0 / N_valence** | Z0 是价电子数审计；`N_valence` 是每个原胞的实际价电子数，用于 eDOS 盲推理尺度监督。完整判定见 `index/z0_REPORT.md`。 |
+| **oracle** | 使用从真实目标推导出的尺度信息进行评估。它衡量谱形质量，但不能只凭 CIF 部署。 |
+| **blind** | 只使用由结构预测出的量进行评估，是可部署的设定。 |
+| **gap** | 单样本差值 `oracle R² − blind R²`；应报告 p50/p90/p99，而不只报告平均值。 |
+| **中位 R² / 失败率** | 主指标，以及 `R² < 0` 的样本比例。平均 R² 仅作描述性指标。 |
+| **Cv** | 定容热容，是从 phDOS 推导出的热力学性质。 |
+| **coverage label / coverage mask** | 覆盖范围标签及其掩码：标记原始谱可靠支持的离散区间，用于筛选数据和评估，不参与损失计算。 |
 
-## Common Abbreviations
-- **med / fail**: Median R² / R²<0 failure rate. Mean R² is deprecated.
-- **ctl / exp**: Control arm / experiment arm. Always suffix, e.g., `ctl_B7-35`, `ctl_Q1-10`.
-- **NBANDS truncation**: MP-DOS insufficient bands → total electrons < 50% → eDOS shape poison. See Q1 D1–D4.
-- **E_F misalignment**: Samples with only 0.01–0.1 e⁻/atom in window tail. Main cause of blind gap p99. Routed to S1/Eg queue.
-- **sum-slot / Δ**: Box-average sum × Δ recovers area. Δ_e = 0.09375 eV, Δ_p = 19.6875 cm⁻¹.
-- **balanced-score**: Valid-set composite score for best-checkpoint selection. Formula in runner. Not comparable across different epoch counts.
+## 模型与损失
+
+| 术语 | 含义 |
+|---|---|
+| **M1** | 当前共享主干网络的模型族。M2–M5 是历史变体，不是可替代的默认方案。 |
+| **B7 `_e9ctl`** | 当前参考实验：Q1 上训练 35 个 epoch 的 M1，选取第 33 个 epoch。 |
+| **epoch / pilot** | epoch 是训练集被完整遍历一次；pilot 是用于初筛的短训练，本项目通常为 10 个 epoch。 |
+| **H1 eta/gamma heads** | 从结构预测有界谱覆盖范围的辅助头，为 blind 推理提供尺度；eta 用于 phDOS，gamma 用于 eDOS。 |
+| **SumNorm** | 总和归一化：每条目标谱表示为非负分布，并单独记录其总量。 |
+| **KL / W1 / Huber** | 默认目标函数的三项：分布散度、一维 Wasserstein 距离和稳健的逐点误差。 |
+| **E0 / P0** | 生产用 eDOS/phDOS 网格：E0 为 `[-6, 6]` eV、128 个离散区间（bin）；P0 为 `[-280, 980]` cm⁻¹、64 个离散区间。不要将 P0 网格与预训练分支混淆。 |
+| **MoE / PhysMoE** | 专家混合网络：由学习得到的路由器选择多个专用子网络。PhysMoE 是拟议中的物理启发式路由变体，并非当前模型功能。 |
+| **MLP / RFF** | 多层感知机；随机傅里叶特征，是一个已搁置查询变体使用的坐标编码。 |
+| **point-wise readout** | 接收能量或频率坐标并预测一个谱值的解码器；区别于一次输出整条固定长度谱的解码器。 |
+| **token** | 模型内部传递的一个表示单元；在此项目中可表示原子、晶体或中间特征。 |
+
+## 工作标识
+
+项目标签用于管理，不是科学概念。**B** 表示基线，**C** 表示模型改动，**D** 表示数据工作，
+**E** 表示工程工作，**H** 表示盲推理工作；**Q/G/L** 分别表示 E9 中的查询、图和损失分支。
+不要从编号推断状态，应阅读 `backlog.md`。**E9-P0** 是该改进计划的名称，与 P0 声子网格和
+独立的预训练分支均无关。**E9-Q1 / E9-Q2** 分别是查询分支的坐标 MLP 与 Fourier 实验，
+与 Q1 数据池无关。
+
+## 实验状态与报告
+
+| 状态 | 含义 | 必须动作 |
+|---|---|---|
+| **win** | 超过平局线，且失败率没有有害变化。 | 合并或提升为候选方案。 |
+| **park** | 与对照不可区分。 | 代码默认关闭。 |
+| **pending** | 仍需完成计划中的确认训练。 | 不得启动依赖它的任务。 |
+| **dead** | 假设已被否定。 | 没有新假设不得重复。 |
+| **closed** | 有意暂停。 | 只有出现新理由时才可重开。 |
+
+平局线为 `|Δ中位 R²| < 0.02` 且 `|Δ失败率| < 1 个百分点`。结果格式为：
+`e med/fail + p med/fail + (test|valid, epN, oracle|blind, Q1|pre-Q)`；其中 `e/p` 分别是
+eDOS/phDOS，`med/fail` 分别是中位 R²/失败率，`epN` 表示第 N 个 epoch。

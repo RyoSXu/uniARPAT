@@ -1,5 +1,8 @@
 # 工作日志 2026-09-11：JARVIS覆盖映射（A7b）收官
 
+> **历史路径说明（2026-09-18）：** 文中的 `tools/getdata/` 脚本已退役，仅保留其结果证据；
+> 不得运行。当前数据工具和适用范围见 `tools/data/README.md`，原脚本可从 Git 历史恢复。
+
 ## 改了什么
 - 新增 `tools/getdata/a7b_jarvis_coverage.py`（JVASP→legacy→canonical，免费复用A3c 5,510对，
   余量API singles，断点续跑；`--singles-only --workers 8`）；

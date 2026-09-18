@@ -27,32 +27,32 @@ class basemodel(nn.Module):
         self.logger = logger
         self.save_best_param = self.params.get("save_best", "MSE")
         self.constants_len = self.params.get("constants_len", 0)
-        # C1.3: TV/gradient loss + physical weighting (defaults = legacy behavior).
+        # Optional smoothness, gradient, and region-weighted loss terms.
         self.tv_w = float(self.params.get("tv_w", 0.0))
         self.grad_w = float(self.params.get("grad_w", 0.0))
         self.peak_w = float(self.params.get("peak_w", 1.0))
         self.tail_w = float(self.params.get("tail_w", 1.0))
         self.tail_start = int(self.params.get("tail_start", -1))
-        # C2.3: coverage-mask the loss (default off; eval protocol unchanged).
+        # Coverage masking is optional and does not alter evaluation.
         self.use_mask = bool(self.params.get("use_mask", False))
-        # B4: phonon loss weight + grad clip (defaults = legacy behavior).
+        # Optional phDOS loss weight and gradient clipping.
         self.lambda_ph = float(self.params.get("lambda_ph", 1.0))
         self.grad_clip = float(self.params.get("grad_clip", 0.0))
-        # C2.4: supervised decoupled scale (log per-atom eDOS + log phDOS sum).
+        # Optional supervised scale prediction.
         # Requires sumnorm (sum slots); asserts instead of silently misreading minmax.
         self.scale_sup_w = float(self.params.get("scale_sup_w", 1.0))
-        # H1: bounded coverage supervision weight (eta/gamma MSE; sumnorm only).
+        # Optional bounded eta/gamma supervision for blind scaling.
         self.eta_sup_w = float(self.params.get("eta_sup_w", 1.0))
-        # H1: production-grid bin widths (E0/P0 verified in grids.json).
-        # Sum slots carry box-avg sums S_win/Delta => coverage = S*Delta/N.
+        # Production-grid bin widths. Sum slots are box-average sums, so
+        # coverage equals spectral sum times bin width divided by atom count.
         self.delta_edos = float(self.params.get("delta_edos", 0.09375))
         self.delta_phdos = float(self.params.get("delta_phdos", 19.6875))
-        # S1: boundary-scalar supervision weight + frozen production grids.
+        # Optional boundary-scalar supervision and production grid bounds.
         self.scalar_sup_w = float(self.params.get("scalar_sup_w", 1.0))
         self.e_lo, self.e_hi, self.e_n = -6.0, 6.0, 128
         self.p_lo, self.p_hi, self.p_n = -280.0, 980.0, 64
         self._eta_missing_warned = False
-        # C2.1: SumNorm-KL/W dual track + Huber (default smoothl1 legacy).
+        # Sum-normalized distribution loss or direct Smooth L1 loss.
         self.loss_form = str(self.params.get("loss_form", "smoothl1"))
         self.w_w1 = float(self.params.get("w_w1", 1.0))
         self.w_huber = float(self.params.get("w_huber", 1.0))
@@ -106,13 +106,13 @@ class basemodel(nn.Module):
                         state[k] = v.to(device)
 
     def data_preprocess(self, data):
-        # 按照 dataset.py 中 __getitem__ 的返回顺序解包（C2.3掩膜附后，无文件时为None；H1 N_val第15位；Q1坐标第16/17位）
+        # Unpack the fixed dataset layout followed by optional grid metadata.
         inp, pos, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
         edos_cov, phdos_cov = data[:14]
         nvalence = data[14] if len(data) > 14 else None
-        # Q1: bin centers ride the batch (grid constants, not labels).
+        # Bin centers are grid constants carried with the batch, not labels.
         edos_x = data[15] if len(data) > 15 else None
         phdos_x = data[16] if len(data) > 16 else None
         
@@ -136,7 +136,7 @@ class basemodel(nn.Module):
 
         mask = mask.clone().detach().to(dtype=torch.bool, device=self.device)
 
-        # C2.3: coverage masks (None -> all-ones, legacy/v1 behavior).
+        # Missing coverage masks mean every bin is treated as covered.
         if edos_cov is None:
             edos_cov = torch.ones_like(edos_target, dtype=torch.bool)
         else:
@@ -146,7 +146,7 @@ class basemodel(nn.Module):
         else:
             phdos_cov = phdos_cov.to(dtype=torch.bool, device=self.device)
 
-        # H1: N_valence sidecar (None -> aux supervision disabled downstream).
+        # Missing valence metadata disables the associated auxiliary loss.
         if nvalence is None:
             pass
         elif torch.is_tensor(nvalence):
@@ -154,7 +154,7 @@ class basemodel(nn.Module):
         else:
             nvalence = torch.as_tensor(nvalence, device=self.device).float()
 
-        # Q1: coordinates to device (None -> transformer asserts iff q1 on).
+        # Move optional coordinate metadata to the model device.
         if torch.is_tensor(edos_x):
             edos_x = edos_x.to(device=self.device, non_blocking=True).float()
         if torch.is_tensor(phdos_x):
@@ -167,19 +167,8 @@ class basemodel(nn.Module):
 
     def loss(self, predict, target):
 
-        #norm = torch.norm(target, p=2)
-                # 对非零值赋予更高的权重
-        '''
-        weights = target > 0
-        predict[predict < 0] = 0
-        diff = abs(predict-target)
-        diff[weights] *= 2
-        return torch.mean(diff)
-        '''
-        # §1.2: 纯端到端直接回归,统一为 Smooth-L1 (Huber)
+        # Direct spectrum regression uses Smooth L1 (Huber) loss.
         return F.smooth_l1_loss(predict, target)
-        #return nn.functional.kl_div(predict.softmax(dim=-1).log(), target.softmax(dim=-1), reduction='sum')
-        #return self.lossfunc(predict, target)
 
     def train_one_step(self, batch_data, step):
         inp, pos, mask, edos_target, phdos_target, \
@@ -198,7 +187,7 @@ class basemodel(nn.Module):
         else:
             raise NotImplementedError('Invalid model type.')
 
-        # FIX-P0-01: valid_atoms 哨兵对齐 (与 transformer.py 一致,严格对齐 src[:, 2:])
+        # Sentinel tokens occupy the first two slots and are not atoms.
         atom_len = pos.shape[1] - 2
         valid_atoms = (~mask[:, 2:2 + atom_len]).sum(dim=-1).float()
         NATOMS = valid_atoms.clamp_min(1.0).unsqueeze(-1)  # C2.4广延量
@@ -206,9 +195,8 @@ class basemodel(nn.Module):
         # §1.2: 纯端到端直接回归 (Smooth-L1 / Huber),M1-M4 的 MSE 与 M5 的 5 项复合损失统一精简
         # L_total = SmoothL1(edos) + lambda_ph * SmoothL1(phdos), lambda_ph=1.0 (标准化空间等权)
         if self.loss_form == "sumnorm_klw":
-            # C2.1: targets arrive sum-normalized (dataset dos_sumnorm; denorm via
-            # sum slots keeps eval identical). Dual track KL + W1 + Huber on dists.
-            # C2.3: masked softmax (covered bins only) when use_mask.
+            # Sum-normalized targets use KL, W1, and Huber distribution terms.
+            # Softmax is masked only when coverage masking is requested.
             loss_edos = sumnorm_klw_loss(predict_edos, edos_target, edos_cov, self.use_mask, self.w_w1, self.w_huber, self.huber_delta).mean()
             loss_phdos = sumnorm_klw_loss(predict_phdos, phdos_target, phdos_cov, self.use_mask, self.w_w1, self.w_huber, self.huber_delta).mean()
         else:
@@ -218,7 +206,7 @@ class basemodel(nn.Module):
                 self.use_mask, self.peak_w, self.tail_w, self.tail_start
             )
         total_loss = loss_edos + self.lambda_ph * loss_phdos
-        # C2.4: supervised decoupled scale (needs sumnorm sum slots).
+        # Scale supervision requires sum-normalized totals.
         loss_scale_e = torch.tensor(0.0, device=total_loss.device)
         loss_scale_p = torch.tensor(0.0, device=total_loss.device)
         if "log_scale" in outputs:
@@ -229,7 +217,7 @@ class basemodel(nn.Module):
             loss_scale_e = F.mse_loss(ls[:, 0:1], tgt_e)
             loss_scale_p = F.mse_loss(ls[:, 1:2], tgt_p)
             total_loss = total_loss + self.scale_sup_w * (loss_scale_e + loss_scale_p)
-        # H1: bounded coverage supervision (needs sumnorm sum slots + Z0 sidecar).
+        # Eta/gamma supervision requires totals and valence metadata.
         # eta_true = S_win_ph*D_ph/(3N); gamma_true = S_win_e*D_e/N_val.
         # Graceful when the sidecar is absent (v1 cache): aux stays 0, warn once.
         loss_eta = torch.tensor(0.0, device=total_loss.device)
@@ -307,7 +295,7 @@ class basemodel(nn.Module):
             tgt_s = torch.where(keep.bool(), tgt_s, torch.zeros_like(tgt_s))
             loss_scalar = ((sc - tgt_s) ** 2 * keep).sum() / keep.sum().clamp_min(1.0)
             total_loss = total_loss + self.scalar_sup_w * loss_scalar
-        # C1.3: TV(毛刺惩罚) + 梯度(峰形)正则
+        # Optional smoothness and gradient regularizers.
         loss_tv = torch.tensor(0.0, device=total_loss.device)
         loss_grad = torch.tensor(0.0, device=total_loss.device)
         if self.tv_w > 0:
@@ -342,7 +330,7 @@ class basemodel(nn.Module):
         }
 
     def test_one_step(self, batch_data, step=None, save_predict=False):
-        # 1. 解包数据 (对应 dataset.py 返回的 17 个元素，末5为C2.3掩膜+H1 N_val+Q1坐标)
+        # Unpack the same batch layout used by training.
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
@@ -635,5 +623,3 @@ class basemodel(nn.Module):
                  ))
 
         return metric_logger
-
-

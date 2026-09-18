@@ -1,23 +1,25 @@
-# Documentation Index
+# 文档导航
 
-> For humans: `README.md`. For agents: this page + `status.md` + `glossary.md`.
+按用途而非日期阅读文档。以下活跃页面保持简洁；已替代材料可从 Git 历史恢复，但不得覆盖
+当前规则。
 
-| Path | Purpose | When to read |
-|------|---------|-------------|
-| `docs/status.md` | Current progress, next task, blockers | Always first (< 3 min) |
-| `docs/glossary.md` | Terminology, metrics, experiment states | When stuck on jargon |
-| `docs/backlog.md` | Master task list, phase table, verdicts | Planning, E9/B7/Q1 context |
-| `docs/decisions.md` | Settled conclusions, current numbers | When in doubt, check here first |
-| `docs/data-spec.md` | v2 data pipeline specification | When modifying data pipeline |
-| `docs/roadmap.md` | Technical roadmap and rationale | Architecture decisions |
-| `docs/design/*.md` | Per-feature design documents | One doc per major feature |
-| `docs/archive/` | Retired designs and reports (read-only) | Historical reference only |
-| `docs/reviews/` | Code review and audit records | During audits |
-| `docs/logs/` | Per-session work logs | Daily progress lookup |
-| `docs/research/` | Literature surveys, cross-domain exploration | When exploring new directions |
-| `index/z0_REPORT.md` | ZVAL table, Q1 data quality (D1–D4) | Data pipeline questions |
+| 需要了解什么 | 阅读位置 | 权威性 |
+|---|---|---|
+| 当前状态、阻塞项、下一步 | `status.md` | 当前运行事实 |
+| 如何跨会话、跨 agent 工作 | `workflow.md` | 必须遵守的流程 |
+| 术语、指标与实验状态 | `glossary.md` | 统一词汇 |
+| 尚未完成的工作及其关卡 | `backlog.md` | 当前计划 |
+| 已确定的选择与基准事实 | `decisions.md` | 固化结论 |
+| 训练数据与缓存边界 | `data.md` | 当前数据约定 |
+| 长期方向 | `roadmap.md` | 策略，不是任务清单 |
+| 重大改动提案 | `design/_template.md` | 实施前复制并填写 |
+| 已完成任务的证据 | `logs/` 与 `../results/` | 历史记录 |
 
-**Naming conventions:**
-- New docs: `YYYY-MM-DD-topic.md` (English)
-- Work logs: `log-YYYY-MM-DD-<topic>.md`
-- Verdict scripts: `tools/eval/*_verdict.py` (never in `/tmp`)
+## 命名规则
+
+- 长期维护的说明页使用小写 kebab-case，例如 `workflow.md`。
+- 带日期的记录使用 `YYYY-MM-DD-主题.md`；工作日志额外使用 `log-` 前缀。
+- 新文档一律使用中文。命令、路径、代码标识、项目代号和已广泛使用的技术术语可保留英文；
+  首次使用少见缩写时必须给出中文解释。
+- 每个新增的活跃文档都必须加入此表。不得新增第二份索引、状态页、任务清单、归档目录或
+  无边界的探索目录。

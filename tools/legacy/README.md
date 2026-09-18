@@ -1,14 +1,12 @@
-# tools/legacy — 已退役入口（冻结存档，只读）
+# 已退役入口
 
-> 执行 Backlog E8（入口去重）。以下文件不再维护、不再引用，保留仅为历史可查。
-> 现行入口：根目录 `run_ablation_experiments.py`（训练/评估）+ `cif2dos.py`（盲推）。
+本目录只读保存 E8 期间被替换的入口。不得调用、更新这些文件，也不得把它们作为新工作的范例。
 
-| 文件 | 退役原因 | 替代 |
+| 已退役文件 | 退役原因 | 支持的替代方案 |
 |---|---|---|
-| `train.py` + `train_script.sh` | 旧通用训练链，引用的 `data/csv2npy.py` 已不存在，输出旧布局 `output/config/...` | `run_ablation_experiments.py` |
-| `test.py` + `test_script.sh` | 同上旧测试链（`training_options.yaml` + `checkpoint_best.pth` 口径） | runner 内建 `evaluate_split` |
-| `run_pilot_10epochs.py` | 硬编码已作废的 M5 ScaleHead（零梯度），pilot 已由 `--epochs 10` 接管 | `run_ablation_experiments.py --model M1 --epochs 10 --tag _xxx` |
-| `test_cif.py` | 读不存在的 `./data/train4w2023/test_cif/`（v1 路径） | `cif2dos.py`（E8 留一的胜者） |
-| `evaluate_and_plot.py` | 读旧布局 `output/config/.../training_options.yaml` + 旧 `pred_edos.npy` 命名 | runner 内建评估 + `results/history_*.csv` |
+| `train.py`、`train_script.sh`、`test.py`、`test_script.sh` | 依赖已删除的数据路径和过时的输出布局。 | `run_ablation_experiments.py` |
+| `run_pilot_10epochs.py` | 固定使用已退役的 M5 scale head。 | `run_ablation_experiments.py --model M1 --epochs 10 --tag _pilot` |
+| `test_cif.py` | 依赖已删除的 v1 CIF 缓存。 | `cif2dos.py` |
+| `evaluate_and_plot.py` | 读取过时的检查点和预测文件名。 | 训练入口的评估功能加 `results/history_*.csv` |
 
-恢复任一文件即视为重开 E8，需重新上会。
+重新引入已退役路径需要新的设计和兼容性测试。

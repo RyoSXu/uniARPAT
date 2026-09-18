@@ -31,33 +31,33 @@ class ExperimentConfig:
     energy_code: str = "none"
     edos_grid: str = ""
     
-    # --- Loss weights (C1.3) ---
+    # --- Shape-loss weights ---
     tv_w: float = 0.0
     grad_w: float = 0.0
     peak_w: float = 1.0
     tail_w: float = 1.0
     tail_start: int = -1
     
-    # --- Augmentation (C1.4) ---
+    # --- Training augmentation ---
     augment: bool = False
     disp_sigma: float = 0.01
     
-    # --- Normalization (C2.1) ---
+    # --- Target normalization and masks ---
     norm: str = "sumnorm"
     use_mask: bool = False
     
-    # --- Regularization (B4) ---
+    # --- Optimizer and regularization overrides ---
     dropout: Optional[float] = None
     weight_decay: Optional[float] = None
     warmup_epochs: Optional[int] = None
     lambda_ph: Optional[float] = None
     grad_clip: Optional[float] = None
     
-    # --- Loss term weights (L3) ---
+    # --- Distribution-loss weights ---
     w_w1: Optional[float] = None
     w_huber: Optional[float] = None
     
-    # --- Scale/coverage heads (C2.4 / H1) ---
+    # --- Blind-inference scale heads ---
     scale_mode: str = "eta"
     scale_sup_w: float = 1.0
     eta_sup_w: float = 1.0
@@ -66,16 +66,16 @@ class ExperimentConfig:
     freeze_backbone: bool = False
     init_ckpt: str = ""
     
-    # --- Boundary scalars (S1) ---
+    # --- Optional boundary scalars ---
     scalar_mode: str = "none"
     scalar_sup_w: float = 1.0
     
-    # --- Graph features (E9-P0 G1) ---
+    # --- Optional sparse graph ---
     use_g1: bool = False
     g1_r_cut: float = 5.5
     g1_max_neighbors: int = 48
     
-    # --- Coordinate trunks (E9-P0 Q1/Q2) ---
+    # --- Optional coordinate-conditioned output trunks ---
     q1_coord: bool = False
     q1_hidden: int = 128
     q2_fourier: bool = False

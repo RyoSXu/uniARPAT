@@ -37,7 +37,7 @@ class EnergyCode(nn.Module):
 
 
 class CoordTrunk(nn.Module):
-    """E9-P0 Q1: plain coordinate MLP, zero-init residual add-on (Design-E 9).
+    """Coordinate MLP used as a zero-initialized residual add-on.
 
     Trunk(x) = ZeroInitLinear(GELU(Linear(x_norm))) -> d_model, added to the
     learned decoder query. Day-0 output is exactly zero => base behavior
@@ -63,7 +63,7 @@ class CoordTrunk(nn.Module):
 
 
 class FourierTrunk(nn.Module):
-    """E9-P0 Q2: RFF coordinate trunk, zero-init residual add-on (Design-E 9).
+    """Fourier-feature coordinate trunk used as a zero-initialized residual.
 
     feats(x) = [x_norm, sin(2πBx_norm), cos(2πBx_norm)] -> MLP -> ZeroInit
     Day-0 output is exactly zero => base behavior preserved.
@@ -209,7 +209,7 @@ class EtaHead(nn.Module):
     H1 bounded coverage head: predicts (eta_phonon, gamma_edos) in [0,1]
     from pooled crystal features. Sigmoid output; zero-init bias => day-0
     (0.5, 0.5). Supervised by windowed/total ratios (labels + Z0 sidecar).
-    Params: ~74k (same skeleton as ScaleHead).
+    Parameters: approximately 74k; layout matches ScaleHead.
     Output: [B, 2] -> [eta_ph, gamma_e].
     """
     def __init__(self, d_model=512, hidden_dim=128, out_dim=2):

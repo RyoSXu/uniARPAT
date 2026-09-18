@@ -187,7 +187,7 @@ def main():
         kappa_preds.append(k_p)
         kappa_tgts.append(k_t)
 
-        # Old uniform baseline for reference (unified A=3.1e-6 to isolate M, V, n effects)
+        # Fixed-material reference used to isolate the effect of M, V, and n.
         k_u_p = calc.compute_Slack_kappaL(p_ph, M_avg=50.0, volume_per_atom=20.0, n_atoms=1, T=300.0, A=3.1e-6)
         k_u_t = calc.compute_Slack_kappaL(t_ph, M_avg=50.0, volume_per_atom=20.0, n_atoms=1, T=300.0, A=3.1e-6)
         kappa_unif_preds.append(k_u_p)

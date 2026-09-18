@@ -59,7 +59,7 @@ def weighted_smooth_l1_loss(predict_edos, edos_target, edos_cov, predict_phdos, 
     """
     if peak_w == 1.0 and tail_w == 1.0:
         if use_mask:
-            # C2.3: 覆盖bin内平均，全空行回退
+            # Average over covered bins; fall back safely when a row is empty.
             def _mmean(elem, cov):
                 cw = cov.float()
                 cw[cw.sum(dim=-1) == 0] = 1.0
@@ -70,7 +70,7 @@ def weighted_smooth_l1_loss(predict_edos, edos_target, edos_cov, predict_phdos, 
             loss_edos = F.smooth_l1_loss(predict_edos, edos_target)
             loss_phdos = F.smooth_l1_loss(predict_phdos, phdos_target)
     else:
-        # C1.3 物理加权: 峰区(>均值+标准差)×peak_w + 声子尾部×tail_w
+        # Weight high-density eDOS bins and the selected phDOS tail region.
         def _w(tgt, tail=False):
             w = torch.ones_like(tgt)
             peak = tgt > (tgt.mean(dim=-1, keepdim=True) + tgt.std(dim=-1, keepdim=True))

@@ -4,27 +4,22 @@ import math
 
 def build_cell_from_lattice(pos):
     """
-    从 pos 中提取晶格参数并构造 cell 矩阵，同时返回原子分数坐标。
-    pos: [B, L+2, 3], 其中
-        pos[:,0] = (a,b,c)
-        pos[:,1] = (alpha,beta,gamma) 单位度
-        pos[:,2:] = fractional coords
-    returns:
-        cell: [B,3,3] 晶胞矩阵
-        frac_coords: [B, L, 3] 分数坐标
+    Build real-space cell matrices and return fractional coordinates.
+
+    ``pos[:, 0]`` stores ``(a, b, 1/c)`` by the model's feature contract,
+    ``pos[:, 1]`` stores lattice angles in degrees, and remaining rows are
+    fractional atomic coordinates.
     """
     B, Lp, _ = pos.shape
     abc    = pos[:, 0]       # [B, 3] = (a, b, inv_c) 归一化特征契约
     angles = pos[:, 1]       # [B, 3] = (alpha, beta, gamma) 单位度
     a = abc[:, 0]
     b = abc[:, 1]
-    # FIX-P0-02: 第三列存的是 1/c 归一化特征，必须倒数还原为真实实空间晶格常数 c
+    # The third stored lattice feature is 1/c; recover the real-space c axis.
     inv_c = abc[:, 2].clamp(min=1e-4)
     c = 1.0 / inv_c
 
-    # 防御性物理断言:过滤非法晶格常数 (Hygiene 2026-09-09: 上界从 60 放宽至 1000,
-    # 训练集实测 16 个合法长轴样本 c=65~110A (层状/链状), 旧上界会误杀导致整轮崩溃。
-    # 下界 0.1 仍可捕获 1/c 契约违反类 bug (忘倒数 -> c~0.01; 误用 c 作 inv_c -> c~0.14))。
+    # Reject nonphysical lattice lengths while permitting long-axis structures.
     assert ((a > 0.1) & (a < 1000) & (b > 0.1) & (b < 1000) & (c > 0.1) & (c < 1000)).all(), \
         f"Illegal lattice parameters detected: a=[{a.min()},{a.max()}], b=[{b.min()},{b.max()}], c=[{c.min()},{c.max()}]"
     α = angles[:,0] * math.pi/180

@@ -49,20 +49,17 @@ class Transformer(nn.Module):
         self.energy_code = energy_code
         self.scale_mode = scale_mode
         self.scalar_mode = scalar_mode
-        # E9-P0 G1 exact sparse periodic graph (Design-E section 6, default
-        # off: off-path is bit-identical to legacy). Hub token starts silent.
+        # Optional sparse periodic graph. The hub token starts with zero weight.
         self.use_g1 = bool(use_g1)
         self.g1_r_cut = float(g1_r_cut)
         self.g1_max_neighbors = int(g1_max_neighbors)
         self.g1_t_range = int(g1_t_range)
         if self.use_g1:
             self.g1_global = nn.Parameter(torch.zeros(1, 1, d_model))
-        # E9-P0 Q1/Q2 coordinate trunks (Design-E section 9, default off).
-        # Separate units/zeros per task: eDOS eV @ Fermi (x_scale=6),
-        # phDOS cm^-1 @ nu=0 (x_scale=980). Zero-init => day-0 == base.
-        # q2_fourier swaps the plain MLP for RFF (task sigmas); the x
-        # pathway (dataset/model.py/runner) is shared, so Q2-vs-Q1exp
-        # isolates the Fourier factor exactly.
+        # Optional coordinate-conditioned output trunks.
+        # eDOS coordinates are in eV relative to Fermi energy; phDOS
+        # coordinates are in cm^-1 relative to zero. Fourier mode replaces the
+        # plain coordinate MLP while retaining the same input pathway.
         self.q1_coord = bool(q1_coord or q2_fourier)
         self.q2_fourier = bool(q2_fourier)
         if self.q1_coord:
@@ -76,22 +73,19 @@ class Transformer(nn.Module):
             else:
                 self.edos_trunk = CoordTrunk(d_model, hidden_dim=q1_hidden, x_scale=6.0)
                 self.phdos_trunk = CoordTrunk(d_model, hidden_dim=q1_hidden, x_scale=980.0)
-        # C2.4 decoupled scale head: log per-atom eDOS scale + log phDOS sum.
-        # Semantics differ from M5's ScaleHead (log-min/max); fresh bias init.
+        # Optional scale head: log eDOS scale per atom and log phDOS total.
         if scale_mode == "decoupled":
             self.scale_head_c24 = ScaleHead(d_model, hidden_dim=128, out_dim=2)
             with torch.no_grad():
                 self.scale_head_c24.mlp[-1].bias.copy_(
                     torch.tensor([1.5, 3.2]))  # ~log(4.4), ~log(25)
-        # H1: bounded coverage head (eta_phonon, gamma_edos); aux-only, no
-        # phys_* outputs here (blind verdict stays offline; eval untouched).
+        # Bounded coverage head (phonon eta and eDOS gamma) for auxiliary loss.
         if scale_mode == "eta":
             self.eta_head = EtaHead(d_model, hidden_dim=128, out_dim=2)
-        # S1: boundary scalars (wmax_n, eg_n, eval_n); bounded [0,1] MLP,
-        # same skeleton as EtaHead; aux-only.
+        # Optional bounded boundary scalars.
         if scalar_mode == "s1":
             self.scalar_head = EtaHead(d_model, hidden_dim=128, out_dim=3)
-        # C1.2: eDOS bin-energy code (zero-init residual; phDOS untouched).
+        # Optional eDOS energy encoding, initialized as a zero residual.
         if energy_code == "edos":
             assert edos_grid is not None, "edos_grid bin centers required"
             self.edos_energy = EnergyCode(d_model)
@@ -102,7 +96,7 @@ class Transformer(nn.Module):
 
         # Atom type embedding
         self.tok_emb = nn.Embedding(token_num, d_model)
-        # Numeric atomic feature embedding (C1.1: mendeleev24 physical-main)
+        # Numeric atomic-feature embedding.
         _feat_dim = 24 if atom_feat_mode == "mendeleev24" else 3
         self.num_emb_encoder = AtomFeatureEncoder(input_dim=_feat_dim, out_dim=d_model,
                                                   feat=atom_feat_mode)
@@ -151,22 +145,20 @@ class Transformer(nn.Module):
 
         self._reset_parameters()
         if atom_feat_mode == "mendeleev24":
-            # C1.1 residual semantics: tok starts silent, learns corrections
-            # only where gradients are consistent; phys features carry the load.
+            # Token embedding starts silent and learns corrections to numeric features.
             with torch.no_grad():
                 self.tok_emb.weight.zero_()
         if energy_code == "edos":
-            # C1.2: zero-init AFTER _reset_parameters (which would overwrite
-            # the module-local init); day-0 model == M1 exactly.
+            # Apply zero initialization after generic parameter initialization.
             with torch.no_grad():
                 self.edos_energy.proj.weight.zero_()
                 self.edos_energy.proj.bias.zero_()
         if self.use_g1:
-            # G1 hub token stays silent at init (long-range path grows by grad).
+            # The hub token starts silent and learns through gradients.
             with torch.no_grad():
                 self.g1_global.zero_()
         if self.q1_coord:
-            # Q1 trunks stay silent at init (coordinate path grows by grad).
+            # Coordinate trunks start silent and learn through gradients.
             with torch.no_grad():
                 for _tr in (self.edos_trunk, self.phdos_trunk):
                     _tr.proj.weight.zero_()
@@ -203,8 +195,8 @@ class Transformer(nn.Module):
 
     def forward(self, src, mask, pos, edos_x=None, phdos_x=None):
         # src: [B, L] atom indices; pos carries lattice+coords
-        # edos_x/phdos_x: [E]/[B,E] bin centers in task units (Q1 source of
-        # truth is the dataset batch; required iff q1_coord is on).
+        # edos_x/phdos_x: [E] or [B,E] bin centers in task units, supplied by
+        # the dataset whenever coordinate conditioning is enabled.
         B, Lp, _ = pos.shape
         atom_len = Lp - 2
         mask_atom = mask[:, 2:2 + atom_len]  # 严格对齐 src[:, 2:] 剥离哨兵后的原子区间
@@ -224,7 +216,7 @@ class Transformer(nn.Module):
 
         # Compute relative geometry features
         if self.use_g1:
-            # E9-P0 G1: exact enumeration graph + hub token (Design-E section 6).
+            # Sparse periodic graph and one global hub token.
             # Decoder/memory contract unchanged: hub is stripped before return.
             from utils.g1_graph import build_g1_graph
             g_d, g_u, g_adj, g_sm = build_g1_graph(
@@ -278,7 +270,7 @@ class Transformer(nn.Module):
         if self.edos_energy is not None:
             edos_query = edos_query + self.edos_energy(self.edos_grid).unsqueeze(0)
         if self.q1_coord:
-            # Q1: coordinate-conditioned residual (zero-init => day-0 == base).
+            # Coordinate-conditioned residual; zero initialization preserves the base path.
             assert edos_x is not None and phdos_x is not None, \
                 "q1_coord needs edos_x/phdos_x from the dataset batch"
             assert edos_x.shape[-1] == edos_query.shape[1], \
@@ -330,12 +322,12 @@ class Transformer(nn.Module):
         results['edos'] = out_edos
         results['phdos'] = out_phdos
 
-        # C2.4 decoupled scale (M1 path included; needs memory + mask_atom).
+        # Optional scale predictions from pooled crystal features.
         if self.scale_mode == "decoupled":
             h_cry = global_masked_pool(memory, mask_atom)
             results['log_scale'] = self.scale_head_c24(h_cry)  # [B,2]
 
-        # H1 bounded coverage (aux-only).
+        # Optional bounded coverage predictions for auxiliary supervision.
         if self.scale_mode == "eta":
             h_cry = global_masked_pool(memory, mask_atom)
             results['eta'] = self.eta_head(h_cry)  # [B,2]: [:,0]=eta_ph, [:,1]=gamma_e
@@ -397,7 +389,7 @@ class TransformerEncoder(nn.Module):
         # Compute once, reuse across all layers (H3).
         rp_base = self.rp_encoder(rel_diss, rel_dirs) if rel_diss is not None else None
         if rp_base is not None and g1_smooth is not None:
-            # G1: quintic envelope on geometry (C2 at r_cut; hub edges rp==const).
+            # Smooth distance envelope; hub edges intentionally carry no geometry.
             rp_base = rp_base * g1_smooth.unsqueeze(-1)
     
         for layer in self.layers:

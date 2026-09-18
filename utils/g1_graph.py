@@ -1,23 +1,10 @@
 # utils/g1_graph.py
-"""E9-P0 G1: exact sparse periodic graph (Design-E section 6).
+"""Build sparse, periodic atom graphs for the optional graph encoder.
 
-Replaces the single-image minimum convention (``diff_frac - round(diff_frac)``)
-with full integer-shift enumeration ``T in [-t_range, t_range]^3`` taking the
-Cartesian minimum. The old convention picks the fractional-box minimum, which
-is NOT the Cartesian minimum for skewed/small cells (measured >1A error,
-pairs wrongly pushed across the 5.5A cutoff).
-
-Contract:
-  input : pos [B, Lp, 3] (row0=(a,b,inv_c), row1=angles deg, rows2:=frac)
-          mask_atom [B, L] bool, True = padding (same as transformer.py)
-  output: distances [B, L, L] (Cartesian min-image minima)
-          unit_dirs [B, L, L, 3] (min-image vectors, self/pad -> 0)
-          adj       [B, L, L] bool, True = attention allowed
-          smooth    [B, L, L] quintic-cutoff weights (blocked -> 0, self -> 1)
-
-Design-E section 6 parameters: r_cut=5.5A single value + quintic smooth
-cutoff (1st/2nd derivatives zero at both ends), max_neighbors=48,
-pure torch, no new compiled deps. Runs under no_grad (fixed inputs).
+The graph enumerates integer cell shifts and chooses the shortest Cartesian
+image, which is necessary for skewed cells where fractional wrapping is not
+the shortest physical displacement. It returns pair distances, directions, an
+attention adjacency mask, and smooth cutoff weights. Padded atoms are excluded.
 """
 import itertools
 
@@ -43,9 +30,9 @@ def build_g1_graph(pos: torch.Tensor, mask_atom: torch.Tensor,
     Args:
         pos: [B, Lp, 3] lattice + fractional rows (dataset 82-format).
         mask_atom: [B, L] bool, True = padding slot.
-        r_cut: single cutoff in Angstrom (Design-E: 5.5).
-        max_neighbors: per-atom cap excluding self (Design-E: 48).
-        t_range: integer-shift enumeration half-width (Design-E: 2).
+        r_cut: interaction cutoff in Å.
+        max_neighbors: per-atom neighbor cap, excluding self.
+        t_range: half-width of the integer-shift enumeration.
 
     Returns:
         (distances, unit_dirs, adj, smooth) as documented above.

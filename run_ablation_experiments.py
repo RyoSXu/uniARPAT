@@ -17,10 +17,10 @@ logger = logging.getLogger('ablation')
 
 
 def setup_ablation_seed(seed: int):
-    """H1 hygiene: deterministic seeding for perfect对照 (init + shuffle + cudnn).
+    """Seed Python, NumPy, and PyTorch for reproducible comparisons.
 
-    NOTE: torch.backends.cudnn.deterministic=True costs speed; enabled here
-    because ablation comparability outranks throughput (V100 has headroom).
+    Deterministic cuDNN can reduce throughput, but reproducibility is more
+    important than speed for an ablation experiment.
     """
     random.seed(seed)
     np.random.seed(seed)
@@ -32,7 +32,7 @@ def setup_ablation_seed(seed: int):
 
 MODEL_CONFIGS = {
     'M1': {
-        'desc': 'Baseline: Shared Decoder, Asymmetric Heads (1-layer eDOS / 6-layer phDOS), Oracle Scale (77.63M params)',
+        'desc': 'Shared decoder with asymmetric eDOS and phDOS output heads.',
         'transformer_params': {
             'decoupled_decoder': False,
             'use_gated_cross_attn': False,
@@ -41,7 +41,7 @@ MODEL_CONFIGS = {
         }
     },
     'M2': {
-        'desc': 'Decoupled Decoder, Trimmed phDOS Head (3-layer 0.788M), Oracle Scale (72.96M params, -4.67M vs M1)',
+        'desc': 'Historical decoupled decoder with a smaller phDOS head.',
         'transformer_params': {
             'decoupled_decoder': True,
             'use_gated_cross_attn': False,
@@ -50,7 +50,7 @@ MODEL_CONFIGS = {
         }
     },
     'M3': {
-        'desc': 'Decoupled Decoder, Capacity Symmetric Heads (0.788M each), Oracle Scale (73.75M params, -3.88M vs M1)',
+        'desc': 'Historical decoupled decoder with symmetric output heads.',
         'transformer_params': {
             'decoupled_decoder': True,
             'use_gated_cross_attn': False,
@@ -59,7 +59,7 @@ MODEL_CONFIGS = {
         }
     },
     'M4': {
-        'desc': 'Decoupled Decoder, Symmetric Heads, Post-Decoder Zero-Init Gated Cross Attention (75.85M params, +2.10M vs M3)',
+        'desc': 'Historical decoupled decoder with gated cross-attention.',
         'transformer_params': {
             'decoupled_decoder': True,
             'use_gated_cross_attn': True,
@@ -68,7 +68,7 @@ MODEL_CONFIGS = {
         }
     },
     'M5': {
-        'desc': 'Full uniARPAT: Decoupled, Symmetric, Gated Attention, Shape-Scale Decoupling & Physical Loss (75.93M params)',
+        'desc': 'Historical shape-and-scale variant with a learned scale head.',
         'transformer_params': {
             'decoupled_decoder': True,
             'use_gated_cross_attn': True,
@@ -79,7 +79,7 @@ MODEL_CONFIGS = {
 }
 
 def _resolve_edos_grid(spec: str, edos_num: int):
-    """C1.2: grid key (E0/E2..) in grids.json or path to centers npy -> centers list."""
+    """Resolve an eDOS grid name or a file of bin centers to a Python list."""
     import os as _os
     if _os.path.exists(spec):
         return np.load(spec).tolist()
@@ -93,7 +93,7 @@ def _resolve_edos_grid(spec: str, edos_num: int):
 
 
 def _ph_grid_centers(phdos_num: int):
-    """C2b: bin centers for the P-arm matching phdos_num (P0/P1/P2 in grids.json)."""
+    """Return phDOS bin centers matching the requested output length, if known."""
     try:
         with open('./data/grids_c2b/grids.json') as f:
             grids = json.load(f)
@@ -111,7 +111,7 @@ def train_and_eval(cfg: ExperimentConfig):
         raise ValueError (f"Unknown model name: {cfg.model_name }. Available: {list (MODEL_CONFIGS .keys ())}")
 
     setup_ablation_seed (cfg.seed )
-    # B3: tag isolates variant runs (e.g. batch-size bridge) from h1 outputs.
+    # A tag isolates artifacts from runs with a different configuration.
     suffix =cfg.model_name .lower ()+cfg.tag 
     summary_file =f"./results/test_{suffix }_summary.csv"
     if cfg.skip_existing and os .path .exists (summary_file ):
@@ -133,7 +133,7 @@ def train_and_eval(cfg: ExperimentConfig):
         yaml_cfg =yaml .load (f ,Loader =yaml .FullLoader )
 
     yaml_cfg ['model']['params']['sub_model']['transformer'].update (config_info ['transformer_params'])
-    # C2b: grid arms override output dims + data source (defaults = v1/h1 behavior).
+    # Command-line grid settings override the template dimensions and data path.
     yaml_cfg ['model']['params']['sub_model']['transformer']['edos_num']=cfg.edos_num 
     yaml_cfg ['model']['params']['sub_model']['transformer']['phdos_num']=cfg.phdos_num 
     yaml_cfg ['model']['params']['sub_model']['transformer']['atom_feat_mode']=cfg.atom_feat 
@@ -141,27 +141,27 @@ def train_and_eval(cfg: ExperimentConfig):
     for _k ,_v in (("tv_w",cfg.tv_w ),("grad_w",cfg.grad_w ),("peak_w",cfg.peak_w ),
     ("tail_w",cfg.tail_w ),("tail_start",cfg.tail_start )):
         yaml_cfg ['model']['params'][_k ]=_v 
-        # C2.1: sumnorm norm => KL/W+Huber loss form (dataset flag mirrored here).
+        # Sum normalization selects the distribution-based loss below.
     yaml_cfg ['model']['params']['use_mask']=bool (cfg.use_mask )
-    # C2.4 decoupled scale head (default off).
+    # Optional scale-prediction heads.
     yaml_cfg ['model']['params']['sub_model']['transformer']['scale_mode']=cfg.scale_mode 
     yaml_cfg ['model']['params']['scale_sup_w']=float (cfg.scale_sup_w )
     yaml_cfg ['model']['params']['eta_sup_w']=float (cfg.eta_sup_w )
     yaml_cfg ['model']['params']['delta_edos']=float (cfg.delta_edos )
     yaml_cfg ['model']['params']['delta_phdos']=float (cfg.delta_phdos )
-    # S1 boundary scalars (default off).
+    # Optional boundary-scalar heads.
     yaml_cfg ['model']['params']['sub_model']['transformer']['scalar_mode']=cfg.scalar_mode 
     yaml_cfg ['model']['params']['scalar_sup_w']=float (cfg.scalar_sup_w )
-    # E9-P0 G1 exact sparse graph (default off: off-path bit-identical).
+    # Optional sparse periodic graph; disabled leaves the base path unchanged.
     yaml_cfg ['model']['params']['sub_model']['transformer']['use_g1']=bool (cfg.use_g1 )
     yaml_cfg ['model']['params']['sub_model']['transformer']['g1_r_cut']=float (cfg.g1_r_cut )
     yaml_cfg ['model']['params']['sub_model']['transformer']['g1_max_neighbors']=int (cfg.g1_max_neighbors )
-    # E9-P0 Q1 coordinate trunks (default off).
+    # Optional coordinate-conditioned output trunks.
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_coord']=bool (cfg.q1_coord )
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_hidden']=int (cfg.q1_hidden )
-    # E9-P0 Q2 Fourier trunk (default off; implies the trunk pathway).
+    # Fourier variant of the coordinate-conditioned trunk.
     yaml_cfg ['model']['params']['sub_model']['transformer']['q2_fourier']=bool (cfg.q2_fourier )
-    # B4 hyperparams (None = config default, preserves legacy behavior).
+    # Optional optimization overrides; None keeps the template value.
     if cfg.dropout is not None :
         yaml_cfg ['model']['params']['sub_model']['transformer']['dropout']=float (cfg.dropout )
     if cfg.weight_decay is not None :
@@ -170,7 +170,7 @@ def train_and_eval(cfg: ExperimentConfig):
         yaml_cfg ['model']['params']['lambda_ph']=float (cfg.lambda_ph )
     if cfg.grad_clip is not None :
         yaml_cfg ['model']['params']['grad_clip']=float (cfg.grad_clip )
-        # L3: KL/W1/Huber term ablation (None = config default 1.0/1.0, B4-style).
+        # Optional W1 and Huber loss weights; None keeps the template value.
     if cfg.w_w1 is not None :
         yaml_cfg ['model']['params']['w_w1']=float (cfg.w_w1 )
     if cfg.w_huber is not None :
@@ -186,11 +186,11 @@ def train_and_eval(cfg: ExperimentConfig):
     yaml_cfg ['dataset']['train']['data_dir']=cfg.data_dir 
     yaml_cfg ['dataset']['valid']['data_dir']=cfg.data_dir 
     yaml_cfg ['dataset']['test']['data_dir']=cfg.data_dir 
-    # C1.4: aug flags ride the train dict into Dos_Dataset (valid/test clean).
+    # Apply augmentation only to the training split.
     yaml_cfg ['dataset']['train']['augment']=bool (cfg.augment )
     yaml_cfg ['dataset']['train']['disp_sigma']=float (cfg.disp_sigma )
 
-    # E1 hygiene: dump effective config (reproducibility; train.py already does this).
+    # Save the effective configuration beside local checkpoints for recovery.
     with open (os .path .join (save_dir ,'config_used.yaml'),'w')as f :
         yaml .dump ({'cli':{'model':cfg.model_name ,'epochs':cfg.epochs ,
         'batch_size':cfg.batch_size ,'lr':cfg.lr ,'seed':cfg.seed ,
@@ -229,8 +229,7 @@ def train_and_eval(cfg: ExperimentConfig):
     total_params =sum (p .numel ()for p in model .model ['transformer'].parameters ()if p .requires_grad )
     logger .info (f"[{cfg.model_name }] Verified Trainable Parameters: {total_params :,} ({total_params /1e6 :.3f}M)")
 
-    # C2.4 Phase A: init from trained backbone (strict=False tolerates new head),
-    # optionally freeze everything except the scale head.
+    # Optionally initialize from a backbone checkpoint and train only new heads.
     if cfg.init_ckpt :
         _ck =torch .load (cfg.init_ckpt ,map_location ='cpu')
         _st =_ck ['model']if isinstance (_ck ,dict )and 'model'in _ck else _ck 
@@ -247,13 +246,12 @@ def train_and_eval(cfg: ExperimentConfig):
         logger .info (f"[{cfg.model_name }] backbone frozen, trainable scale params: {ntr :,}")
 
     optimizer =model .optimizer ['transformer']
-    # B3 fix (latent bug): --lr was accepted but never applied (optimizer kept
-    # config lr). Apply CLI lr BEFORE scheduler construction.
+    # Apply the command-line learning rate before building the scheduler.
     for pg in optimizer .param_groups :
         pg ['lr']=cfg.lr 
         pg ['initial_lr']=cfg.lr 
     logger .info (f"[{cfg.model_name }] Effective optimizer LR set to {cfg.lr :.2e}")
-    # H4 hygiene: warmup+cosine shared with train.py semantics (was bare cosine).
+    # Use one warmup-plus-cosine schedule for every runner invocation.
     from utils .builder import build_warmup_cosine_scheduler 
     scheduler =build_warmup_cosine_scheduler (optimizer ,cfg.epochs )if _wu is None else build_warmup_cosine_scheduler (optimizer ,cfg.epochs ,warmup_epochs =int (_wu ))
 
@@ -262,7 +260,7 @@ def train_and_eval(cfg: ExperimentConfig):
     history =[]
     start_epoch =0 
 
-    # Resume-from-latest: long runs may be killed by infra; resume losslessly.
+    # Resume long runs from the latest full checkpoint when available.
     # checkpoint_latest.pth carries {epoch, model, optimizer, best_val_score}.
     latest_p =os .path .join (save_dir ,'checkpoint_latest.pth')
     hist_p =f"./results/history_{suffix }.csv"
@@ -299,8 +297,7 @@ def train_and_eval(cfg: ExperimentConfig):
             best_val_score ,best_epoch =float ('inf'),0 
 
     for epoch in range (start_epoch ,cfg.epochs ):
-    # H1 hygiene: reshuffle each epoch (DistributedSampler defaults to epoch=0
-    # forever when set_epoch is never called -> identical batch order every epoch).
+    # Advance the distributed sampler so each epoch receives a new order.
         sampler =getattr (train_loader ,"sampler",None )
         if sampler is not None and hasattr (sampler ,"set_epoch"):
             sampler .set_epoch (epoch )
@@ -327,7 +324,7 @@ def train_and_eval(cfg: ExperimentConfig):
         train_loss /=n_batches 
         avg_sub_losses ={f"train_{k }":v /n_batches for k ,v in sub_loss_accum .items ()}
 
-        # 显存实测打点 (§6 补正 1):每轮记录峰值显存,写入 history_*.csv 的 peak_vram_mb 列
+        # Record peak GPU memory for this epoch in the history CSV.
         peak_vram_mb =torch .cuda .max_memory_allocated ()/(1024 **2 )if torch .cuda .is_available ()else 0.0 
 
         # Extract gate scalars if gated cross-attention is present
@@ -336,7 +333,7 @@ def train_and_eval(cfg: ExperimentConfig):
             alpha_e =model .model ['transformer'].gated_cross_attn .alpha_e .item ()
             alpha_p =model .model ['transformer'].gated_cross_attn .alpha_p .item ()
 
-            # Validation (Dual-track Blind & Oracle for M5)
+            # Validation reports blind metrics; older scale variants also report oracle metrics.
         val_metrics =evaluate_split (model ,val_loader ,is_m5 =(cfg.model_name =='M5'),ph_grid =_ph_grid_centers (cfg.phdos_num ),sumnorm =(cfg.norm =='sumnorm'))
         balanced =0.5 *val_metrics ['mae_edos_median']+0.5 *val_metrics ['mae_phdos_median']
 
@@ -365,14 +362,11 @@ def train_and_eval(cfg: ExperimentConfig):
         'balanced_score':balanced 
         })
 
-        # 如需逐轮独立峰值则重置计数器,下一轮重新统计
+        # Reset the counter to measure each epoch independently.
         if torch .cuda .is_available ():
             torch .cuda .reset_peak_memory_stats ()
 
-            # E2 hygiene: full checkpoint dict (was bare state_dict), unified with
-            # train.py format. Loader below + cif2dos both accept this format.
-            # Atomic write (tmp + rename): concurrent/duplicate runners or SIGKILL
-            # mid-save must never leave a torn checkpoint behind.
+            # Save a complete state atomically so interrupted runs remain recoverable.
         def _ckpt (epoch_ ,best_ ):
             return {'epoch':epoch_ ,
             'model_name':cfg.model_name ,
@@ -439,8 +433,8 @@ def train_and_eval(cfg: ExperimentConfig):
 def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :bool =False ,ph_grid =None ,sumnorm :bool =False ):
     model .model ['transformer'].eval ()
     records =[]
-    # C2b: thermo needs a uniform freq grid; nonuniform arms (P1) skip thermo
-    # (verdict metrics are spectral; thermo tracked where defined).
+    # Thermodynamic integration requires a uniform frequency grid. Skip it for
+    # non-uniform grids; spectral verdict metrics remain available.
     skip_thermo ,_calc_override =False ,None 
     if ph_grid is not None :
         import numpy as _np 
@@ -474,9 +468,8 @@ def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :
                 p_e_orc =torch .clamp (outputs ['shape_edos']*(edos_max -edos_min )+edos_min ,min =0.0 )
                 p_p_orc =torch .clamp (outputs ['shape_phdos']*(phdos_max -phdos_min )+phdos_min ,min =0.0 )
             else :
-            # Oracle denormalization for M1-M4. C2.1 sumnorm: head emits raw
-            # logits (distribution lives behind softmax in loss); eval must
-            # softmax first, then scale by sum slots (min=0 here by design).
+            # Direct-output variants use oracle denormalization. For SumNorm,
+            # convert logits to a distribution before restoring its total.
                 if sumnorm :
                     import torch .nn .functional as _F 
                     p_e =torch .clamp (_F .softmax (outputs ['edos'],dim =-1 )*(edos_max -edos_min )+edos_min ,min =0.0 )
@@ -615,45 +608,45 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate')
     parser.add_argument('--skip_existing', action='store_true', help='Skip variant if test summary already exists')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed (H1 hygiene, recorded in history CSV)')
-    parser.add_argument('--tag', type=str, default='', help='Run tag, e.g. _b96: isolates save_dir/results from h1 outputs')
-    parser.add_argument('--data_dir', type=str, default='./data/train4ARPAT', help='Dataset root (C2b: per-arm dir)')
-    parser.add_argument('--edos_num', type=int, default=128, help='eDOS output bins (C2b grid arms)')
-    parser.add_argument('--phdos_num', type=int, default=64, help='phDOS output bins (C2b grid arms)')
-    parser.add_argument('--atom_feat', type=str, default='legacy3', choices=['legacy3', 'mendeleev24'], help='Atom feature table (C1.1)')
-    parser.add_argument('--energy_code', type=str, default='none', choices=['none', 'edos'], help='eDOS bin-energy code (C1.2)')
-    parser.add_argument('--edos_grid', type=str, default='', help='C1.2 grid key (E0/E2..) in grids.json or path to centers npy')
-    parser.add_argument('--tv_w', type=float, default=0.0, help='C1.3 TV weight')
-    parser.add_argument('--grad_w', type=float, default=0.0, help='C1.3 gradient-match weight')
-    parser.add_argument('--peak_w', type=float, default=1.0, help='C1.3 peak-region weight')
-    parser.add_argument('--tail_w', type=float, default=1.0, help='C1.3 phDOS tail weight')
-    parser.add_argument('--tail_start', type=int, default=-1, help='C1.3 tail start bin (-1=off)')
-    parser.add_argument('--augment', action='store_true', help='C1.4 phonon displacement aug (train only)')
-    parser.add_argument('--disp_sigma', type=float, default=0.01, help='C1.4 displacement sigma (frac)')
-    parser.add_argument('--norm', type=str, default='sumnorm', choices=['minmax', 'sumnorm'], help='Target norm (C2.1 merged default; minmax recovers legacy)')
-    parser.add_argument('--use_mask', action='store_true', help='C2.3 coverage-mask the loss (eval protocol unchanged)')
-    parser.add_argument('--dropout', type=float, default=None, help='B4 transformer dropout (default config 0.1)')
-    parser.add_argument('--weight_decay', type=float, default=None, help='B4 AdamW weight decay (default 0.01)')
-    parser.add_argument('--warmup_epochs', type=int, default=None, help='B4 warmup epochs (default 5)')
-    parser.add_argument('--lambda_ph', type=float, default=None, help='B4 phonon loss weight (default 1.0)')
-    parser.add_argument('--grad_clip', type=float, default=None, help='B4 grad clip max-norm (default off)')
-    parser.add_argument('--w_w1', type=float, default=None, help='L3 W1/CDF term weight (default 1.0)')
-    parser.add_argument('--w_huber', type=float, default=None, help='L3 Huber term weight (default 1.0)')
-    parser.add_argument('--scale_mode', type=str, default='eta', choices=['none', 'decoupled', 'eta'], help='C2.4/H1 supervised scale/coverage head')
-    parser.add_argument('--eta_sup_w', type=float, default=1.0, help='H1 eta/gamma supervision weight')
-    parser.add_argument('--delta_edos', type=float, default=0.09375, help='H1 eDOS bin width (E0)')
-    parser.add_argument('--delta_phdos', type=float, default=19.6875, help='H1 phDOS bin width (P0)')
-    parser.add_argument('--scalar_mode', type=str, default='none', choices=['none', 's1'], help='S1 boundary scalar heads')
-    parser.add_argument('--scalar_sup_w', type=float, default=1.0, help='S1 scalar supervision weight')
-    parser.add_argument('--use_g1', action='store_true', help='E9-P0 G1 exact sparse graph + hub token')
-    parser.add_argument('--g1_r_cut', type=float, default=5.5, help='G1 cutoff Angstrom (Design-E: 5.5)')
-    parser.add_argument('--g1_max_neighbors', type=int, default=48, help='G1 per-atom neighbor cap (Design-E: 48)')
-    parser.add_argument('--q1_coord', action='store_true', help='E9-P0 Q1 coordinate trunk MLPs')
-    parser.add_argument('--q1_hidden', type=int, default=128, help='Q1 trunk hidden dim')
-    parser.add_argument('--q2_fourier', action='store_true', help='E9-P0 Q2 RFF trunk (implies trunk pathway)')
-    parser.add_argument('--freeze_backbone', action='store_true', help='C2.4 Phase A: train scale head only')
-    parser.add_argument('--init_ckpt', type=str, default='', help='C2.4 init weights (strict=False)')
-    parser.add_argument('--scale_sup_w', type=float, default=1.0, help='C2.4 scale supervision weight')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed recorded in the history CSV')
+    parser.add_argument('--tag', type=str, default='', help='Unique suffix for output and result files')
+    parser.add_argument('--data_dir', type=str, default='./data/train4ARPAT', help='Dataset root')
+    parser.add_argument('--edos_num', type=int, default=128, help='Number of eDOS output bins')
+    parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
+    parser.add_argument('--atom_feat', type=str, default='legacy3', choices=['legacy3', 'mendeleev24'], help='Atomic feature table')
+    parser.add_argument('--energy_code', type=str, default='none', choices=['none', 'edos'], help='Add an eDOS bin-energy encoding')
+    parser.add_argument('--edos_grid', type=str, default='', help='Named eDOS grid or path to bin centers')
+    parser.add_argument('--tv_w', type=float, default=0.0, help='Total-variation loss weight')
+    parser.add_argument('--grad_w', type=float, default=0.0, help='Gradient-matching loss weight')
+    parser.add_argument('--peak_w', type=float, default=1.0, help='Weight for high-density eDOS bins')
+    parser.add_argument('--tail_w', type=float, default=1.0, help='Weight for high-frequency phDOS bins')
+    parser.add_argument('--tail_start', type=int, default=-1, help='First high-frequency phDOS bin; -1 disables the region')
+    parser.add_argument('--augment', action='store_true', help='Apply training-only phonon coordinate displacement')
+    parser.add_argument('--disp_sigma', type=float, default=0.01, help='Coordinate-displacement standard deviation in fractional units')
+    parser.add_argument('--norm', type=str, default='sumnorm', choices=['minmax', 'sumnorm'], help='Target normalization; sumnorm is the default')
+    parser.add_argument('--use_mask', action='store_true', help='Experimental: mask unsupported bins in the loss')
+    parser.add_argument('--dropout', type=float, default=None, help='Transformer dropout; None uses the template value (0.05)')
+    parser.add_argument('--weight_decay', type=float, default=None, help='AdamW weight decay; None uses the template value')
+    parser.add_argument('--warmup_epochs', type=int, default=None, help='Warmup duration; None uses the template value')
+    parser.add_argument('--lambda_ph', type=float, default=None, help='Relative phDOS loss weight')
+    parser.add_argument('--grad_clip', type=float, default=None, help='Gradient-norm limit; None disables clipping')
+    parser.add_argument('--w_w1', type=float, default=None, help='One-dimensional Wasserstein loss weight')
+    parser.add_argument('--w_huber', type=float, default=None, help='Huber loss weight')
+    parser.add_argument('--scale_mode', type=str, default='eta', choices=['none', 'decoupled', 'eta'], help='Blind-inference scale head; eta is the default')
+    parser.add_argument('--eta_sup_w', type=float, default=1.0, help='Eta/gamma auxiliary-loss weight')
+    parser.add_argument('--delta_edos', type=float, default=0.09375, help='eDOS bin width in eV for eta/gamma supervision')
+    parser.add_argument('--delta_phdos', type=float, default=19.6875, help='phDOS bin width in cm^-1 for eta/gamma supervision')
+    parser.add_argument('--scalar_mode', type=str, default='none', choices=['none', 's1'], help='Optional boundary-scalar heads')
+    parser.add_argument('--scalar_sup_w', type=float, default=1.0, help='Boundary-scalar auxiliary-loss weight')
+    parser.add_argument('--use_g1', action='store_true', help='Enable the experimental sparse periodic graph')
+    parser.add_argument('--g1_r_cut', type=float, default=5.5, help='Sparse-graph cutoff in Å')
+    parser.add_argument('--g1_max_neighbors', type=int, default=48, help='Maximum graph neighbors per atom')
+    parser.add_argument('--q1_coord', action='store_true', help='Enable coordinate-conditioned output trunks')
+    parser.add_argument('--q1_hidden', type=int, default=128, help='Hidden size of coordinate trunks')
+    parser.add_argument('--q2_fourier', action='store_true', help='Use Fourier features in coordinate trunks')
+    parser.add_argument('--freeze_backbone', action='store_true', help='Train only auxiliary heads after initialization')
+    parser.add_argument('--init_ckpt', type=str, default='', help='Checkpoint used to initialize the model')
+    parser.add_argument('--scale_sup_w', type=float, default=1.0, help='Weight of scale-prediction supervision')
     args = parser.parse_args()
 
     if args.model == 'all':

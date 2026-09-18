@@ -1,7 +1,9 @@
 # ============================================================================
 # TEMPLATE ONLY — this file provides structural defaults.
 # At runtime, run_ablation_experiments.py overwrites most values via CLI args.
-# The true reproducible config is output/ablation_*/config_used.yaml.
+# The runner writes the effective configuration to output/ablation_*/config_used.yaml.
+# That directory is local-only: a reproducible experiment also needs its exact
+# command, tag, seed, and versioned results CSV recorded in docs/logs/.
 # ============================================================================
 model:
   type: "transformer"

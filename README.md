@@ -1,162 +1,74 @@
-# uniARPAT: Unified Ab-initio Representation for Phonon and Electron Density of States
+# uniARPAT
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.2%2B-orange.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/License-TBD-lightgrey.svg)](#-license)
+uniARPAT 从未弛豫的晶体结构预测电子态密度和声子态密度（eDOS 与 phDOS）。
+这是一个研究型代码库：可复现性、清晰的实验对比和可审计的数据边界，与模型改动同等重要。
 
-**uniARPAT** is the next-generation unified physical deep learning framework for the joint, end-to-end prediction of **electronic density of states (eDOS)** and **phonon density of states (phDOS)** directly from unrelaxed crystal structures.
+## 当前基线
 
-Built upon the foundations of **ARPAT**, uniARPAT introduces leakage-free Shape-Scale inference (H1 η/γ heads), self-healing bandgap preservation, and material-specific thermodynamic integration. Week-2 的解耦/对称头/门控三假设已被 h1 否决（见下），当前默认回退 M1。
+当前参考实验为 B7 `_e9ctl`：使用 Q1 清洁数据池的 M1 模型、总和归一化的
+KL/W1/Huber 损失、H1 eta/gamma 盲推理头，以及 0.05 dropout。35 个 epoch 中最佳
+检查点为第 33 个：eDOS 的中位 R² 为 0.518（失败率 5.73%），phDOS 为 0.741（失败率
+3.50%）。指标定义与报告规则见 [`docs/glossary.md`](docs/glossary.md)，正在进行的
+工作见 [`docs/status.md`](docs/status.md)。
 
----
-
-## 🌟 Key Architectural Advancements
-
-```
-                      [Crystal Structure (Atoms + Coords + Cell)]
-                                         │
-                                         ▼
-                            [Geometric Crystal Encoder]
-                                         │
-                         ┌───────────────┴───────────────┐
-                         ▼                               ▼
-                 [eDOS Decoder]                  [phDOS Decoder]
-                         │                               │
-                         └──────► [Post-Decoder] ◄───────┘
-                                  [Gated Cross-]
-                                  [ Attention  ]
-                         ┌───────────────┴───────────────┐
-                         ▼                               ▼
-               [MultiScale Head]                 [DeepConv1d Head]
-                  (~0.788M)                          (~0.788M)
-                         │                               │
-                         ▼                               ▼
-                  [eDOS Shape [0,1]]              [phDOS Shape [0,1]]
-                          │                               │
-                          └──────────────┬────────────────┘
-                                         ▼
-                     [H1 η/γ Heads from global features]
-                      声子 Scale=3N·η̂/Δ，电子 Scale=N_val·γ̂/Δ
-                         （图中汇合箭头仅示意相乘，不表示因果）
-                                         │
-                                         ▼
-                         [True Physical Absolute Spectra]
-                                        │
-                                        ▼
-                     [Macroscopic Thermal & Thermo Properties]
-                     (Julian-Slack κ_L, Debye Temp, Cv, Sv, Fvib)
-```
-
-1. **Decoupled Dual-Decoder Architecture**:
-   Eliminates inter-task negative transfer by separating electronic and vibrational latent representations, allowing specialized queries to converge without gradient interference.
-2. **Post-Decoder Zero-Initialized Gated Cross-Attention**:
-   Employs learnable gating scalars ($\alpha_e, \alpha_p$) initialized to $0.0$. The model starts as strictly decoupled and smoothly learns electron-phonon feature modulation as training progresses.
-3. **Capacity-Symmetric Output Heads (~0.788M params)**:
-   Resolves historical capacity skew (30.7M vs 1.5k) by balancing the phDOS `DeepConv1dHead` (787,969 params) and the eDOS `MultiScaleResidualHead` (788,225 params) to within 0.032% parameter parity.
-4. **Leakage-Free Shape-Scale Decoupled Prediction**:
-   The `ScaleHead` MLP autonomously predicts physical energy scales from global crystal features. This eliminates reliance on ground-truth min/max labels during inference, enabling true blind deployment on unknown materials.
-5. **Self-Healing Bandgap Preservation (`safe_shape_norm`)**:
-   Guarantees mathematically flat zero-density in semiconductor bandgaps while dynamically protecting neurons against Dying ReLU stagnation through smooth Softplus fallback.
-6. **Material-Specific Julian-Slack Lattice Thermal Conductivity**:
-   Integrates unit cell volume $V_{\text{atom}}$, average atomic mass $\bar{M}$, and optical phonon suppression factor $n_{\text{atoms}}^{2/3}$ with the calibrated Julian-Slack equation ($A=3.1\times 10^{-6}$), aligning ML predictions with solid-state physics.
-
----
-
-## 📁 Repository Structure
-
-```text
-uniARPAT/
-├── README.md / AGENTS.md / docs/STATUS.md   # 入口：项目说明 / agent导航 / 活状态
-├── requirements.txt / requirements-lock.txt
-├── model/ / datasets/ / utils/              # 骨干+头 / 数据集 / 特征与调度
-├── tools/getdata/ / tools/eval/ / tools/legacy/  # 抓数加工 / verdict脚本（禁/tmp）/ 退役入口存档
-├── run_ablation_experiments.py / cif2dos.py / thermo_props.py  # 唯一训练入口 / 盲推 / 热力学库（根目录仅此3个py）
-├── configs/config.yaml                      # 被runner改写；可复现看 output/ablation_*/config_used.yaml
-├── data/train4ARPAT/                        # Q1干净缓存 18706/2313/2287；旧缓存 data/archive/*_preQ1/
-├── index/z0_*.parquet+json + z0_REPORT.md   # ZVAL表+Q1 D1–D4
-├── tests/                                   # 单测（截至09-18为34项，见下）
-├── docs/INDEX.md+GLOSSARY.md                # 文档地图+术语；中文历史目录名冻结保留
-├── results/                                 # history_*.csv + test_*_summary.csv（入库）
-└── output/                                  # checkpoint+config（不入库，以results为准）
-```
-
----
-
-## 🚀 Quickstart
-
-### 0. 数据前置（必做）
-本仓库训练依赖 Q1 干净缓存。先校验：
-```bash
-ls data/train4ARPAT/manifest.json   # 期望 train 18706 / valid 2313 / test 2287
-```
-缺数时用 `tools/getdata/q1_rebuild.py` 物化，不要重跑 A1–A6。旧缓存只在 `data/archive/*_preQ1/` 存档。
-
-### 1. Environment Installation
-Ensure Python 3.10+ and CUDA are installed (V100 实测用 CUDA 11 系镜像；CUDA 12 仅在新卡验证过）。Then install requirements:
+## 从这里开始
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 2. Run Automated Unit Tests
-Verify model parameters, self-healing activations, and physical equations:
-
-```bash
 python3 -m unittest discover tests
+python3 run_ablation_experiments.py --model M1 --epochs 10 --tag _pilot
 ```
-*(截至 09-18 为 34 项，约 1 分钟；CPU 机约 75 秒。）*
 
-### 3. Pilot 初筛（10 Epochs）
-```bash
-python3 run_ablation_experiments.py --model M1 --epochs 10 --tag _xxx
-```
-- Q1 实测（V100，M1）：约 190 s/epoch，峰值显存约 7.2 GB。旧 `107.8 s / 9.16 GB` 为 v1 存档值，勿引。
+已批准的参考训练请使用唯一的标签：
 
-### 4. 生产对照（B7 配方，不要裸跑）
 ```bash
-# 唯一合法对照（Q1，sumnorm+E0P0+eta+dropout0.05）
 python3 run_ablation_experiments.py --model M1 --epochs 35 --tag _e9ctl
 ```
-禁 ` --model all --epochs 100`：会用旧默认跑出污染成绩并覆盖结果。`--tag` 必加，跨归一化禁复用 checkpoint。
 
----
+未经明确批准，不得运行 `--model all --epochs 100`。不得在不同归一化方案之间复用
+检查点。训练前必须确认 Q1 缓存及其清单：
 
-## 📊 Baseline Benchmarks & Ablation Design
+```bash
+python3 -c "import json; print(json.load(open('data/train4ARPAT/manifest.json')))"
+```
 
-### 1. 现行基线 B7（Q1 干净池，2,287 测试样本，2026-09-17）
-生产配方（sumnorm + E0P0 + H1 η/γ + dropout 0.05），best ep33：
+## 目录说明
 
-| Physical Target | eDOS med / fail | phDOS med / fail | Notes |
-| :--- | :---: | :---: | :--- |
-| **B7 `_e9ctl`（唯一合法对照）** | **0.518 / 5.73%** | **0.741 / 3.50%** | Cv MAE 0.30 J/(mol-atom·K)；盲声子 0.735（gap p50 0.0008），盲电子 0.480（gap p50 0.010） |
-| 存档 pre-Q（B5/B6/H1，旧缓存） | 0.463–0.510 / 5.67–8.86% | 0.696–0.738 / 3.16–4.69% | 跨池禁直接比涨点 |
+```text
+uniARPAT/
+├── run_ablation_experiments.py  # 训练与评估入口
+├── cif2dos.py                   # 从 CIF 预测 DOS 的入口
+├── thermo_props.py              # 热力学后处理库
+├── model/ datasets/ utils/      # 模型、数据集适配层与通用工具
+├── configs/                     # 受版本控制的模板默认值
+├── tests/                       # 单元测试与回归测试
+├── tools/
+│   ├── data/                    # 受保护的数据获取、处理与审计工具
+│   ├── eval/                    # 可复用的结论判定与分析脚本
+│   └── legacy/                  # 只读的已退役入口
+├── docs/                        # 当前工作文档、日志和设计模板
+├── data/                        # 本地缓存；清单和小型索引会纳入版本控制
+├── index/                       # 固化的数据划分与参考表
+├── results/                     # 受版本控制的正式实验 CSV
+└── output/                      # 本地检查点与运行日志（忽略）
+```
 
-旧 1,371 样本 oracle 值（phDOS 0.694 / eDOS 0.521，Cv 0.364）为 v0-legacy 存档，勿引。
+## 文档与协作
 
-### 2. Ablation Planning Matrix (Table 1；Week-2 规划值，参数为规划值)
+以 [`docs/index.md`](docs/index.md) 作为文档导航。贡献者和 agent 必须遵循
+[`AGENTS.md`](AGENTS.md) 与 [`docs/workflow.md`](docs/workflow.md)：推进实验前先记录
+结论；每个完成的任务写一份日志；当前状态与历史记录分开维护。数据边界由
+[`docs/data.md`](docs/data.md) 定义。
 
-> NOTE（现行对照是 B7 Q1，见上表）：下表 M1 的 0.521/0.694 为 Week-2 规划初值；
-> h1（09-11）已收官，B5/B6（pre-Q）已存档。M2–M5 "Ablation run" 为空表示未测得可用值——不要引用为成绩。
-> 参数列为规划值（hygiene 后实测约 71.1M，相对关系仍有效）。
+## 推理
 
-| Variant | Decoder | Cross-Modal Interaction | eDOS Head | phDOS Head | Loss & Scale Scheme | Params | eDOS $R^2$ (med/mean) | phDOS $R^2$ (med/mean) |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **M1 (Baseline)** | Shared | None | 1-layer (1.5k) | 6-layer (30.7M) | MSE (Oracle scale) | **77.63M** | 0.521 / 0.374 | 0.694 / 0.585 |
-| **M2** | Decoupled | None | 1-layer (1.5k) | 3-layer (0.78M) | MSE (Oracle scale) | **72.96M** | *Ablation run* | *Ablation run* |
-| **M3** | Decoupled | None | Multi-Scale (0.78M) | 3-layer (0.78M) | MSE (Oracle scale) | **73.75M** | *Ablation run* | *Ablation run* |
-| **M4** | Decoupled | Zero-Init Gated | Multi-Scale (0.78M) | 3-layer (0.78M) | MSE (Oracle scale) | **75.85M** | *Ablation run* | *Ablation run* |
-| **M5 (Full)** | Decoupled | Zero-Init Gated | Multi-Scale (0.78M) | 3-layer (0.78M) | Physical Loss + Shape-Scale | **75.93M** | 旧ScaleHead零梯度已作废，勿引（盲测曾崩） | — |
+`cif2dos.py` 是用于兼容 M4 的旧入口。它可以对 CIF 文件运行兼容的 M4 检查点，但尚未
+接入当前 B7 M1 盲推理模型的导出流程；不得据此宣称得到 B7 推理结果。提供兼容的检查点
+和 CIF 文件后，再选择输出目录：
 
-> h1 verdict（09-11）：解耦≈零（砍回共享）、对称头负（回退轻量）、门控负（判死刑转MoE）。
-> 当前默认回退 M1，上表 M2–M4 为历史规划假设，不代表现行最优。
+```bash
+python3 cif2dos.py --cif structure.cif --weights model.pth --output predictions/
+```
 
----
-
-## 📖 Citation
-
-Manuscript in preparation. ARPAT base reference to be added after peer-review confirmation.
-
----
-
-## 📜 License
-License 待补（原 MIT 链接无文件，暂按内部使用）。
+可运行 `python3 cif2dos.py --help` 查看支持的选项。检查点必须与训练时的模型和归一化
+配置相匹配。

@@ -279,7 +279,6 @@ def init_distributed_mode(args):
         args.world_size = int(os.environ['SLURM_NTASKS'])
         ip_addr = get_ip(os.environ['SLURM_STEP_NODELIST'])
         port = int(os.environ['SLURM_SRUN_COMM_PORT'])
-        # args.init_method = ip_addr + str(port)
         args.init_method = ip_addr + args.init_method.split(":")[-1]
     else:
         print('Not using distributed mode')
@@ -305,18 +304,11 @@ def DistributedParallel_Model(model, gpu_num):
             raise EnvironmentError('No GPUs, cannot initialize multigpu training.')
         model.to(device)
         for key in model.model:
-            # model.model[key].to(device)
             ddp_sub_model = torch.nn.parallel.DistributedDataParallel(model.model[key], device_ids=[gpu_num])
             model.model[key] = ddp_sub_model
-        
-        # model.to(device)
-        # model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[gpu_num])
-        # model_without_ddp = model.module
     else:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         model.to(device)
-        # for key in model.model:
-        #     model.model[key].to(device)
 
     return model
 
@@ -333,8 +325,6 @@ class Dict(dict):
 
     def __delattr__(self, name: str) -> None:
         del self[name]
-    # __setattr__ = dict.__setitem__
-    # __getattr__ = dict.__getitem__
 
 def dictToObj(dictObj):
     if not isinstance(dictObj, dict):
@@ -350,7 +340,6 @@ def setup_seed(seed):
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
-    # torch.backends.cudnn.deterministic = True
 
 
 def named_params_and_buffers(module):
@@ -364,9 +353,6 @@ def check_ddp_consistency(module, ignore_regex=None):
         if ignore_regex is not None and re.fullmatch(ignore_regex, fullname):
             continue
         tensor = tensor.detach()
-        # if tensor.is_floating_point():
-        #     tensor = nan_to_num(tensor)
         other = tensor.clone()
         torch.distributed.broadcast(tensor=other, src=0)
-        # print(fullname, tensor.sum(), other.sum())
         assert (tensor == other).all(), fullname

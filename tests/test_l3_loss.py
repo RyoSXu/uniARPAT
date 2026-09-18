@@ -26,8 +26,15 @@ def _model_with(w_w1=None, w_huber=None, seed=0):
     b = ConfigBuilder(**cfg)
     model = b.get_model()
     model.device = torch.device("cpu")
-    loader = b.get_dataloader(split="train", dos_minmax=True, batch_size=4,
-                              dos_sumnorm=True)
+    # 单元测试在已创建模型后运行；保持单进程加载，避免 Python 3.12 对 fork() 的警告。
+    loader = b.get_dataloader(
+        split="train",
+        dos_minmax=True,
+        batch_size=4,
+        dos_sumnorm=True,
+        dataloader_params={**b.dataloader_params, "num_workers": 0,
+                           "persistent_workers": False, "prefetch_factor": None},
+    )
     return model, next(iter(loader))
 
 
