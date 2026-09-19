@@ -6,9 +6,9 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 
 from model.heads import (
-    CNN, CoordTrunk, DeepConv1dHead, EnergyCode, EtaHead, FourierTrunk,
-    MultiScaleResidualHead, PostDecoderGatedCrossAttention, ScaleHead,
-    global_masked_pool
+    CNN, CoordQueryGenerator, CoordTrunk, DeepConv1dHead, EnergyCode, EtaHead, FourierTrunk,
+    MultiScaleResidualHead, PointwiseMLPHead, PostDecoderGatedCrossAttention,
+    ScaleHead, global_masked_pool
 )
 from utils.atom_feature import AtomFeatureEncoder
 from utils.relative_features import compute_relative_features
@@ -39,7 +39,8 @@ class Transformer(nn.Module):
                   energy_code="none", edos_grid=None, scale_mode="none",
                   scalar_mode="none", use_g1=False, g1_r_cut=5.5,
                   g1_max_neighbors=48, g1_t_range=2, q1_coord=False,
-                  q1_hidden=128, q2_fourier=False, c5_moe=False):
+                  q1_hidden=128, q2_fourier=False, c5_moe=False,
+                  r1a_point=False, r1b_coord=False):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
@@ -54,6 +55,12 @@ class Transformer(nn.Module):
         self.c5_moe = bool(c5_moe)
         if self.c5_moe:
             assert not decoupled_decoder, "C5 token MoE requires M1's shared decoder"
+        # R1a: parameter-matched pointwise MLP readout heads.
+        self.r1a_point = bool(r1a_point)
+        # R1b: coordinate query generator requires R1a pointwise readout head.
+        self.r1b_coord = bool(r1b_coord)
+        if self.r1b_coord:
+            self.r1a_point = True
         # Optional sparse periodic graph. The hub token starts with zero weight.
         self.use_g1 = bool(use_g1)
         self.g1_r_cut = float(g1_r_cut)
@@ -142,13 +149,29 @@ class Transformer(nn.Module):
         if use_gated_cross_attn:
             self.gated_cross_attn = PostDecoderGatedCrossAttention(d_model, nhead, dropout=dropout)
 
-        # --- (EDOS)  ---
-        self.edos_query_embed = nn.Parameter(torch.zeros(edos_num, d_model))
-        self.edos_tgt = nn.Parameter(torch.zeros(edos_num, d_model))
+        # --- (EDOS / PhDOS queries) ---
+        if self.r1b_coord:
+            q_hidden = min(128, d_model * 4)
+            self.q_e = CoordQueryGenerator(d_model=d_model, hidden_dim=q_hidden, x_scale=6.0)
+            self.q_p = CoordQueryGenerator(d_model=d_model, hidden_dim=q_hidden, x_scale=980.0)
+            self.register_buffer("default_edos_x",
+                                 torch.linspace(-6.0 + 6.0 / edos_num, 6.0 - 6.0 / edos_num, edos_num))
+            self.register_buffer("default_phdos_x",
+                                 torch.linspace(-280.0 + 630.0 / phdos_num, 980.0 - 630.0 / phdos_num, phdos_num))
+            self.edos_query_embed = None
+            self.edos_tgt = None
+            self.phdos_query_embed = None
+            self.phdos_tgt = None
+        else:
+            # --- (EDOS)  ---
+            self.edos_query_embed = nn.Parameter(torch.zeros(edos_num, d_model))
+            self.edos_tgt = nn.Parameter(torch.zeros(edos_num, d_model))
 
-        # --- (PhDOS)  ---
-        self.phdos_query_embed = nn.Parameter(torch.zeros(phdos_num, d_model))
-        self.phdos_tgt = nn.Parameter(torch.zeros(phdos_num, d_model))
+            # --- (PhDOS)  ---
+            self.phdos_query_embed = nn.Parameter(torch.zeros(phdos_num, d_model))
+            self.phdos_tgt = nn.Parameter(torch.zeros(phdos_num, d_model))
+            self.q_e = None
+            self.q_p = None
 
         self._reset_parameters()
         if atom_feat_mode == "mendeleev24":
@@ -172,7 +195,15 @@ class Transformer(nn.Module):
                     _tr.proj.bias.zero_()
 
         # Output Heads (~0.788M params each for symmetric configuration)
-        if head_type == "symmetric":
+        if self.r1a_point:
+            if d_model == 512:
+                self.edos_out_head = PointwiseMLPHead([512, 3, 1])
+                self.phdos_out_head = PointwiseMLPHead([512, 2704, 2704, 2704, 2704, 2704, 1])
+            else:
+                self.edos_out_head = PointwiseMLPHead([d_model, 3, 1])
+                h_dim = max(16, d_model * 2)
+                self.phdos_out_head = PointwiseMLPHead([d_model, h_dim, h_dim, h_dim, h_dim, h_dim, 1])
+        elif head_type == "symmetric":
             self.edos_out_head = MultiScaleResidualHead(d_model, hidden_dim=256)
             self.phdos_out_head = DeepConv1dHead(d_model, hidden_dim=256)
             nn.init.constant_(self.edos_out_head.out_conv.bias, 1.0)
@@ -273,23 +304,39 @@ class Transformer(nn.Module):
         results = {}
 
         # Decoder queries
-        edos_query = self.edos_query_embed.unsqueeze(0).repeat(B, 1, 1)
-        if self.edos_energy is not None:
-            edos_query = edos_query + self.edos_energy(self.edos_grid).unsqueeze(0)
-        if self.q1_coord:
-            # Coordinate-conditioned residual; zero initialization preserves the base path.
-            assert edos_x is not None and phdos_x is not None, \
-                "q1_coord needs edos_x/phdos_x from the dataset batch"
-            assert edos_x.shape[-1] == edos_query.shape[1], \
-                f"edos_x bins {edos_x.shape[-1]} != {edos_query.shape[1]}"
-            edos_query = edos_query + self.edos_trunk(edos_x.to(dtype=edos_query.dtype))
-        edos_tgt_input = self.edos_tgt.unsqueeze(0).repeat(B, 1, 1)
-        phdos_query = self.phdos_query_embed.unsqueeze(0).repeat(B, 1, 1)
-        phdos_tgt_input = self.phdos_tgt.unsqueeze(0).repeat(B, 1, 1)
-        if self.q1_coord:
-            assert phdos_x.shape[-1] == phdos_query.shape[1], \
-                f"phdos_x bins {phdos_x.shape[-1]} != {phdos_query.shape[1]}"
-            phdos_query = phdos_query + self.phdos_trunk(phdos_x.to(dtype=phdos_query.dtype))
+        if self.r1b_coord:
+            ex = edos_x if edos_x is not None else self.default_edos_x
+            px = phdos_x if phdos_x is not None else self.default_phdos_x
+            ex = ex.to(device=pos.device, dtype=pos.dtype)
+            px = px.to(device=pos.device, dtype=pos.dtype)
+            edos_query = self.q_e(ex)
+            if edos_query.shape[0] == 1 and B > 1:
+                edos_query = edos_query.expand(B, -1, -1)
+            phdos_query = self.q_p(px)
+            if phdos_query.shape[0] == 1 and B > 1:
+                phdos_query = phdos_query.expand(B, -1, -1)
+            E = edos_query.shape[1]
+            P = phdos_query.shape[1]
+            edos_tgt_input = torch.zeros(B, E, self.d_model, device=pos.device, dtype=edos_query.dtype)
+            phdos_tgt_input = torch.zeros(B, P, self.d_model, device=pos.device, dtype=phdos_query.dtype)
+        else:
+            edos_query = self.edos_query_embed.unsqueeze(0).repeat(B, 1, 1)
+            if self.edos_energy is not None:
+                edos_query = edos_query + self.edos_energy(self.edos_grid).unsqueeze(0)
+            if self.q1_coord:
+                # Coordinate-conditioned residual; zero initialization preserves the base path.
+                assert edos_x is not None and phdos_x is not None, \
+                    "q1_coord needs edos_x/phdos_x from the dataset batch"
+                assert edos_x.shape[-1] == edos_query.shape[1], \
+                    f"edos_x bins {edos_x.shape[-1]} != {edos_query.shape[1]}"
+                edos_query = edos_query + self.edos_trunk(edos_x.to(dtype=edos_query.dtype))
+            edos_tgt_input = self.edos_tgt.unsqueeze(0).repeat(B, 1, 1)
+            phdos_query = self.phdos_query_embed.unsqueeze(0).repeat(B, 1, 1)
+            phdos_tgt_input = self.phdos_tgt.unsqueeze(0).repeat(B, 1, 1)
+            if self.q1_coord:
+                assert phdos_x.shape[-1] == phdos_query.shape[1], \
+                    f"phdos_x bins {phdos_x.shape[-1]} != {phdos_query.shape[1]}"
+                phdos_query = phdos_query + self.phdos_trunk(phdos_x.to(dtype=phdos_query.dtype))
 
         if self.decoupled_decoder:
             hs_edos, _ = self.edos_decoder(
@@ -327,8 +374,12 @@ class Transformer(nn.Module):
             hs_edos, hs_phdos = self.gated_cross_attn(hs_edos, hs_phdos)
 
         # Output heads
-        out_edos = self.edos_out_head(hs_edos.permute(0, 2, 1)).squeeze(1) # -> [B, edos_num]
-        out_phdos = self.phdos_out_head(hs_phdos.permute(0, 2, 1)).squeeze(1) # -> [B, phdos_num]
+        if self.r1a_point:
+            out_edos = self.edos_out_head(hs_edos).squeeze(-1) # [B, edos_num, 1] -> [B, edos_num]
+            out_phdos = self.phdos_out_head(hs_phdos).squeeze(-1) # [B, phdos_num, 1] -> [B, phdos_num]
+        else:
+            out_edos = self.edos_out_head(hs_edos.permute(0, 2, 1)).squeeze(1) # -> [B, edos_num]
+            out_phdos = self.phdos_out_head(hs_phdos.permute(0, 2, 1)).squeeze(1) # -> [B, phdos_num]
 
         results['edos'] = out_edos
         results['phdos'] = out_phdos

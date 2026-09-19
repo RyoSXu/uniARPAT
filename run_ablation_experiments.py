@@ -164,6 +164,10 @@ def train_and_eval(cfg: ExperimentConfig):
     # C5 fixed token-level MoE design; only the enable flag is tunable.
     yaml_cfg ['model']['params']['sub_model']['transformer']['c5_moe']=bool (cfg.c5_moe )
     yaml_cfg ['model']['params']['c5_moe_balance_w']=float (cfg.c5_moe_balance_w )
+    # R1a parameter-matched pointwise MLP readout heads.
+    yaml_cfg ['model']['params']['sub_model']['transformer']['r1a_point']=bool (cfg.r1a_point or cfg.r1b_coord )
+    # R1b coordinate-generated decoder query.
+    yaml_cfg ['model']['params']['sub_model']['transformer']['r1b_coord']=bool (cfg.r1b_coord )
     # Optional optimization overrides; None keeps the template value.
     if cfg.dropout is not None :
         yaml_cfg ['model']['params']['sub_model']['transformer']['dropout']=float (cfg.dropout )
@@ -216,6 +220,8 @@ def train_and_eval(cfg: ExperimentConfig):
         'q1_coord':cfg.q1_coord ,'q1_hidden':cfg.q1_hidden ,
         'q2_fourier':cfg.q2_fourier ,
         'c5_moe':cfg.c5_moe ,'c5_moe_balance_w':cfg.c5_moe_balance_w ,
+        'r1a_point':cfg.r1a_point ,
+        'r1b_coord':cfg.r1b_coord ,
         'init_ckpt':cfg.init_ckpt ,'scale_sup_w':cfg.scale_sup_w },
         'config':yaml_cfg },f ,indent =2 ,sort_keys =False ,
         default_flow_style =False )
@@ -662,6 +668,8 @@ if __name__ == '__main__':
     parser.add_argument('--q1_hidden', type=int, default=128, help='Hidden size of coordinate trunks')
     parser.add_argument('--q2_fourier', action='store_true', help='Use Fourier features in coordinate trunks')
     parser.add_argument('--c5_moe', action='store_true', help='Enable C5 fixed token-level Top-2 decoder MoE')
+    parser.add_argument('--r1a_point', action='store_true', help='Enable R1a parameter-matched pointwise MLP readout heads')
+    parser.add_argument('--r1b_coord', action='store_true', help='Enable R1b coordinate-generated decoder query')
     parser.add_argument('--freeze_backbone', action='store_true', help='Train only auxiliary heads after initialization')
     parser.add_argument('--init_ckpt', type=str, default='', help='Checkpoint used to initialize the model')
     parser.add_argument('--scale_sup_w', type=float, default=1.0, help='Weight of scale-prediction supervision')

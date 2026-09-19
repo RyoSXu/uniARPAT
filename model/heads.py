@@ -62,6 +62,36 @@ class CoordTrunk(nn.Module):
         return self.proj(self.act(h))  # [..., E, d_model]
 
 
+class CoordQueryGenerator(nn.Module):
+    """R1b: Task-independent coordinate query generator q(x).
+
+    Maps normalized coordinates x / x_scale to continuous decoder queries via:
+    x_norm -> Linear(1, hidden_dim) -> GELU -> Linear(hidden_dim, d_model).
+    """
+
+    def __init__(self, d_model=512, hidden_dim=128, x_scale=1.0):
+        super().__init__()
+        self.d_model = d_model
+        self.hidden_dim = hidden_dim
+        self.x_scale = float(x_scale)
+        self.mlp = nn.Sequential(
+            nn.Linear(1, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, d_model)
+        )
+
+    def forward(self, x):
+        """Accepts [E] or [B, E] coordinates; returns [1, E, d_model] or [B, E, d_model]."""
+        if x.dim() == 1:
+            xn = (x / self.x_scale).unsqueeze(0).unsqueeze(-1)
+            return self.mlp(xn)
+        elif x.dim() == 2:
+            xn = (x / self.x_scale).unsqueeze(-1)
+            return self.mlp(xn)
+        else:
+            raise ValueError(f"Unexpected coordinate tensor shape: {x.shape}")
+
+
 class FourierTrunk(nn.Module):
     """Fourier-feature coordinate trunk used as a zero-initialized residual.
 
@@ -123,6 +153,33 @@ class CNN(nn.Module):
         for layer in self.layers:
             x = layer(x)
         return x  # 输出形状: [B, output_dim, L]
+
+
+class PointwiseMLPHead(nn.Module):
+    """R1a: Parameter-matched pointwise MLP readout head for spectral predictions.
+
+    Replaces Conv1d with a sequence of token-wise Linear layers and GELU activations.
+    Each token/bin is mapped completely independently without any spatial/conv coupling.
+    """
+
+    def __init__(self, dims):
+        super().__init__()
+        self.dims = list(dims)
+        self.in_dim = dims[0]
+        self.out_dim = dims[-1]
+        layers = []
+        for i in range(len(dims) - 1):
+            layers.append(nn.Linear(dims[i], dims[i + 1]))
+            if i < len(dims) - 2:
+                layers.append(nn.GELU())
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        """Accepts [B, L, D] -> [B, L, out_dim], or [B, D, L] -> [B, out_dim, L]."""
+        if x.dim() == 3 and x.shape[1] == self.in_dim and x.shape[-1] != self.in_dim:
+            # Channel-first format [B, D, L] for backward compatibility
+            return self.net(x.transpose(1, 2)).transpose(1, 2)
+        return self.net(x)
 
 
 class DeepConv1dHead(nn.Module):

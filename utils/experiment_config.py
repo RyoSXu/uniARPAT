@@ -84,6 +84,12 @@ class ExperimentConfig:
     c5_moe: bool = False
     c5_moe_balance_w: float = 0.01
 
+    # --- R1a parameter-matched pointwise MLP readout ---
+    r1a_point: bool = False
+
+    # --- R1b coordinate-generated decoder query ---
+    r1b_coord: bool = False
+
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "ExperimentConfig":
         """Build config from parsed argparse namespace."""
