@@ -30,6 +30,7 @@ class ExperimentConfig:
     atom_feat: str = "legacy3"
     energy_code: str = "none"
     edos_grid: str = ""
+    use_macro_lattice: bool = False
     
     # --- Shape-loss weights ---
     tv_w: float = 0.0

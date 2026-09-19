@@ -10,6 +10,8 @@
 | 术语、指标与实验状态 | `glossary.md` | 统一词汇 |
 | 已确定的选择与基准事实 | `decisions.md` | 固化结论 |
 | 训练数据与缓存边界 | `data.md` | 当前数据约定 |
+| 结构重构方向的事实、候选与保留项 | `design/design-structural-refinement.md` | 讨论底稿 |
+| 当前 E10 宏观晶格状态实验 | `design/design-e10-macro-lattice.md` | 当前实施设计 |
 | 重大改动提案 | `design/_template.md` | 实施前复制并填写 |
 | 已完成任务的证据 | `logs/` 与 `../results/` | 历史记录 |
 

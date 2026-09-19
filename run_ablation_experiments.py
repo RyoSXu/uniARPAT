@@ -138,6 +138,7 @@ def train_and_eval(cfg: ExperimentConfig):
     yaml_cfg ['model']['params']['sub_model']['transformer']['phdos_num']=cfg.phdos_num 
     yaml_cfg ['model']['params']['sub_model']['transformer']['atom_feat_mode']=cfg.atom_feat 
     yaml_cfg ['model']['params']['sub_model']['transformer']['energy_code']=cfg.energy_code 
+    yaml_cfg ['model']['params']['sub_model']['transformer']['use_macro_lattice']=bool (cfg.use_macro_lattice )
     for _k ,_v in (("tv_w",cfg.tv_w ),("grad_w",cfg.grad_w ),("peak_w",cfg.peak_w ),
     ("tail_w",cfg.tail_w ),("tail_start",cfg.tail_start )):
         yaml_cfg ['model']['params'][_k ]=_v 
@@ -204,6 +205,7 @@ def train_and_eval(cfg: ExperimentConfig):
         'data_dir':cfg.data_dir ,'edos_num':cfg.edos_num ,
         'phdos_num':cfg.phdos_num ,'atom_feat':cfg.atom_feat ,
         'energy_code':cfg.energy_code ,'edos_grid':cfg.edos_grid ,
+        'use_macro_lattice':cfg.use_macro_lattice ,
         'tv_w':cfg.tv_w ,'grad_w':cfg.grad_w ,'peak_w':cfg.peak_w ,
         'tail_w':cfg.tail_w ,'tail_start':cfg.tail_start ,
         'augment':cfg.augment ,'disp_sigma':cfg.disp_sigma ,
@@ -639,6 +641,7 @@ if __name__ == '__main__':
     parser.add_argument('--atom_feat', type=str, default='legacy3', choices=['legacy3', 'mendeleev24'], help='Atomic feature table')
     parser.add_argument('--energy_code', type=str, default='none', choices=['none', 'edos'], help='Add an eDOS bin-energy encoding')
     parser.add_argument('--edos_grid', type=str, default='', help='Named eDOS grid or path to bin centers')
+    parser.add_argument('--use_macro_lattice', action='store_true', help='Enable E10 CIF-only macro lattice residual')
     parser.add_argument('--tv_w', type=float, default=0.0, help='Total-variation loss weight')
     parser.add_argument('--grad_w', type=float, default=0.0, help='Gradient-matching loss weight')
     parser.add_argument('--peak_w', type=float, default=1.0, help='Weight for high-density eDOS bins')

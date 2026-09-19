@@ -11,6 +11,7 @@ from model.heads import (
     ScaleHead, global_masked_pool
 )
 from utils.atom_feature import AtomFeatureEncoder
+from utils.macro_lattice import macro_lattice_features, raw_atomic_mass_table
 from utils.relative_features import compute_relative_features
 from utils.rp_encoding import RPEncoding
 
@@ -40,7 +41,9 @@ class Transformer(nn.Module):
                   scalar_mode="none", use_g1=False, g1_r_cut=5.5,
                   g1_max_neighbors=48, g1_t_range=2, q1_coord=False,
                   q1_hidden=128, q2_fourier=False, c5_moe=False,
-                  r1a_point=False, r1b_coord=False):
+                  r1a_point=False, r1b_coord=False, use_macro_lattice=False,
+                  macro_lattice_mean=(2.96373232, 1.22763338),
+                  macro_lattice_std=(0.41023959, 0.51526549)):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
@@ -55,6 +58,22 @@ class Transformer(nn.Module):
         self.c5_moe = bool(c5_moe)
         if self.c5_moe:
             assert not decoupled_decoder, "C5 token MoE requires M1's shared decoder"
+        # E10: CIF-only global crystal state.  This branch is absent unless
+        # enabled, keeping every legacy state dict and off-path bitwise stable.
+        self.use_macro_lattice = bool(use_macro_lattice)
+        if self.use_macro_lattice:
+            self.register_buffer("macro_atomic_masses", raw_atomic_mass_table())
+            self.register_buffer("macro_lattice_mean",
+                                 torch.tensor(macro_lattice_mean, dtype=torch.float32))
+            self.register_buffer("macro_lattice_std",
+                                 torch.tensor(macro_lattice_std, dtype=torch.float32))
+            if self.macro_lattice_mean.shape != (2,) or self.macro_lattice_std.shape != (2,):
+                raise ValueError("E10 macro lattice statistics must each have exactly two values")
+            if not torch.isfinite(self.macro_lattice_std).all() or (self.macro_lattice_std <= 0).any():
+                raise ValueError("E10 macro lattice standard deviations must be finite and positive")
+            self.macro_lattice_mlp = nn.Sequential(
+                nn.Linear(2, 64), nn.GELU(), nn.Linear(64, d_model))
+            self.macro_lattice_alpha = nn.Parameter(torch.zeros(()))
         # R1a: parameter-matched pointwise MLP readout heads.
         self.r1a_point = bool(r1a_point)
         # R1b: coordinate query generator requires R1a pointwise readout head.
@@ -187,6 +206,9 @@ class Transformer(nn.Module):
             # The hub token starts silent and learns through gradients.
             with torch.no_grad():
                 self.g1_global.zero_()
+        if self.use_macro_lattice:
+            with torch.no_grad():
+                self.macro_lattice_alpha.zero_()
         if self.q1_coord:
             # Coordinate trunks start silent and learn through gradients.
             with torch.no_grad():
@@ -251,6 +273,12 @@ class Transformer(nn.Module):
         # Fuse into unified embedding
         fused = torch.cat([atom_emb, num_emb], dim=-1)  # [B, L, 2*d_model]
         atom_src = self.fuse_proj(fused)                # [B, L, d_model]
+
+        if self.use_macro_lattice:
+            macro = macro_lattice_features(
+                pos, atom_idx, mask_atom, self.macro_atomic_masses,
+                self.macro_lattice_mean, self.macro_lattice_std)
+            atom_src = atom_src + self.macro_lattice_alpha * self.macro_lattice_mlp(macro).unsqueeze(1)
 
         # Compute relative geometry features
         if self.use_g1:
