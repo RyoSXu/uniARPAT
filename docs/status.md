@@ -31,11 +31,19 @@
 - **E10 已完成并 park。**Q1 M1×10 中，宏观状态相对对照的 eDOS/phDOS 中位 R² 为
   −0.0060/−0.0058，phDOS 失败率 +0.74pt；无 accuracy win，不进入 35 epoch。
 - **G2a 已完成并 park。**资源实测耗时 +27.3%~+29.5%、显存 +16.5%；Q1 M1×10 成对 pilot 双任务指标均在平局线内（Δmed 约为 −0.007/−0.005），无 accuracy win，代码默认关闭。
-- **当前关卡：**推进 decoder 缩减与 fixed-grid encoder-only atomic PDOS 的方案讨论，或推进独立工程队列。
+- **R2a：共享 decoder 6→3 层 pilot 已作为低成本载体通过。**Oracle 的 eDOS/phDOS 中位 R²变化为
+  −0.0164/−0.0011，失败率 +0.48/+0.35pt，均未越过负向平局线；平均每轮耗时 −17.9%、峰值显存
+  −18.8%。它不是 accuracy win，B7 6 层仍是参考与默认；R2a 3 层仅准入后续原子加性 phDOS 读出。
+  详细见 `logs/log-2026-09-20-r2a-pilot.md`。
+- **当前关卡：**为固定 P0 网格的原子加性 phDOS 读出撰写独立单因素设计；该设计基于 R2a 3 层载体，
+  但必须保持 eDOS 路径、数据、损失与 H1 不变。
 
 ## 待办顺序
 
-1. G2a 结论落盘后，中期候选推进 decoder 缩减与 fixed-grid encoder-only atomic PDOS；P0 的数据边界与预训练目标可准备，但正式预训练等待 encoder 方向基本定型。
+1. **原子加性 phDOS（当前待设计）：**固定 P0 上由 encoder 原子 token 的非负贡献相加得到 phDOS，
+   以 R2a 3 层作为载体；Q1 只有总 phDOS 标签，因此严格称为弱监督原子加性读出，而不是有真值监督的
+   atomic PDOS。设计须先写明对照、参数预算、mask/置换/加性合同与 Q1 M1×10 判据。P0 的数据边界与
+   预训练目标可准备，但正式预训练等待 encoder 方向基本定型。
 2. C2.1b（归一化/损失归因）、C3 PhysMoE、D3 eDOS 辅助数据、尖峰/虚频审计均保留但不进入近期顺序。
 3. 网格、窗口与 bin 的数据表示实验保持搁置；只有新的可变 query 假设在固定 E0/P0 上技术通过后，
    才能重新设计并启动。

@@ -25,6 +25,8 @@ class ExperimentConfig:
     # --- Grid / Output dimensions ---
     edos_num: int = 128
     phdos_num: int = 64
+    # R2a: shared Transformer decoder depth.  Six is the frozen B7 default.
+    decoder_layers: int = 6
     
     # --- Feature encoding ---
     atom_feat: str = "legacy3"

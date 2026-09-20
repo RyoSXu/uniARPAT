@@ -136,6 +136,7 @@ def train_and_eval(cfg: ExperimentConfig):
     # Command-line grid settings override the template dimensions and data path.
     yaml_cfg ['model']['params']['sub_model']['transformer']['edos_num']=cfg.edos_num 
     yaml_cfg ['model']['params']['sub_model']['transformer']['phdos_num']=cfg.phdos_num 
+    yaml_cfg ['model']['params']['sub_model']['transformer']['num_decoder_layers']=int (cfg.decoder_layers )
     yaml_cfg ['model']['params']['sub_model']['transformer']['atom_feat_mode']=cfg.atom_feat 
     yaml_cfg ['model']['params']['sub_model']['transformer']['energy_code']=cfg.energy_code 
     yaml_cfg ['model']['params']['sub_model']['transformer']['use_macro_lattice']=bool (cfg.use_macro_lattice )
@@ -208,6 +209,7 @@ def train_and_eval(cfg: ExperimentConfig):
         'batch_size':cfg.batch_size ,'lr':cfg.lr ,'seed':cfg.seed ,
         'data_dir':cfg.data_dir ,'edos_num':cfg.edos_num ,
         'phdos_num':cfg.phdos_num ,'atom_feat':cfg.atom_feat ,
+        'decoder_layers':cfg.decoder_layers ,
         'energy_code':cfg.energy_code ,'edos_grid':cfg.edos_grid ,
         'use_macro_lattice':cfg.use_macro_lattice ,
         'tv_w':cfg.tv_w ,'grad_w':cfg.grad_w ,'peak_w':cfg.peak_w ,
@@ -425,7 +427,7 @@ def train_and_eval(cfg: ExperimentConfig):
     df_history .to_csv (f"./results/history_{suffix }.csv",index =False )
 
     # Load best checkpoint and evaluate on Test set
-    logger .info (f"\nEvaluating Best Model ({cfg.model_name }, Epoch {best_epoch }) on Test Set (1371 materials)...")
+    logger .info (f"\nEvaluating Best Model ({cfg.model_name }, Epoch {best_epoch }) on Test Set ({len (test_loader .dataset )} materials)...")
     best_ckpt =torch .load (os .path .join (save_dir ,'checkpoint_best.pth'))
     best_state =best_ckpt ['model']if isinstance (best_ckpt ,dict )and 'model'in best_ckpt else best_ckpt 
     model .model ['transformer'].load_state_dict (best_state )
@@ -643,6 +645,8 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', type=str, default='./data/train4ARPAT', help='Dataset root')
     parser.add_argument('--edos_num', type=int, default=128, help='Number of eDOS output bins')
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
+    parser.add_argument('--decoder_layers', type=int, default=6,
+                        help='Shared Transformer decoder depth; 6 is the B7 default')
     parser.add_argument('--atom_feat', type=str, default='legacy3', choices=['legacy3', 'mendeleev24'], help='Atomic feature table')
     parser.add_argument('--energy_code', type=str, default='none', choices=['none', 'edos'], help='Add an eDOS bin-energy encoding')
     parser.add_argument('--edos_grid', type=str, default='', help='Named eDOS grid or path to bin centers')
