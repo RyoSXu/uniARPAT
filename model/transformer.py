@@ -30,6 +30,56 @@ def safe_shape_norm(z: Tensor) -> Tensor:
     return torch.where(max_val > 1e-4, pos / (max_val + 1e-6), fallback / (fallback_max + 1e-6))
 
 
+class PeriodicEdgeMessage(nn.Module):
+    """G2a radial edge-conditioned Value residual (one instance per encoder layer).
+
+    Implements the pre-registered G2a module only: 64-center Gaussian RBF over
+    the multi-image distance, sigmoid gating on the sender Value, quintic
+    smooth cutoff, ``1/sqrt(max(1, indegree))`` aggregation, output projection
+    and a zero-initialized per-layer scalar ``alpha``. No direction, no top-k,
+    no dense ``[B,L,L,S]`` tensor; flat sparse edges aggregated with
+    ``index_add``. With ``alpha == 0`` the forward is exactly the identity.
+    """
+
+    def __init__(self, d_model=512, rbf_num=64, r_cut=5.5):
+        super().__init__()
+        self.d_model = int(d_model)
+        self.rbf_num = int(rbf_num)
+        self.r_cut = float(r_cut)
+        self.W_v = nn.Linear(d_model, d_model)
+        self.W_g = nn.Linear(rbf_num, d_model)
+        self.W_o = nn.Linear(d_model, d_model)
+        self.alpha = nn.Parameter(torch.zeros(()))
+        centers = torch.linspace(0.01 * self.r_cut, 0.99 * self.r_cut, self.rbf_num)
+        self.register_buffer("rbf_centers", centers)
+        self.register_buffer("rbf_width", centers[1] - centers[0])
+
+    def forward(self, h, edge_batch, edge_dst, edge_src, edge_dist):
+        # h: [B, L, d]; edges: [E] (empty allowed).
+        if edge_batch.numel() == 0:
+            return h
+        B, L, D = h.shape
+        dist = edge_dist.to(device=h.device, dtype=h.dtype)
+        centers = self.rbf_centers.to(device=h.device, dtype=h.dtype)
+        width = self.rbf_width.to(device=h.device, dtype=h.dtype)
+        phi = torch.exp(-((dist.unsqueeze(-1) - centers) ** 2) / (2 * width ** 2))
+        gate = torch.sigmoid(self.W_g(phi))  # [E, D]
+        v = self.W_v(h)  # [B, L, D]
+        v_src = v[edge_batch, edge_src]  # [E, D]
+        x = (dist / self.r_cut).clamp(0.0, 1.0)
+        cut = (1.0 - 10.0 * x ** 3 + 15.0 * x ** 4 - 6.0 * x ** 5).clamp(0.0, 1.0)
+        m = cut.unsqueeze(-1) * (v_src * gate)  # [E, D]
+        lin = edge_batch * L + edge_dst  # [E]
+        agg_flat = torch.zeros(B * L, D, device=h.device, dtype=h.dtype)
+        agg_flat.index_add_(0, lin, m)
+        agg = agg_flat.view(B, L, D)
+        deg_flat = torch.zeros(B * L, device=h.device, dtype=h.dtype)
+        deg_flat.index_add_(0, lin, torch.ones_like(dist))
+        deg = deg_flat.view(B, L)
+        agg = agg * (1.0 / torch.sqrt(torch.clamp(deg, min=1.0))).unsqueeze(-1)
+        return h + self.alpha * self.W_o(agg)
+
+
 class Transformer(nn.Module):
 
     def __init__(self, token_num=118, d_model=512, nhead=8, edos_num=128, phdos_num=64, num_encoder_layers=6,
@@ -39,7 +89,8 @@ class Transformer(nn.Module):
                  head_type="legacy", predict_scale=False, atom_feat_mode="legacy3",
                   energy_code="none", edos_grid=None, scale_mode="none",
                   scalar_mode="none", use_g1=False, g1_r_cut=5.5,
-                  g1_max_neighbors=48, g1_t_range=2, q1_coord=False,
+                  g1_max_neighbors=48, g1_t_range=2, use_g2=False, g2_r_cut=5.5,
+                  q1_coord=False,
                   q1_hidden=128, q2_fourier=False, c5_moe=False,
                   r1a_point=False, r1b_coord=False, use_macro_lattice=False,
                   macro_lattice_mean=(2.96373232, 1.22763338),
@@ -85,6 +136,12 @@ class Transformer(nn.Module):
         self.g1_r_cut = float(g1_r_cut)
         self.g1_max_neighbors = int(g1_max_neighbors)
         self.g1_t_range = int(g1_t_range)
+        # G2a: periodic multi-image radial Value residual (default off).
+        # Single-factor discipline: G2a sits on B7 dense attention, never on G1.
+        self.use_g2 = bool(use_g2)
+        self.g2_r_cut = float(g2_r_cut)
+        if self.use_g1 and self.use_g2:
+            raise ValueError("G2a is a single-factor module on B7; use_g1 and use_g2 are mutually exclusive")
         if self.use_g1:
             self.g1_global = nn.Parameter(torch.zeros(1, 1, d_model))
         # Optional coordinate-conditioned output trunks.
@@ -143,6 +200,13 @@ class Transformer(nn.Module):
         )
         encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
         self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
+        if self.use_g2:
+            # Six independent per-layer residuals (~0.559M params each).
+            # Off-path creates no attribute, keeping legacy state dicts intact.
+            self.encoder.g2_msgs = nn.ModuleList([
+                PeriodicEdgeMessage(d_model, rbf_num=64, r_cut=self.g2_r_cut)
+                for _ in range(num_encoder_layers)
+            ])
 
         # Decoder initialization (shared vs decoupled)
         if decoupled_decoder:
@@ -319,6 +383,10 @@ class Transformer(nn.Module):
             memory = memory_ext[:, :L, :]
         else:
             distances, unit_dirs = compute_relative_features(pos)
+            g2_edges = None
+            if self.use_g2:
+                from utils.g2_periodic_edges import build_g2_edges
+                g2_edges = build_g2_edges(pos, mask_atom, r_cut=self.g2_r_cut)
 
             # Encoder -- sharing
             memory = self.encoder(
@@ -326,7 +394,8 @@ class Transformer(nn.Module):
                 src_key_padding_mask=mask_atom,
                 pos=pos,
                 rel_diss=distances,
-                rel_dirs=unit_dirs
+                rel_dirs=unit_dirs,
+                g2_edges=g2_edges,
             )
 
         results = {}
@@ -480,7 +549,8 @@ class TransformerEncoder(nn.Module):
             rel_diss=None,
             rel_dirs=None,
             g1_adj=None,
-            g1_smooth=None):
+            g1_smooth=None,
+            g2_edges=None):
         
         output = src
         # Compute once, reuse across all layers (H3).
@@ -488,14 +558,25 @@ class TransformerEncoder(nn.Module):
         if rp_base is not None and g1_smooth is not None:
             # Smooth distance envelope; hub edges intentionally carry no geometry.
             rp_base = rp_base * g1_smooth.unsqueeze(-1)
+        g2_msgs = getattr(self, "g2_msgs", None)
+        if g2_msgs is not None and g2_edges is None:
+            raise ValueError("G2a enabled but no g2_edges supplied to the encoder")
+        if g2_msgs is None and g2_edges is not None:
+            raise ValueError("g2_edges supplied but the encoder has no G2a residuals")
     
-        for layer in self.layers:
+        for li, layer in enumerate(self.layers):
             output = layer(output,
                            src_mask=mask,
                            src_key_padding_mask=src_key_padding_mask,
                            pos=pos,
                            rp_base=rp_base,
                            g1_adj=g1_adj)
+            if g2_msgs is not None:
+                output = g2_msgs[li](
+                    output,
+                    g2_edges["batch"], g2_edges["dst"],
+                    g2_edges["src"], g2_edges["distances"],
+                )
         if self.norm is not None:
             output = self.norm(output)
         return output

@@ -75,6 +75,10 @@ class ExperimentConfig:
     use_g1: bool = False
     g1_r_cut: float = 5.5
     g1_max_neighbors: int = 48
+
+    # --- G2a periodic multi-image edge-conditioned message (fixed R=5.5) ---
+    use_g2: bool = False
+    g2_r_cut: float = 5.5
     
     # --- Optional coordinate-conditioned output trunks ---
     q1_coord: bool = False

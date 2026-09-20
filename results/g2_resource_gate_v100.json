@@ -1,0 +1,116 @@
+{
+  "device": "Tesla V100-SXM2-32GB",
+  "batch_size": 32,
+  "r_cut": 5.5,
+  "b7": {
+    "arm": "B7",
+    "use_g2": false,
+    "r_cut": 5.5,
+    "trainable_params": 71152964,
+    "batch_size": 32,
+    "batch0_atoms": 81,
+    "cold_step0": {
+      "gpu_time_ms": 1819.8668212890625,
+      "wall_time_ms": 1819.9446890002946,
+      "peak_alloc_mb": 6554.7265625,
+      "peak_reserved_mb": 7344.0,
+      "loss": 3.336374282836914,
+      "loss_edos": 0.7089296579360962,
+      "loss_phdos": 2.3896288871765137,
+      "loss_eta": 0.2378157377243042
+    },
+    "warm_batch0": {
+      "gpu_time_ms": 717.5947265625,
+      "wall_time_ms": 717.6634059997014,
+      "peak_alloc_mb": 7126.958984375,
+      "peak_reserved_mb": 7838.0,
+      "loss": 3.278078317642212
+    },
+    "steady_state": {
+      "num_steps": 5,
+      "mean_gpu_time_ms": 334.74329833984376,
+      "min_gpu_time_ms": 332.9705810546875,
+      "max_gpu_time_ms": 338.7234191894531,
+      "step_times_ms": [
+        338.7234191894531,
+        333.7369384765625,
+        334.0234069824219,
+        332.9705810546875,
+        334.26214599609375
+      ],
+      "peak_alloc_mb": 7132.740234375
+    }
+  },
+  "g2": {
+    "arm": "G2a",
+    "use_g2": true,
+    "r_cut": 5.5,
+    "trainable_params": 74504522,
+    "batch_size": 32,
+    "batch0_atoms": 81,
+    "cold_step0": {
+      "gpu_time_ms": 2007.197998046875,
+      "wall_time_ms": 2007.2761549999996,
+      "peak_alloc_mb": 6804.9794921875,
+      "peak_reserved_mb": 7634.0,
+      "loss": 3.3011350631713867,
+      "loss_edos": 0.7069339752197266,
+      "loss_phdos": 2.3896303176879883,
+      "loss_eta": 0.2045707106590271
+    },
+    "warm_batch0": {
+      "gpu_time_ms": 832.92919921875,
+      "wall_time_ms": 833.0093760005184,
+      "peak_alloc_mb": 7400.5615234375,
+      "peak_reserved_mb": 8136.0,
+      "loss": 3.2456612586975098
+    },
+    "steady_state": {
+      "num_steps": 5,
+      "mean_gpu_time_ms": 433.4190673828125,
+      "min_gpu_time_ms": 414.74884033203125,
+      "max_gpu_time_ms": 461.5265197753906,
+      "step_times_ms": [
+        454.7496643066406,
+        461.5265197753906,
+        418.3797607421875,
+        417.6905517578125,
+        414.74884033203125
+      ],
+      "peak_alloc_mb": 7659.3857421875
+    }
+  },
+  "comparison": {
+    "batch0_warm": {
+      "b7_time_ms": 717.5947265625,
+      "g2_time_ms": 832.92919921875,
+      "time_ratio": 1.1607236903882192,
+      "time_diff_pct": 16.072369038821922,
+      "b7_peak_alloc_mb": 7126.958984375,
+      "g2_peak_alloc_mb": 7400.5615234375,
+      "mem_ratio": 1.0383898012690043,
+      "mem_diff_pct": 3.8389801269004264,
+      "measured_without_oom": true
+    },
+    "steady_state": {
+      "b7_mean_time_ms": 334.74329833984376,
+      "g2_mean_time_ms": 433.4190673828125,
+      "time_ratio": 1.2947804169115567,
+      "time_diff_pct": 29.478041691155667,
+      "b7_peak_alloc_mb": 7132.740234375,
+      "g2_peak_alloc_mb": 7659.3857421875,
+      "mem_ratio": 1.073834948492085,
+      "mem_diff_pct": 7.383494849208505,
+      "measured_without_oom": true
+    },
+    "batch0_cold": {
+      "b7_time_ms": 1819.8668212890625,
+      "g2_time_ms": 2007.197998046875,
+      "time_ratio": 1.1029367504074394,
+      "b7_peak_alloc_mb": 6554.7265625,
+      "g2_peak_alloc_mb": 6804.9794921875,
+      "mem_ratio": 1.0381790037008123
+    }
+  },
+  "verdict": "MEASURED_NO_OOM"
+}

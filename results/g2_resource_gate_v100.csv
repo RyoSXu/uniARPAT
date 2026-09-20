@@ -1,0 +1,7 @@
+arm,metric_scope,gpu_time_ms,peak_alloc_mb,peak_reserved_mb,loss
+B7,cold_step0,1819.9,6554.7,7344.0,3.3364
+B7,warm_batch0,717.6,7127.0,7838.0,3.2781
+B7,steady_state_mean,334.7,7132.7,-,-
+G2a,cold_step0,2007.2,6805.0,7634.0,3.3011
+G2a,warm_batch0,832.9,7400.6,8136.0,3.2457
+G2a,steady_state_mean,433.4,7659.4,-,-

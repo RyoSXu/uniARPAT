@@ -157,6 +157,10 @@ def train_and_eval(cfg: ExperimentConfig):
     yaml_cfg ['model']['params']['sub_model']['transformer']['use_g1']=bool (cfg.use_g1 )
     yaml_cfg ['model']['params']['sub_model']['transformer']['g1_r_cut']=float (cfg.g1_r_cut )
     yaml_cfg ['model']['params']['sub_model']['transformer']['g1_max_neighbors']=int (cfg.g1_max_neighbors )
+    # G2a periodic multi-image message; single fixed cutoff, default off.
+    # No neighbor-count or shift-range knobs are exposed for scanning.
+    yaml_cfg ['model']['params']['sub_model']['transformer']['use_g2']=bool (cfg.use_g2 )
+    yaml_cfg ['model']['params']['sub_model']['transformer']['g2_r_cut']=5.5
     # Optional coordinate-conditioned output trunks.
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_coord']=bool (cfg.q1_coord )
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_hidden']=int (cfg.q1_hidden )
@@ -219,6 +223,7 @@ def train_and_eval(cfg: ExperimentConfig):
         'scalar_mode':cfg.scalar_mode ,'scalar_sup_w':cfg.scalar_sup_w ,
         'use_g1':cfg.use_g1 ,'g1_r_cut':cfg.g1_r_cut ,
         'g1_max_neighbors':cfg.g1_max_neighbors ,
+        'use_g2':cfg.use_g2 ,'g2_r_cut':5.5 ,
         'q1_coord':cfg.q1_coord ,'q1_hidden':cfg.q1_hidden ,
         'q2_fourier':cfg.q2_fourier ,
         'c5_moe':cfg.c5_moe ,'c5_moe_balance_w':cfg.c5_moe_balance_w ,
@@ -667,6 +672,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_g1', action='store_true', help='Enable the experimental sparse periodic graph')
     parser.add_argument('--g1_r_cut', type=float, default=5.5, help='Sparse-graph cutoff in Å')
     parser.add_argument('--g1_max_neighbors', type=int, default=48, help='Maximum graph neighbors per atom')
+    parser.add_argument('--use_g2', action='store_true', help='Enable G2a periodic multi-image Value residual (fixed R=5.5)')
     parser.add_argument('--q1_coord', action='store_true', help='Enable coordinate-conditioned output trunks')
     parser.add_argument('--q1_hidden', type=int, default=128, help='Hidden size of coordinate trunks')
     parser.add_argument('--q2_fourier', action='store_true', help='Use Fourier features in coordinate trunks')

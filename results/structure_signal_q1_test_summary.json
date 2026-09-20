@@ -1,0 +1,86 @@
+{
+  "scope": "Q1 test; same reduced formula with distinct cached structure representations",
+  "b7_tag": "_e9ctl",
+  "n_test": 2287,
+  "n_reduced_formulas": 2061,
+  "n_formula_groups_size_ge_2": 176,
+  "n_structure_variant_groups": 176,
+  "n_samples_in_structure_variant_groups": 402,
+  "n_within_formula_pairs": 289,
+  "within_formula_shape_distance": {
+    "edos_tv": {
+      "mean": 0.2722670995494355,
+      "median": 0.2516235087877939,
+      "p90": 0.43625453414122556,
+      "p99": 0.6693891667677418
+    },
+    "edos_w1": {
+      "mean": 0.027359774850204095,
+      "median": 0.019951938072469578,
+      "p90": 0.0557707073093314,
+      "p99": 0.22883617866134848
+    },
+    "phdos_tv": {
+      "mean": 0.3342928382071538,
+      "median": 0.3202147701119604,
+      "p90": 0.5806414985577159,
+      "p99": 0.7919511766965566
+    },
+    "phdos_w1": {
+      "mean": 0.030903177423783713,
+      "median": 0.021515969605080464,
+      "p90": 0.07563356345456676,
+      "p99": 0.17054841201489393
+    }
+  },
+  "different_formula_reference": {
+    "pair_count": 289,
+    "edos_tv": {
+      "mean": 0.5585990448257924,
+      "median": 0.5417467006804809,
+      "p90": 0.7748334011697874,
+      "p99": 0.9030400638479451
+    },
+    "edos_w1": {
+      "mean": 0.14747758224988095,
+      "median": 0.13285665385608927,
+      "p90": 0.24984554083688426,
+      "p99": 0.3505189947052323
+    },
+    "phdos_tv": {
+      "mean": 0.5897640186440433,
+      "median": 0.5876272771459521,
+      "p90": 0.7887431063191316,
+      "p99": 0.9311776715078619
+    },
+    "phdos_w1": {
+      "mean": 0.10982006797616155,
+      "median": 0.09391034078033442,
+      "p90": 0.20754762596597284,
+      "p99": 0.30516894870272987
+    }
+  },
+  "b7_oracle_r2": {
+    "all_test": {
+      "edos_median": 0.5183509588241577,
+      "edos_fail_pct": 5.728027984258855,
+      "phdos_median": 0.7410434484481812,
+      "phdos_fail_pct": 3.4980323567993
+    },
+    "same_formula_structure_variant_samples": {
+      "edos_median": 0.5315662026405334,
+      "edos_fail_pct": 5.970149253731343,
+      "phdos_median": 0.6803961396217346,
+      "phdos_fail_pct": 4.228855721393035
+    },
+    "group_spread_vs_group_median_r2_spearman": {
+      "edos": -0.5074928461369139,
+      "phdos": -0.6498084965881575
+    }
+  },
+  "interpretation_limits": [
+    "组内谱差异证明同约化化学式并不唯一决定谱形；它不估计结构信息的全部因果贡献。",
+    "不同化学式随机对仅作描述性参照，不能代替 composition-only 训练基线。",
+    "缓存结构表示不同不等同于经空间群去重确认的不同多型。"
+  ]
+}
