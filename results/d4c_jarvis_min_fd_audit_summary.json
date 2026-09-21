@@ -1,0 +1,22 @@
+{
+  "audit": "D4c JARVIS min_fd_phonon_mode semantic audit",
+  "category_counts": {
+    "negative": 35,
+    "zero": 7,
+    "zero_serialized_negative": 167
+  },
+  "data_policy_authorized": false,
+  "interpretation": "min_fd_phonon_mode is preserved as MAIN-ELAST source metadata; it is not a cross-source stability/convergence truth or an authorization for Q1 data changes.",
+  "min_fd_equals_phdos_frequency_min_n": 0,
+  "min_fd_equals_phonon_modes_min_n": 7,
+  "n_jarvis_test": 209,
+  "outputs": {
+    "category_summary": "/root/home/newstudy/uniARPAT/results/d4c_jarvis_min_fd_category_summary.csv",
+    "test_samples": "/root/home/newstudy/uniARPAT/results/d4c_jarvis_min_fd_test_samples.csv"
+  },
+  "source_contract": {
+    "accessor": "jarvis.db.webpages.Webpage.get_dft_phonon_dos",
+    "raw_path": "basic_info.main_elastic.main_elastic_info",
+    "source_file": "/opt/tefscloud/miniconda3/envs/torch/lib/python3.12/site-packages/jarvis/db/webpages.py"
+  }
+}

@@ -29,4 +29,5 @@ fi
     tests.test_c2_1b_loss_attribution \
     tests.test_b7_cif_inference \
     tests.test_d4_phdos_spike_imaginary_audit \
-    tests.test_d4b_negative_coordinate_provenance_audit
+    tests.test_d4b_negative_coordinate_provenance_audit \
+    tests.test_d4c_jarvis_min_fd_semantics_audit

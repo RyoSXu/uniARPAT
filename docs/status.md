@@ -55,7 +55,7 @@
   为固定宽度的 0.171x、单步耗时 0.539x、峰值显存无变化。它改变 batch 组成，只作为可选成本载体，
   不产生 accuracy 结论。详细见 `logs/log-2026-09-21-e6-bucketed-batches.md`。
 - **E7 lint/CI：完成。**`bash tools/ci/check-static.sh` 固定 Ruff 致命错误检查、所有受跟踪 Python 文件的
-  编译及 45 项无缓存 CPU 合同测试；GitHub Actions 在 push/PR 上复现。它不读取 Q1、不启动训练，完整的
+  编译及 48 项无缓存 CPU 合同测试；GitHub Actions 在 push/PR 上复现。它不读取 Q1、不启动训练，完整的
   本地数据回归仍由 `python3 -m unittest discover tests` 覆盖。详细见 `logs/log-2026-09-21-e7-lint-ci.md`。
 - **B7 M1 CIF 盲推理入口：完成。**`b7_cif_infer.py` 严格加载 B7 epoch 33、按 Z0 的 CIF `N_val` 和
   H1 eta/gamma 重建 E0/P0 blind 谱；`cif2dos.py` 仍保持 M4 兼容工具。详细见
@@ -67,14 +67,16 @@
   phDOS（MP `pheasy` 210、JARVIS 20），其原始负坐标 DOS 质量也高，故非 P0 重分箱伪影；但 MP 与
   PhononDB 没有逐材料稳定性／收敛标识。JARVIS 的 `min_fd_phonon_mode` 仅覆盖该来源 209 条，不能外推
   为全库虚频真值。详细见 `logs/log-2026-09-21-d4b-negative-coordinate-provenance.md`。
-- **当前关卡：**D4 已完成只读证据链；在有独立设计前不删除样本、不改 P0 或标签、不启动训练。
+- **D4c JARVIS `min_fd_phonon_mode` 语义审计：closed。**该字段来自 `MAIN-ELAST` 有限位移来源，但
+  209 条中有 167 个 `-0.0`（数值为零）；它仅在 7/209 条等于可见 `phonon_modes` 最小值、在 0/209 条
+  等于 phDOS 网格最小频率。因此不能作全局最低模式、稳定性或收敛真值。详细见
+  `logs/log-2026-09-21-d4c-jarvis-min-fd-semantics.md`。
+- **当前关卡：**D4 数据路线已关闭；不删除样本、不改 P0 或标签、不启动训练，直到出现新的独立假设。
 
 ## 待办顺序
 
-1. **下一候选：**D4c JARVIS 模式最小值语义与来源限定策略审计；必须先核验
-   `min_fd_phonon_mode` 的计算约定与 `-0.0` 的语义，且任何策略只能覆盖 JARVIS，不能外推到
-   MP/PhononDB。C3 PhysMoE 与 D3 eDOS 辅助数据仍无经批准的单因素设计；不得直接启动训练。C4 AMP
-   与 E6 分桶 batch均已准入后续训练但保持默认关闭。
+1. **下一候选：**D4 数据路线已 closed。C3 PhysMoE 与 D3 eDOS 辅助数据仍无经批准的单因素设计；
+   需要先选择一项新假设并写设计，不得直接启动训练。C4 AMP 与 E6 分桶 batch均已准入后续训练但保持默认关闭。
 2. C2.1b 已 park；除非出现区别于 L3 的有方向机制，不重开或权重扫描。C3 PhysMoE、D3 eDOS
    辅助数据、尖峰/虚频审计均保留但不进入近期顺序。
 3. 网格、窗口与 bin 的数据表示实验保持搁置；只有新的可变 query 假设在固定 E0/P0 上技术通过后，

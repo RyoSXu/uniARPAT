@@ -1,0 +1,4 @@
+min_fd_category,n,d4_high_n,b7_phdos_fail_n,b7_phdos_fail_rate,b7_phdos_r2_median,phonon_modes_min_q50,phdos_frequency_min_q50
+negative,35,16,9,25.71428571428571,0.5682412385940552,-72.25,-104.6922994659
+zero,7,0,1,14.285714285714285,0.1542826890945434,0.0,-14.1513871461
+zero_serialized_negative,167,4,7,4.191616766467066,0.6782231330871582,-0.09,-36.5814945504
