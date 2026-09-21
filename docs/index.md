@@ -13,6 +13,7 @@
 | 结构重构方向的事实、候选与保留项 | `design/design-structural-refinement.md` | 讨论底稿 |
 | R2a 共享 decoder 深度缩减设计 | `design/design-r2a-decoder-depth.md` | 已完成设计 |
 | R2b 原子加性 phDOS 读出设计 | `design/design-r2b-atom-additive-phdos.md` | 已完成设计 |
+| C2.1b 验证集损失归因审计设计 | `design/design-c2-1b-loss-attribution.md` | 已完成诊断 |
 | 当前 G2 周期多镜像边条件消息设计 | `design/design-g2-periodic-multi-image-message.md` | 当前实施设计 |
 | 当前 E10 宏观晶格状态实验 | `design/design-e10-macro-lattice.md` | 当前实施设计 |
 | 重大改动提案 | `design/_template.md` | 实施前复制并填写 |
