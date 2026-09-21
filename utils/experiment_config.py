@@ -50,6 +50,9 @@ class ExperimentConfig:
     # --- Target normalization and masks ---
     norm: str = "sumnorm"
     use_mask: bool = False
+
+    # --- C4 CUDA automatic mixed precision (default off) ---
+    use_amp: bool = False
     
     # --- Optimizer and regularization overrides ---
     dropout: Optional[float] = None

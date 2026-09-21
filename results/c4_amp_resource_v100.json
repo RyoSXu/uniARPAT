@@ -1,0 +1,44 @@
+{
+  "amp": {
+    "loss_first": 0.5198378562927246,
+    "loss_last": 0.3176802098751068,
+    "mean_step_ms": 150.62346359991352,
+    "peak_vram_mb": 7044.16015625,
+    "scaler_after": {
+      "_growth_tracker": 23,
+      "backoff_factor": 0.5,
+      "growth_factor": 2.0,
+      "growth_interval": 2000,
+      "scale": 1024.0
+    },
+    "scaler_before": {
+      "_growth_tracker": 3,
+      "backoff_factor": 0.5,
+      "growth_factor": 2.0,
+      "growth_interval": 2000,
+      "scale": 1024.0
+    }
+  },
+  "checkpoint": "output/ablation_m1_e9ctl/checkpoint_best.pth",
+  "device": "Tesla V100-SXM2-32GB",
+  "fp32": {
+    "loss_first": 0.5440965294837952,
+    "loss_last": 0.32795146107673645,
+    "mean_step_ms": 329.7984513505071,
+    "peak_vram_mb": 7421.18603515625,
+    "scaler_after": {},
+    "scaler_before": {}
+  },
+  "n_samples_read": 32,
+  "numeric": {
+    "edos_max_abs": 0.00015381723642349243,
+    "edos_mean_abs": 3.598934654291952e-06,
+    "phdos_max_abs": 0.00034162402153015137,
+    "phdos_mean_abs": 7.426079719152767e-06
+  },
+  "split": "train",
+  "steps": 20,
+  "time_ratio_amp_over_fp32": 0.4567136776510577,
+  "vram_ratio_amp_over_fp32": 0.9491960076030742,
+  "warmup": 3
+}

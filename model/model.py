@@ -35,6 +35,8 @@ class basemodel(nn.Module):
         self.tail_start = int(self.params.get("tail_start", -1))
         # Coverage masking is optional and does not alter evaluation.
         self.use_mask = bool(self.params.get("use_mask", False))
+        # C4: CUDA FP16 AMP is opt-in.  The default keeps B7's FP32 path.
+        self.use_amp = bool(self.params.get("use_amp", False))
         # Optional phDOS loss weight and gradient clipping.
         self.lambda_ph = float(self.params.get("lambda_ph", 1.0))
         self.grad_clip = float(self.params.get("grad_clip", 0.0))
@@ -62,7 +64,7 @@ class basemodel(nn.Module):
         self.begin_epoch = 0
         self.metric_best = 1000
 
-        self.gscaler = amp.GradScaler(init_scale=1024, growth_interval=2000)
+        self.gscaler = amp.GradScaler(enabled=self.use_amp, init_scale=1024, growth_interval=2000)
         
         # load model
         sub_model = params.get('sub_model', {})
@@ -106,6 +108,19 @@ class basemodel(nn.Module):
                 for k, v in state.items():
                     if isinstance(v, torch.Tensor):
                         state[k] = v.to(device)
+
+    def amp_autocast(self):
+        """Return C4's CUDA context or reject an unsafe CPU AMP request."""
+        if self.use_amp and self.device.type != "cuda":
+            raise RuntimeError("use_amp requires a CUDA device")
+        return torch.autocast(device_type="cuda", dtype=torch.float16,
+                              enabled=self.use_amp)
+
+    @staticmethod
+    def fp32_outputs(outputs):
+        """Keep the SumNorm losses and metrics in their established FP32 math."""
+        return {key: value.float() if torch.is_tensor(value) and value.is_floating_point()
+                else value for key, value in outputs.items()}
 
     def data_preprocess(self, data):
         # Unpack the fixed dataset layout followed by optional grid metadata.
@@ -179,7 +194,9 @@ class basemodel(nn.Module):
         edos_cov, phdos_cov, nvalence, edos_x, phdos_x = self.data_preprocess(batch_data)
 
         if len(self.model) == 1:
-            outputs = self.model[list(self.model.keys())[0]](inp, mask, pos, edos_x, phdos_x)
+            with self.amp_autocast():
+                outputs = self.model[list(self.model.keys())[0]](inp, mask, pos, edos_x, phdos_x)
+            outputs = self.fp32_outputs(outputs)
             predict_edos = outputs['edos']
             predict_phdos = outputs['phdos']
             if predict_edos.dim() == 3:
@@ -313,10 +330,19 @@ class basemodel(nn.Module):
 
         if len(self.optimizer) == 1:
             self.optimizer[list(self.optimizer.keys())[0]].zero_grad()
-            total_loss.backward()
-            if self.grad_clip > 0:
-                torch.nn.utils.clip_grad_norm_(self.model[list(self.model.keys())[0]].parameters(), self.grad_clip)
-            self.optimizer[list(self.optimizer.keys())[0]].step()
+            optimizer = self.optimizer[list(self.optimizer.keys())[0]]
+            if self.use_amp:
+                self.gscaler.scale(total_loss).backward()
+                if self.grad_clip > 0:
+                    self.gscaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.model[list(self.model.keys())[0]].parameters(), self.grad_clip)
+                self.gscaler.step(optimizer)
+                self.gscaler.update()
+            else:
+                total_loss.backward()
+                if self.grad_clip > 0:
+                    torch.nn.utils.clip_grad_norm_(self.model[list(self.model.keys())[0]].parameters(), self.grad_clip)
+                optimizer.step()
         else:
             raise NotImplementedError('Invalid model type.')
 
@@ -346,7 +372,9 @@ class basemodel(nn.Module):
         # 2. 模型预测
         if len(self.model) == 1:
             # transformer.py 返回结果字典和 attention
-            outputs = self.model[list(self.model.keys())[0]](inp, mask, pos, edos_x, phdos_x)
+            with self.amp_autocast():
+                outputs = self.model[list(self.model.keys())[0]](inp, mask, pos, edos_x, phdos_x)
+            outputs = self.fp32_outputs(outputs)
             predict_edos = outputs['edos']
             predict_phdos = outputs['phdos']
             # 假设你还需要 attention 用于保存，取其中一个任务的即可

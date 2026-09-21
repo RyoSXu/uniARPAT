@@ -146,6 +146,7 @@ def train_and_eval(cfg: ExperimentConfig):
         yaml_cfg ['model']['params'][_k ]=_v 
         # Sum normalization selects the distribution-based loss below.
     yaml_cfg ['model']['params']['use_mask']=bool (cfg.use_mask )
+    yaml_cfg ['model']['params']['use_amp']=bool (cfg.use_amp )
     # Optional scale-prediction heads.
     yaml_cfg ['model']['params']['sub_model']['transformer']['scale_mode']=cfg.scale_mode 
     yaml_cfg ['model']['params']['scale_sup_w']=float (cfg.scale_sup_w )
@@ -217,7 +218,7 @@ def train_and_eval(cfg: ExperimentConfig):
         'tv_w':cfg.tv_w ,'grad_w':cfg.grad_w ,'peak_w':cfg.peak_w ,
         'tail_w':cfg.tail_w ,'tail_start':cfg.tail_start ,
         'augment':cfg.augment ,'disp_sigma':cfg.disp_sigma ,
-        'norm':cfg.norm ,'use_mask':cfg.use_mask ,'dropout':cfg.dropout ,
+        'norm':cfg.norm ,'use_mask':cfg.use_mask ,'use_amp':cfg.use_amp ,'dropout':cfg.dropout ,
         'weight_decay':cfg.weight_decay ,'warmup_epochs':_wu ,
         'lambda_ph':cfg.lambda_ph ,'grad_clip':cfg.grad_clip ,
         'w_w1':cfg.w_w1 ,'w_huber':cfg.w_huber ,
@@ -289,7 +290,11 @@ def train_and_eval(cfg: ExperimentConfig):
         try :
             ck =torch .load (latest_p ,map_location ='cpu')
             state =ck ['model']if isinstance (ck ,dict )and 'model'in ck else ck 
+            if isinstance (ck ,dict )and bool (ck .get ('use_amp',False ))!=bool (cfg .use_amp ):
+                raise ValueError ("cannot resume a checkpoint with a different use_amp setting")
             model .model ['transformer'].load_state_dict (state )
+            if cfg .use_amp and isinstance (ck ,dict )and 'amp_scaler'in ck :
+                model .gscaler .load_state_dict (ck ['amp_scaler'])
             if isinstance (ck ,dict )and 'optimizer'in ck :
                 try :
                     optimizer .load_state_dict (ck ['optimizer'])
@@ -405,8 +410,10 @@ def train_and_eval(cfg: ExperimentConfig):
             return {'epoch':epoch_ ,
             'model_name':cfg.model_name ,
             'seed':cfg.seed ,
+            'use_amp':bool (cfg .use_amp ),
             'model':model .model ['transformer'].state_dict (),
             'optimizer':optimizer .state_dict (),
+            **({'amp_scaler':model .gscaler .state_dict ()}if cfg .use_amp else {}),
             'best_val_score':best_ }
 
         def _atomic_save (obj ,path ):
@@ -488,7 +495,9 @@ def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :
         for batch in dataloader :
             inp ,pos ,mask ,edos_tgt ,phdos_tgt ,edos_m ,edos_s ,edos_min ,edos_max ,phdos_m ,phdos_s ,phdos_min ,phdos_max ,edos_cov ,phdos_cov ,_nvalence ,edos_x ,phdos_x =model .data_preprocess (batch )
 
-            outputs =model .model ['transformer'](inp ,mask ,pos ,edos_x ,phdos_x )
+            with model .amp_autocast ():
+                outputs =model .model ['transformer'](inp ,mask ,pos ,edos_x ,phdos_x )
+            outputs =model .fp32_outputs (outputs)
 
             # Targets in true physical space
             t_e =edos_tgt *(edos_max -edos_min )+edos_min 
@@ -664,6 +673,7 @@ if __name__ == '__main__':
     parser.add_argument('--disp_sigma', type=float, default=0.01, help='Coordinate-displacement standard deviation in fractional units')
     parser.add_argument('--norm', type=str, default='sumnorm', choices=['minmax', 'sumnorm'], help='Target normalization; sumnorm is the default')
     parser.add_argument('--use_mask', action='store_true', help='Experimental: mask unsupported bins in the loss')
+    parser.add_argument('--use_amp', action='store_true', help='C4: CUDA FP16 automatic mixed precision')
     parser.add_argument('--dropout', type=float, default=None, help='Transformer dropout; None uses the template value (0.05)')
     parser.add_argument('--weight_decay', type=float, default=None, help='AdamW weight decay; None uses the template value')
     parser.add_argument('--warmup_epochs', type=int, default=None, help='Warmup duration; None uses the template value')
