@@ -72,3 +72,15 @@ python3 cif2dos.py --cif structure.cif --weights model.pth --output predictions/
 
 可运行 `python3 cif2dos.py --help` 查看支持的选项。检查点必须与训练时的模型和归一化
 配置相匹配。
+
+当前 B7 `_e9ctl` 的 CIF-only blind 推理使用独立入口。它要求明确的 epoch-33 checkpoint，
+从 CIF 的元素组成计算 Z0 价电子数，并使用 H1 eta/gamma 头恢复 E0/P0 窗口内的物理总量：
+
+```bash
+python3 b7_cif_infer.py --cif structure.cif \
+  --checkpoint output/ablation_m1_e9ctl/checkpoint_best.pth \
+  --output predictions/b7
+```
+
+输出目录包含每个 CIF 的 `*_b7_blind.npz`（bin 中心与谱）、同名 JSON 元数据和 `summary.csv`。
+该结果是 blind 而非 oracle；入口拒绝不匹配的 checkpoint、无序 CIF 和超过 80 原子的 CIF 单胞。

@@ -64,8 +64,12 @@
    它改变 batch 组成和优化顺序，不能据此提高 batch size 或解释 accuracy 差异。详见
    `logs/log-2026-09-21-e6-bucketed-batches.md`。
 7. **E7 lint/CI：**`bash tools/ci/check-static.sh` 是缓存无关的最小回归门禁：对所有受跟踪 Python 文件
-   运行 Ruff 致命规则、编译并执行 36 项合成 CPU 合同测试；`.github/workflows/ci.yml` 在 push/PR 复现该
+   运行 Ruff 致命规则、编译并执行 40 项合成 CPU 合同测试；`.github/workflows/ci.yml` 在 push/PR 复现该
    命令。Q1 数据集成测试仍只在本地完整套件执行。详见 `logs/log-2026-09-21-e7-lint-ci.md`。
+8. **B7 CIF 盲推理：**`b7_cif_infer.py` 是 B7 `_e9ctl` 的唯一 CIF 导出入口。它只接受 M1、seed 42、
+   epoch 33 的严格 state dict，并以 Z0 `N_val(CIF)`、H1 gamma/eta 和 E0/P0 固定 bin 重建 blind 谱；
+   不得以旧 M4 `cif2dos.py` 或标签尺度声明 B7 推理。详见
+   `logs/log-2026-09-21-b7-cif-blind-inference.md`。
 
 ## 参考测量值
 

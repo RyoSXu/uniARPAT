@@ -26,4 +26,5 @@ fi
     tests.test_c5_token_moe \
     tests.test_c4_amp \
     tests.test_e5_checkpoint_boundary \
-    tests.test_c2_1b_loss_attribution
+    tests.test_c2_1b_loss_attribution \
+    tests.test_b7_cif_inference
