@@ -64,7 +64,7 @@
    它改变 batch 组成和优化顺序，不能据此提高 batch size 或解释 accuracy 差异。详见
    `logs/log-2026-09-21-e6-bucketed-batches.md`。
 7. **E7 lint/CI：**`bash tools/ci/check-static.sh` 是缓存无关的最小回归门禁：对所有受跟踪 Python 文件
-   运行 Ruff 致命规则、编译并执行 42 项合成 CPU 合同测试；`.github/workflows/ci.yml` 在 push/PR 复现该
+   运行 Ruff 致命规则、编译并执行 45 项合成 CPU 合同测试；`.github/workflows/ci.yml` 在 push/PR 复现该
    命令。Q1 数据集成测试仍只在本地完整套件执行。详见 `logs/log-2026-09-21-e7-lint-ci.md`。
 8. **B7 CIF 盲推理：**`b7_cif_infer.py` 是 B7 `_e9ctl` 的唯一 CIF 导出入口。它只接受 M1、seed 42、
    epoch 33 的严格 state dict，并以 Z0 `N_val(CIF)`、H1 gamma/eta 和 E0/P0 固定 bin 重建 blind 谱；
@@ -75,6 +75,11 @@
    9.41–18.73pt）；尖峰集中度不满足门槛、coverage 外目标质量为零。此结论只授权原始来源／稳定性审计，
    不等同于虚频真值，也不授权标签处理或训练。详见
    `logs/log-2026-09-21-d4-phdos-spike-imaginary-audit.md`。
+10. **D4b 原始来源与稳定性字段：**Q1 test 的 2,287 条（包括 D4 high 的 230 条）均可一对一回连
+    冻结 `ph_ref` 对应的原始 phDOS；原始 DOS 的负坐标质量保留 D4 分层，排除“仅 P0 重分箱伪影”的解释。
+    MP 与 PhononDB 没有逐材料二元稳定性或收敛 flag；JARVIS 的 `min_fd_phonon_mode` 仅是该来源 209 条
+    的数值模式最小值，不能用作跨来源真值。因此不授权 Q1 删除、重标、重建或训练；任何 JARVIS-only
+    政策须另行设计。详见 `logs/log-2026-09-21-d4b-negative-coordinate-provenance.md`。
 
 ## 参考测量值
 

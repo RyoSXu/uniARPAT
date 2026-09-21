@@ -1,0 +1,25 @@
+{
+  "audit": "D4b negative-coordinate provenance and stability audit",
+  "direct_binary_stability_flag_present": false,
+  "direct_convergence_flag_present": false,
+  "interpretation": "Raw frequency/DOS provenance is not a per-material stability or convergence verdict; the available archives contain no direct binary stability or convergence flag.",
+  "label_or_split_change_authorized": false,
+  "n_d4_high": 230,
+  "n_test": 2287,
+  "outputs": {
+    "field_catalog": "/root/home/newstudy/uniARPAT/results/d4b_phdos_provenance_field_catalog.csv",
+    "source_summary": "/root/home/newstudy/uniARPAT/results/d4b_phdos_provenance_summary.csv",
+    "test_samples": "/root/home/newstudy/uniARPAT/results/d4b_phdos_provenance_test_samples.csv"
+  },
+  "raw_record_found_n": 2287,
+  "raw_reference_matched_n": 2287,
+  "source_counts": {
+    "jarvis": 209,
+    "mp": 1835,
+    "phonondb": 243
+  },
+  "source_counts_d4_high": {
+    "jarvis": 20,
+    "mp": 210
+  }
+}

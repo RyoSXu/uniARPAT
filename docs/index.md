@@ -20,6 +20,7 @@
 | E7 最小 lint/CI 门禁设计 | `design/design-e7-lint-ci.md` | 已完成工程设计 |
 | B7 M1 CIF 盲推理入口设计 | `design/design-b7-cif-blind-inference.md` | 已完成工程设计 |
 | D4 phDOS 尖峰与负频坐标质量审计 | `design/design-d4-phdos-spike-imaginary-audit.md` | 已完成诊断设计 |
+| D4b 负频坐标来源与稳定性审计 | `design/design-d4b-negative-coordinate-provenance.md` | 当前只读审计设计 |
 | 当前 G2 周期多镜像边条件消息设计 | `design/design-g2-periodic-multi-image-message.md` | 当前实施设计 |
 | 当前 E10 宏观晶格状态实验 | `design/design-e10-macro-lattice.md` | 当前实施设计 |
 | 重大改动提案 | `design/_template.md` | 实施前复制并填写 |

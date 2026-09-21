@@ -1,0 +1,4 @@
+src_ph,archive,frequency_field,dos_field,direct_binary_stability_flag,direct_convergence_flag,auxiliary_fields
+mp,mp_phdos_raw.jsonl,phdos_raw[].frequencies_THz,phdos_raw[].densities,False,False,"method, run_type, has_structure"
+phonondb,phonondb_recomputed.jsonl,freq_THz,dos,False,False,"mesh, tetrahedron, born, dielectric"
+jarvis,jarvis_gap_raw.jsonl + jarvis_threesrc_raw.jsonl,jarvis_phdos_raw.phonon_dos_frequencies,jarvis_phdos_raw.phonon_dos_intensity,False,False,"min_fd_phonon_mode, phonon_modes, elastic fields"
