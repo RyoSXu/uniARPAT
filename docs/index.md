@@ -15,7 +15,7 @@
 | R2b 原子加性 phDOS 读出设计 | `design/design-r2b-atom-additive-phdos.md` | 已完成设计 |
 | C2.1b 验证集损失归因审计设计 | `design/design-c2-1b-loss-attribution.md` | 已完成诊断 |
 | C4 CUDA AMP 工程设计 | `design/design-c4-amp.md` | 已完成工程设计 |
-| E5a 训练 checkpoint 代码边界设计 | `design/design-e5-code-boundaries.md` | 已完成工程阶段 |
+| E5 训练／评估 checkpoint 代码边界设计 | `design/design-e5-code-boundaries.md` | 已完成工程项 |
 | 当前 G2 周期多镜像边条件消息设计 | `design/design-g2-periodic-multi-image-message.md` | 当前实施设计 |
 | 当前 E10 宏观晶格状态实验 | `design/design-e10-macro-lattice.md` | 当前实施设计 |
 | 重大改动提案 | `design/_template.md` | 实施前复制并填写 |

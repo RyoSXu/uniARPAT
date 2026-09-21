@@ -56,6 +56,9 @@
 4. **C4 AMP：**CUDA FP16 AMP 仅由 `--use_amp` 显式开启，B7 默认仍为 FP32。V100 B7 batch-32 门禁的
    数值误差满足预注册门限，单步耗时/显存为 FP32 的 0.457x/0.949x；AMP 与 FP32 checkpoint 不得混合
    恢复，也不得据此提高 batch size 或声称准确率提升。详见 `logs/log-2026-09-21-c4-amp.md`。
+5. **E5 评估边界：**生产 `evaluate_split` 的 SumNorm 物理谱评估与历史 `basemodel.test_one_step` 的
+   raw-logit／M5／导出语义不等价，保持隔离；两者只共享 `utils.metrics.per_sample_spectral_metrics`。
+   生产实验不得通过 legacy 评估入口报告结果。详见 `logs/log-2026-09-21-e5b-evaluation-boundary.md`。
 
 ## 参考测量值
 

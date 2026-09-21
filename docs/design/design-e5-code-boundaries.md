@@ -26,3 +26,9 @@
 
 - 本阶段不移动损失、数据预处理或评估；这些是后续 E5 阶段候选，必须各自另立设计。
 - checkpoint 是恢复边界；任何字段变更都必须先由单测固定，再由 runner 使用。
+
+## E5b 评估边界审计结论
+
+- 生产 runner 的 `evaluate_split` 是唯一的当前实验评估接口：在 SumNorm 下它先 softmax、再按真实总量恢复物理谱，并负责样本表、oracle/blind 与 Cv 产物。
+- `basemodel.test_one_step` 只被 `tools/legacy/train.py`、`tools/legacy/test.py` 与 `tools/legacy/test_cif.py` 调用；它保留 raw-logit NormMAE、历史 M5 反归一化和 `dosdata/` 导出语义。
+- 二者并非可等价的重复实现；已共享的 `per_sample_spectral_metrics` 是唯一安全共用点。故 E5b 不移动或合并评估代码，而是明确生产／历史兼容边界，避免无行为变化重构伪装成语义迁移。

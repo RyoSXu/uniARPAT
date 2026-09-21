@@ -48,14 +48,15 @@
 - **E5a checkpoint 代码边界：完成。**checkpoint payload、AMP 一致性检查、恢复和原子写入已提取为
   唯一模块；FP32 旧 checkpoint 兼容，AMP scaler 可恢复。无训练或数值行为变化。详细见
   `logs/log-2026-09-21-e5a-checkpoint-boundary.md`。
-- **当前关卡：**E5b 评估边界设计。先审计 `evaluate_split` 与历史 `basemodel.test_one_step` 的职责，
-  确认可无行为变化地提取后才实施；不启动训练。
+- **E5 代码边界：完成。**checkpoint 责任已提取；生产 `evaluate_split` 与历史
+  `basemodel.test_one_step` 语义不同，明确隔离而不强行合并。详细见
+  `logs/log-2026-09-21-e5a-checkpoint-boundary.md` 与 `logs/log-2026-09-21-e5b-evaluation-boundary.md`。
+- **当前关卡：**E6 分桶 batch 的设计；先验证 padding 浪费、批内等价和资源门禁，不启动训练。
 
 ## 待办顺序
 
-1. **下一候选：**E5b 评估边界。明确生产 `evaluate_split` 与历史 `basemodel.test_one_step` 的职责，
-   只在关闭路径可验证等价时提取；随后是 E6 分桶 batch、E7 lint/CI、B7 CIF 推理入口。C4 AMP 已准入
-   后续训练但保持默认关闭。
+1. **下一候选：**E6 分桶 batch。先审计 Q1 原子数 padding 比率，预注册批内样本集合与训练更新等价、
+   资源收益门禁；随后是 E7 lint/CI、B7 CIF 推理入口。C4 AMP 已准入后续训练但保持默认关闭。
 2. C2.1b 已 park；除非出现区别于 L3 的有方向机制，不重开或权重扫描。C3 PhysMoE、D3 eDOS
    辅助数据、尖峰/虚频审计均保留但不进入近期顺序。
 3. 网格、窗口与 bin 的数据表示实验保持搁置；只有新的可变 query 假设在固定 E0/P0 上技术通过后，
