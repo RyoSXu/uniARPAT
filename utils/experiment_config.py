@@ -53,6 +53,9 @@ class ExperimentConfig:
 
     # --- C4 CUDA automatic mixed precision (default off) ---
     use_amp: bool = False
+
+    # --- E6 fixed-window length buckets plus dynamic padding trim ---
+    use_bucket_batch: bool = False
     
     # --- Optimizer and regularization overrides ---
     dropout: Optional[float] = None

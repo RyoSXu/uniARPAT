@@ -138,7 +138,7 @@ class ConfigBuilder(object):
         return sampler
    
 
-    def get_dataloader(self, dataset_params = None, split = 'train', smear = 0, choice=[],batch_size = None, dataloader_params = None, dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, dos_sumnorm=False):
+    def get_dataloader(self, dataset_params = None, split = 'train', smear = 0, choice=[],batch_size = None, dataloader_params = None, dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, dos_sumnorm=False, use_bucket_batch=False):
         """
         Get the dataloader from configuration.
 
@@ -173,6 +173,18 @@ class ConfigBuilder(object):
         if dataset is None:
             return None
         sampler = self.get_sampler(dataset, split)
+        if use_bucket_batch:
+            if split != 'train':
+                raise ValueError("length bucketing is training-only")
+            from utils.bucket_batch import LengthBucketBatchSampler, trim_atom_padding_collate
+            lengths = (dataset.elements[:, 2:] != 0).sum(dim=1)
+            batch_sampler = LengthBucketBatchSampler(sampler, lengths, batch_size, window_batches=20)
+            return DataLoader(
+                dataset,
+                batch_sampler=batch_sampler,
+                collate_fn=trim_atom_padding_collate,
+                **dataloader_params
+            )
         return DataLoader(
             dataset,
             batch_size = batch_size,

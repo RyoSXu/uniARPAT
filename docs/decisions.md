@@ -59,6 +59,10 @@
 5. **E5 评估边界：**生产 `evaluate_split` 的 SumNorm 物理谱评估与历史 `basemodel.test_one_step` 的
    raw-logit／M5／导出语义不等价，保持隔离；两者只共享 `utils.metrics.per_sample_spectral_metrics`。
    生产实验不得通过 legacy 评估入口报告结果。详见 `logs/log-2026-09-21-e5b-evaluation-boundary.md`。
+6. **E6 分桶 batch：**`--use_bucket_batch` 仅在训练集上以固定 20-batch 窗口分桶并动态裁剪尾部原子
+   padding，默认关闭。V100 Q1 batch-32 资源门禁的原子槽／单步耗时／峰值显存比为 0.171x/0.539x/1.000x；
+   它改变 batch 组成和优化顺序，不能据此提高 batch size 或解释 accuracy 差异。详见
+   `logs/log-2026-09-21-e6-bucketed-batches.md`。
 
 ## 参考测量值
 

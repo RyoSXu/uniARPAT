@@ -51,12 +51,15 @@
 - **E5 代码边界：完成。**checkpoint 责任已提取；生产 `evaluate_split` 与历史
   `basemodel.test_one_step` 语义不同，明确隔离而不强行合并。详细见
   `logs/log-2026-09-21-e5a-checkpoint-boundary.md` 与 `logs/log-2026-09-21-e5b-evaluation-boundary.md`。
-- **当前关卡：**E6 分桶 batch 的设计；先验证 padding 浪费、批内等价和资源门禁，不启动训练。
+- **E6 分桶 batch：技术通过。**`--use_bucket_batch` 默认关闭；Q1 batch 32 的 V100 门禁中，平均原子槽
+  为固定宽度的 0.171x、单步耗时 0.539x、峰值显存无变化。它改变 batch 组成，只作为可选成本载体，
+  不产生 accuracy 结论。详细见 `logs/log-2026-09-21-e6-bucketed-batches.md`。
+- **当前关卡：**E7 lint/CI 设计；它只保护回归，不启动训练。
 
 ## 待办顺序
 
-1. **下一候选：**E6 分桶 batch。先审计 Q1 原子数 padding 比率，预注册批内样本集合与训练更新等价、
-   资源收益门禁；随后是 E7 lint/CI、B7 CIF 推理入口。C4 AMP 已准入后续训练但保持默认关闭。
+1. **下一候选：**E7 lint/CI。固定格式、导入、单元测试和最小 Q1 合同的自动检查；随后是 B7 CIF
+   推理入口。C4 AMP 与 E6 分桶 batch均已准入后续训练但保持默认关闭。
 2. C2.1b 已 park；除非出现区别于 L3 的有方向机制，不重开或权重扫描。C3 PhysMoE、D3 eDOS
    辅助数据、尖峰/虚频审计均保留但不进入近期顺序。
 3. 网格、窗口与 bin 的数据表示实验保持搁置；只有新的可变 query 假设在固定 E0/P0 上技术通过后，

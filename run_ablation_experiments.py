@@ -221,7 +221,7 @@ def train_and_eval(cfg: ExperimentConfig):
         'tv_w':cfg.tv_w ,'grad_w':cfg.grad_w ,'peak_w':cfg.peak_w ,
         'tail_w':cfg.tail_w ,'tail_start':cfg.tail_start ,
         'augment':cfg.augment ,'disp_sigma':cfg.disp_sigma ,
-        'norm':cfg.norm ,'use_mask':cfg.use_mask ,'use_amp':cfg.use_amp ,'dropout':cfg.dropout ,
+        'norm':cfg.norm ,'use_mask':cfg.use_mask ,'use_amp':cfg.use_amp ,'use_bucket_batch':cfg .use_bucket_batch ,'dropout':cfg.dropout ,
         'weight_decay':cfg.weight_decay ,'warmup_epochs':_wu ,
         'lambda_ph':cfg.lambda_ph ,'grad_clip':cfg.grad_clip ,
         'w_w1':cfg.w_w1 ,'w_huber':cfg.w_huber ,
@@ -243,7 +243,7 @@ def train_and_eval(cfg: ExperimentConfig):
 
     builder =ConfigBuilder (**yaml_cfg )
 
-    train_loader =builder .get_dataloader (split ='train',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn )
+    train_loader =builder .get_dataloader (split ='train',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn ,use_bucket_batch =cfg .use_bucket_batch )
     val_loader =builder .get_dataloader (split ='valid',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn )
     test_loader =builder .get_dataloader (split ='test',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn )
 
@@ -319,6 +319,8 @@ def train_and_eval(cfg: ExperimentConfig):
     for epoch in range (start_epoch ,cfg.epochs ):
     # Advance the distributed sampler so each epoch receives a new order.
         sampler =getattr (train_loader ,"sampler",None )
+        if not hasattr (sampler,"set_epoch"):
+            sampler =getattr (train_loader ,"batch_sampler",sampler )
         if sampler is not None and hasattr (sampler ,"set_epoch"):
             sampler .set_epoch (epoch )
         model .model ['transformer'].train ()
@@ -658,6 +660,7 @@ if __name__ == '__main__':
     parser.add_argument('--norm', type=str, default='sumnorm', choices=['minmax', 'sumnorm'], help='Target normalization; sumnorm is the default')
     parser.add_argument('--use_mask', action='store_true', help='Experimental: mask unsupported bins in the loss')
     parser.add_argument('--use_amp', action='store_true', help='C4: CUDA FP16 automatic mixed precision')
+    parser.add_argument('--use_bucket_batch', action='store_true', help='E6: fixed-window length bucket plus dynamic padding trim')
     parser.add_argument('--dropout', type=float, default=None, help='Transformer dropout; None uses the template value (0.05)')
     parser.add_argument('--weight_decay', type=float, default=None, help='AdamW weight decay; None uses the template value')
     parser.add_argument('--warmup_epochs', type=int, default=None, help='Warmup duration; None uses the template value')
