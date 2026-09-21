@@ -11,6 +11,9 @@ import logging
 from utils.builder import ConfigBuilder
 from model.model import basemodel
 from utils.experiment_config import ExperimentConfig
+from utils.ablation_checkpoint import (
+    atomic_torch_save, build_ablation_checkpoint, restore_ablation_checkpoint,
+)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger('ablation')
@@ -289,19 +292,10 @@ def train_and_eval(cfg: ExperimentConfig):
     if os .path .exists (latest_p ):
         try :
             ck =torch .load (latest_p ,map_location ='cpu')
-            state =ck ['model']if isinstance (ck ,dict )and 'model'in ck else ck 
-            if isinstance (ck ,dict )and bool (ck .get ('use_amp',False ))!=bool (cfg .use_amp ):
-                raise ValueError ("cannot resume a checkpoint with a different use_amp setting")
-            model .model ['transformer'].load_state_dict (state )
-            if cfg .use_amp and isinstance (ck ,dict )and 'amp_scaler'in ck :
-                model .gscaler .load_state_dict (ck ['amp_scaler'])
-            if isinstance (ck ,dict )and 'optimizer'in ck :
-                try :
-                    optimizer .load_state_dict (ck ['optimizer'])
-                except Exception :
-                    pass 
-            start_epoch =int (ck .get ('epoch',0 ))if isinstance (ck ,dict )else 0 
-            best_val_score =float (ck .get ('best_val_score',float ('inf')))if isinstance (ck ,dict )else float ('inf')
+            resume_meta =restore_ablation_checkpoint (
+                ck ,model .model ['transformer'],optimizer ,cfg .use_amp ,model .gscaler)
+            start_epoch =resume_meta ['epoch']
+            best_val_score =resume_meta ['best_val_score']
             # restore best_epoch + history (history file optional: killed runs
             # only have checkpoints; it is rewritten incrementally below).
             if os .path .exists (hist_p ):
@@ -407,27 +401,17 @@ def train_and_eval(cfg: ExperimentConfig):
 
             # Save a complete state atomically so interrupted runs remain recoverable.
         def _ckpt (epoch_ ,best_ ):
-            return {'epoch':epoch_ ,
-            'model_name':cfg.model_name ,
-            'seed':cfg.seed ,
-            'use_amp':bool (cfg .use_amp ),
-            'model':model .model ['transformer'].state_dict (),
-            'optimizer':optimizer .state_dict (),
-            **({'amp_scaler':model .gscaler .state_dict ()}if cfg .use_amp else {}),
-            'best_val_score':best_ }
-
-        def _atomic_save (obj ,path ):
-            tmp =path +'.tmp'
-            torch .save (obj ,tmp )
-            os .replace (tmp ,path )
+            return build_ablation_checkpoint (
+                epoch_,cfg .model_name,cfg .seed,cfg .use_amp,
+                model .model ['transformer'],optimizer,best_,model .gscaler)
 
         if balanced <best_val_score :
             best_val_score =balanced 
             best_epoch =epoch +1 
-            _atomic_save (_ckpt (epoch +1 ,balanced ),os .path .join (save_dir ,'checkpoint_best.pth'))
+            atomic_torch_save (_ckpt (epoch +1 ,balanced ),os .path .join (save_dir ,'checkpoint_best.pth'))
             logger .info (f"[{cfg.model_name }] New best model saved at Epoch {epoch +1 } (Score: {balanced :.4f})")
 
-        _atomic_save (_ckpt (epoch +1 ,best_val_score ),os .path .join (save_dir ,'checkpoint_latest.pth'))
+        atomic_torch_save (_ckpt (epoch +1 ,best_val_score ),os .path .join (save_dir ,'checkpoint_latest.pth'))
         # Incremental history (killed runs resume from checkpoint + history).
         pd .DataFrame (history ).to_csv (f"./results/history_{suffix }.csv",index =False )
 
