@@ -182,6 +182,19 @@ class PointwiseMLPHead(nn.Module):
         return self.net(x)
 
 
+class AtomAdditivePhDOSHead(nn.Module):
+    """R2b: nonnegative fixed-grid phDOS contributions from individual atoms."""
+
+    def __init__(self, d_model=512, phdos_num=64):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, phdos_num))
+
+    def forward(self, memory, mask_atom):
+        contrib = torch.nn.functional.softplus(self.net(memory))
+        return contrib.masked_fill(mask_atom.unsqueeze(-1), 0.0)
+
+
 class DeepConv1dHead(nn.Module):
     """
     phDOS Output Head: 3-layer deep Conv1d (512 -> 256 -> 256 -> 1)

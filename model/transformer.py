@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 
 from model.heads import (
-    CNN, CoordQueryGenerator, CoordTrunk, DeepConv1dHead, EnergyCode, EtaHead, FourierTrunk,
+    AtomAdditivePhDOSHead, CNN, CoordQueryGenerator, CoordTrunk, DeepConv1dHead, EnergyCode, EtaHead, FourierTrunk,
     MultiScaleResidualHead, PointwiseMLPHead, PostDecoderGatedCrossAttention,
     ScaleHead, global_masked_pool
 )
@@ -93,6 +93,7 @@ class Transformer(nn.Module):
                   q1_coord=False,
                   q1_hidden=128, q2_fourier=False, c5_moe=False,
                   r1a_point=False, r1b_coord=False, use_macro_lattice=False,
+                  use_atom_additive_phdos=False,
                   macro_lattice_mean=(2.96373232, 1.22763338),
                   macro_lattice_std=(0.41023959, 0.51526549)):
         super().__init__()
@@ -104,6 +105,13 @@ class Transformer(nn.Module):
         self.energy_code = energy_code
         self.scale_mode = scale_mode
         self.scalar_mode = scalar_mode
+        # R2b is deliberately limited to its plain M1/R2a carrier.  The flag
+        # is not stored when off, so legacy state dicts remain unchanged.
+        atom_additive_phdos = bool(use_atom_additive_phdos)
+        if atom_additive_phdos and (decoupled_decoder or use_gated_cross_attn or
+                                    predict_scale or r1a_point or r1b_coord or
+                                    q1_coord or q2_fourier or c5_moe):
+            raise ValueError("R2b atom-additive phDOS requires the plain R2a M1 carrier")
         # C5: token-level mixture-of-experts is intentionally restricted to
         # M1's shared decoder.  PhysMoE/decoupled routing is a later C3 task.
         self.c5_moe = bool(c5_moe)
@@ -228,6 +236,11 @@ class Transformer(nn.Module):
                 decoder_layer, num_decoder_layers, decoder_norm,
                 c5_moe=self.c5_moe)
 
+        # R2b creates no off-path module.  Enabled, it replaces only the
+        # phDOS query/decoder/CNN readout with atom-token contributions.
+        if atom_additive_phdos:
+            self.atom_phdos_head = AtomAdditivePhDOSHead(d_model, phdos_num)
+
         # Post-Decoder Zero-Initialized Gated Multi-Head Cross-Attention
         if use_gated_cross_attn:
             self.gated_cross_attn = PostDecoderGatedCrossAttention(d_model, nhead, dropout=dropout)
@@ -251,8 +264,9 @@ class Transformer(nn.Module):
             self.edos_tgt = nn.Parameter(torch.zeros(edos_num, d_model))
 
             # --- (PhDOS)  ---
-            self.phdos_query_embed = nn.Parameter(torch.zeros(phdos_num, d_model))
-            self.phdos_tgt = nn.Parameter(torch.zeros(phdos_num, d_model))
+            if not hasattr(self, "atom_phdos_head"):
+                self.phdos_query_embed = nn.Parameter(torch.zeros(phdos_num, d_model))
+                self.phdos_tgt = nn.Parameter(torch.zeros(phdos_num, d_model))
             self.q_e = None
             self.q_p = None
 
@@ -284,23 +298,29 @@ class Transformer(nn.Module):
         if self.r1a_point:
             if d_model == 512:
                 self.edos_out_head = PointwiseMLPHead([512, 3, 1])
-                self.phdos_out_head = PointwiseMLPHead([512, 2704, 2704, 2704, 2704, 2704, 1])
+                if not hasattr(self, "atom_phdos_head"):
+                    self.phdos_out_head = PointwiseMLPHead([512, 2704, 2704, 2704, 2704, 2704, 1])
             else:
                 self.edos_out_head = PointwiseMLPHead([d_model, 3, 1])
                 h_dim = max(16, d_model * 2)
-                self.phdos_out_head = PointwiseMLPHead([d_model, h_dim, h_dim, h_dim, h_dim, h_dim, 1])
+                if not hasattr(self, "atom_phdos_head"):
+                    self.phdos_out_head = PointwiseMLPHead([d_model, h_dim, h_dim, h_dim, h_dim, h_dim, 1])
         elif head_type == "symmetric":
             self.edos_out_head = MultiScaleResidualHead(d_model, hidden_dim=256)
-            self.phdos_out_head = DeepConv1dHead(d_model, hidden_dim=256)
+            if not hasattr(self, "atom_phdos_head"):
+                self.phdos_out_head = DeepConv1dHead(d_model, hidden_dim=256)
             nn.init.constant_(self.edos_out_head.out_conv.bias, 1.0)
-            nn.init.constant_(self.phdos_out_head.net[-1].bias, 1.0)
+            if not hasattr(self, "atom_phdos_head"):
+                nn.init.constant_(self.phdos_out_head.net[-1].bias, 1.0)
         elif head_type == "ph_trimmed":
             self.edos_out_head = CNN(d_model, d_model * 3, output_dim=1, num_layers=1)
-            self.phdos_out_head = DeepConv1dHead(d_model, hidden_dim=256)
-            nn.init.constant_(self.phdos_out_head.net[-1].bias, 1.0)
+            if not hasattr(self, "atom_phdos_head"):
+                self.phdos_out_head = DeepConv1dHead(d_model, hidden_dim=256)
+                nn.init.constant_(self.phdos_out_head.net[-1].bias, 1.0)
         else:  # "legacy"
             self.edos_out_head = CNN(d_model, d_model * 3, output_dim=1, num_layers=1)
-            self.phdos_out_head = CNN(d_model, d_model * 3, output_dim=1, num_layers=6)
+            if not hasattr(self, "atom_phdos_head"):
+                self.phdos_out_head = CNN(d_model, d_model * 3, output_dim=1, num_layers=6)
 
         # Scale Head MLP for blind physical inference (Shape-Scale decoupled regression)
         if predict_scale:
@@ -428,12 +448,13 @@ class Transformer(nn.Module):
                     f"edos_x bins {edos_x.shape[-1]} != {edos_query.shape[1]}"
                 edos_query = edos_query + self.edos_trunk(edos_x.to(dtype=edos_query.dtype))
             edos_tgt_input = self.edos_tgt.unsqueeze(0).repeat(B, 1, 1)
-            phdos_query = self.phdos_query_embed.unsqueeze(0).repeat(B, 1, 1)
-            phdos_tgt_input = self.phdos_tgt.unsqueeze(0).repeat(B, 1, 1)
-            if self.q1_coord:
-                assert phdos_x.shape[-1] == phdos_query.shape[1], \
-                    f"phdos_x bins {phdos_x.shape[-1]} != {phdos_query.shape[1]}"
-                phdos_query = phdos_query + self.phdos_trunk(phdos_x.to(dtype=phdos_query.dtype))
+            if not hasattr(self, "atom_phdos_head"):
+                phdos_query = self.phdos_query_embed.unsqueeze(0).repeat(B, 1, 1)
+                phdos_tgt_input = self.phdos_tgt.unsqueeze(0).repeat(B, 1, 1)
+                if self.q1_coord:
+                    assert phdos_x.shape[-1] == phdos_query.shape[1], \
+                        f"phdos_x bins {phdos_x.shape[-1]} != {phdos_query.shape[1]}"
+                    phdos_query = phdos_query + self.phdos_trunk(phdos_x.to(dtype=phdos_query.dtype))
 
         if self.decoupled_decoder:
             hs_edos, _ = self.edos_decoder(
@@ -457,21 +478,27 @@ class Transformer(nn.Module):
             )
             c5_balance_edos = self.decoder.last_c5_moe_balance
             c5_load_edos = self.decoder.last_c5_moe_load
-            hs_phdos, _ = self.decoder(
-                phdos_tgt_input, memory,
-                memory_key_padding_mask=mask_atom,
-                pos=pos,
-                query_pos=phdos_query
-            )
-            c5_balance_phdos = self.decoder.last_c5_moe_balance
-            c5_load_phdos = self.decoder.last_c5_moe_load
+            if not hasattr(self, "atom_phdos_head"):
+                hs_phdos, _ = self.decoder(
+                    phdos_tgt_input, memory,
+                    memory_key_padding_mask=mask_atom,
+                    pos=pos,
+                    query_pos=phdos_query
+                )
+                c5_balance_phdos = self.decoder.last_c5_moe_balance
+                c5_load_phdos = self.decoder.last_c5_moe_load
 
         # Post-Decoder Gated Cross Attention
         if self.use_gated_cross_attn:
             hs_edos, hs_phdos = self.gated_cross_attn(hs_edos, hs_phdos)
 
-        # Output heads
-        if self.r1a_point:
+        # Output heads. R2b keeps eDOS unchanged and aggregates fixed-grid
+        # nonnegative contributions directly from encoder atom tokens.
+        if hasattr(self, "atom_phdos_head"):
+            out_edos = self.edos_out_head(hs_edos.permute(0, 2, 1)).squeeze(1)
+            atom_phdos_contrib = self.atom_phdos_head(memory, mask_atom)
+            out_phdos = torch.log(atom_phdos_contrib.sum(dim=1).clamp_min(1e-12))
+        elif self.r1a_point:
             out_edos = self.edos_out_head(hs_edos).squeeze(-1) # [B, edos_num, 1] -> [B, edos_num]
             out_phdos = self.phdos_out_head(hs_phdos).squeeze(-1) # [B, phdos_num, 1] -> [B, phdos_num]
         else:
@@ -480,6 +507,8 @@ class Transformer(nn.Module):
 
         results['edos'] = out_edos
         results['phdos'] = out_phdos
+        if hasattr(self, "atom_phdos_head"):
+            results['atom_phdos_contrib'] = atom_phdos_contrib
         if self.c5_moe:
             # The shared decoder runs once for each task; balance both paths
             # equally so the auxiliary term cannot favor the longer eDOS axis.

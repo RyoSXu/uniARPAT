@@ -137,6 +137,7 @@ def train_and_eval(cfg: ExperimentConfig):
     yaml_cfg ['model']['params']['sub_model']['transformer']['edos_num']=cfg.edos_num 
     yaml_cfg ['model']['params']['sub_model']['transformer']['phdos_num']=cfg.phdos_num 
     yaml_cfg ['model']['params']['sub_model']['transformer']['num_decoder_layers']=int (cfg.decoder_layers )
+    yaml_cfg ['model']['params']['sub_model']['transformer']['use_atom_additive_phdos']=bool (cfg.use_atom_additive_phdos )
     yaml_cfg ['model']['params']['sub_model']['transformer']['atom_feat_mode']=cfg.atom_feat 
     yaml_cfg ['model']['params']['sub_model']['transformer']['energy_code']=cfg.energy_code 
     yaml_cfg ['model']['params']['sub_model']['transformer']['use_macro_lattice']=bool (cfg.use_macro_lattice )
@@ -210,6 +211,7 @@ def train_and_eval(cfg: ExperimentConfig):
         'data_dir':cfg.data_dir ,'edos_num':cfg.edos_num ,
         'phdos_num':cfg.phdos_num ,'atom_feat':cfg.atom_feat ,
         'decoder_layers':cfg.decoder_layers ,
+        'use_atom_additive_phdos':cfg.use_atom_additive_phdos ,
         'energy_code':cfg.energy_code ,'edos_grid':cfg.edos_grid ,
         'use_macro_lattice':cfg.use_macro_lattice ,
         'tv_w':cfg.tv_w ,'grad_w':cfg.grad_w ,'peak_w':cfg.peak_w ,
@@ -647,6 +649,8 @@ if __name__ == '__main__':
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
     parser.add_argument('--decoder_layers', type=int, default=6,
                         help='Shared Transformer decoder depth; 6 is the B7 default')
+    parser.add_argument('--use_atom_additive_phdos', action='store_true',
+                        help='R2b: sum nonnegative fixed-grid phDOS contributions from atom tokens')
     parser.add_argument('--atom_feat', type=str, default='legacy3', choices=['legacy3', 'mendeleev24'], help='Atomic feature table')
     parser.add_argument('--energy_code', type=str, default='none', choices=['none', 'edos'], help='Add an eDOS bin-energy encoding')
     parser.add_argument('--edos_grid', type=str, default='', help='Named eDOS grid or path to bin centers')

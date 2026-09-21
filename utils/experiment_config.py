@@ -27,6 +27,8 @@ class ExperimentConfig:
     phdos_num: int = 64
     # R2a: shared Transformer decoder depth.  Six is the frozen B7 default.
     decoder_layers: int = 6
+    # R2b: replace only the phDOS readout with atom-additive fixed-grid logits.
+    use_atom_additive_phdos: bool = False
     
     # --- Feature encoding ---
     atom_feat: str = "legacy3"
