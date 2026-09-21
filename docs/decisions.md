@@ -64,12 +64,17 @@
    它改变 batch 组成和优化顺序，不能据此提高 batch size 或解释 accuracy 差异。详见
    `logs/log-2026-09-21-e6-bucketed-batches.md`。
 7. **E7 lint/CI：**`bash tools/ci/check-static.sh` 是缓存无关的最小回归门禁：对所有受跟踪 Python 文件
-   运行 Ruff 致命规则、编译并执行 40 项合成 CPU 合同测试；`.github/workflows/ci.yml` 在 push/PR 复现该
+   运行 Ruff 致命规则、编译并执行 42 项合成 CPU 合同测试；`.github/workflows/ci.yml` 在 push/PR 复现该
    命令。Q1 数据集成测试仍只在本地完整套件执行。详见 `logs/log-2026-09-21-e7-lint-ci.md`。
 8. **B7 CIF 盲推理：**`b7_cif_infer.py` 是 B7 `_e9ctl` 的唯一 CIF 导出入口。它只接受 M1、seed 42、
    epoch 33 的严格 state dict，并以 Z0 `N_val(CIF)`、H1 gamma/eta 和 E0/P0 固定 bin 重建 blind 谱；
    不得以旧 M4 `cif2dos.py` 或标签尺度声明 B7 推理。详见
    `logs/log-2026-09-21-b7-cif-blind-inference.md`。
+9. **D4 phDOS 标签形状审计：**以 Q1 train p90 固定的负频坐标质量阈值（0.129287）在 B7 test 划出
+   230 条 high 样本，其 phDOS 失败率为 16.09%（other 2.09%，差 14.00pt、bootstrap 95% CI
+   9.41–18.73pt）；尖峰集中度不满足门槛、coverage 外目标质量为零。此结论只授权原始来源／稳定性审计，
+   不等同于虚频真值，也不授权标签处理或训练。详见
+   `logs/log-2026-09-21-d4-phdos-spike-imaginary-audit.md`。
 
 ## 参考测量值
 

@@ -1,0 +1,31 @@
+{
+  "action_rule": {
+    "ci_lower_gt_zero": true,
+    "min_delta_failure_points": 3.0,
+    "min_n": 100
+  },
+  "actionable_metrics": [
+    "negative_mass_fraction"
+  ],
+  "audit": "D4 phDOS spike and negative-coordinate quality audit",
+  "bootstrap": {
+    "replicates": 2000,
+    "seed": 42
+  },
+  "data_root": "/root/home/newstudy/uniARPAT/data/train4ARPAT",
+  "negative_center_bins": 14,
+  "negative_center_range_cm-1": [
+    -270.15625,
+    -14.21875
+  ],
+  "outputs": {
+    "b7_strata": "/root/home/newstudy/uniARPAT/results/d4_phdos_b7_strata.csv",
+    "b7_test_samples": "/root/home/newstudy/uniARPAT/results/d4_phdos_b7_test_samples.csv",
+    "descriptor_summary": "/root/home/newstudy/uniARPAT/results/d4_phdos_descriptor_summary.csv"
+  },
+  "threshold_source": "Q1 train p90 only",
+  "thresholds": {
+    "negative_mass_fraction": 0.1292870151345376,
+    "peak_share": 0.2713074708384434
+  }
+}

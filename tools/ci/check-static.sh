@@ -27,4 +27,5 @@ fi
     tests.test_c4_amp \
     tests.test_e5_checkpoint_boundary \
     tests.test_c2_1b_loss_attribution \
-    tests.test_b7_cif_inference
+    tests.test_b7_cif_inference \
+    tests.test_d4_phdos_spike_imaginary_audit

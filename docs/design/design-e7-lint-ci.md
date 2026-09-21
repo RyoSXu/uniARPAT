@@ -19,10 +19,11 @@
      因为静态分析无法判定其动态保护。
   2. 对受版本控制的 Python 入口、`model/`、`datasets/`、`utils/`、`tools/eval/` 和 `tests/` 运行
      `compileall`。
-  3. 运行 12 个不加载 Q1、checkpoint 或标签的测试模块。
+  3. 运行 13 个不加载 Q1、checkpoint 或标签的测试模块。
 - 新增 `.github/workflows/ci.yml`：push 与 pull request 均运行该脚本，使用 Python 3.11、`pip install
   -r requirements.txt` 和独立安装的 `ruff`。
-- 无数据测试包含模型头、P0、热力学、注意力／归一化、G1、Q2、C5、C4、E5、C2.1b 和 B7 CIF 合同；明确排除
+- 无数据测试包含模型头、P0、热力学、注意力／归一化、G1、Q2、C5、C4、E5、C2.1b、B7 CIF 和 D4
+  描述量合同；明确排除
   读取 Q1 缓存的 R1、R2、G2、E6、E10、Q1 坐标与 L3 测试。这些测试继续由本地
   `python3 -m unittest discover tests` 覆盖。
 
