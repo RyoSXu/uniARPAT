@@ -63,6 +63,9 @@
    padding，默认关闭。V100 Q1 batch-32 资源门禁的原子槽／单步耗时／峰值显存比为 0.171x/0.539x/1.000x；
    它改变 batch 组成和优化顺序，不能据此提高 batch size 或解释 accuracy 差异。详见
    `logs/log-2026-09-21-e6-bucketed-batches.md`。
+7. **E7 lint/CI：**`bash tools/ci/check-static.sh` 是缓存无关的最小回归门禁：对所有受跟踪 Python 文件
+   运行 Ruff 致命规则、编译并执行 36 项合成 CPU 合同测试；`.github/workflows/ci.yml` 在 push/PR 复现该
+   命令。Q1 数据集成测试仍只在本地完整套件执行。详见 `logs/log-2026-09-21-e7-lint-ci.md`。
 
 ## 参考测量值
 

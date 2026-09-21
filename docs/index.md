@@ -17,6 +17,7 @@
 | C4 CUDA AMP 工程设计 | `design/design-c4-amp.md` | 已完成工程设计 |
 | E5 训练／评估 checkpoint 代码边界设计 | `design/design-e5-code-boundaries.md` | 已完成工程项 |
 | E6 长度分桶与动态裁剪 batch 设计 | `design/design-e6-bucketed-batches.md` | 已完成工程设计 |
+| E7 最小 lint/CI 门禁设计 | `design/design-e7-lint-ci.md` | 已完成工程设计 |
 | 当前 G2 周期多镜像边条件消息设计 | `design/design-g2-periodic-multi-image-message.md` | 当前实施设计 |
 | 当前 E10 宏观晶格状态实验 | `design/design-e10-macro-lattice.md` | 当前实施设计 |
 | 重大改动提案 | `design/_template.md` | 实施前复制并填写 |
