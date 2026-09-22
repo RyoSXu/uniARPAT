@@ -58,7 +58,7 @@
   编译及 48 项无缓存 CPU 合同测试；GitHub Actions 在 push/PR 上复现。它不读取 Q1、不启动训练，完整的
   本地数据回归仍由 `python3 -m unittest discover tests` 覆盖。详细见 `logs/log-2026-09-21-e7-lint-ci.md`。
 - **B7 M1 CIF 盲推理入口：完成。**`b7_cif_infer.py` 严格加载 B7 epoch 33、按 Z0 的 CIF `N_val` 和
-  H1 eta/gamma 重建 E0/P0 blind 谱；`cif2dos.py` 仍保持 M4 兼容工具。详细见
+  H1 eta/gamma 重建 E0/P0 blind 谱；旧 M4 `cif2dos.py` 已退役（Git 历史可恢复）。详细见
   `logs/log-2026-09-21-b7-cif-blind-inference.md`。
 - **D4 phDOS 尖峰与负频坐标质量审计：完成，有可行动关联。**B7 phDOS 失败在 train p90 以上的负频
   坐标质量代理中为 16.09%（other 2.09%，差 14.00pt、95% CI 9.41–18.73pt）；尖峰集中度不相关，coverage
@@ -82,13 +82,13 @@
 3. 网格、窗口与 bin 的数据表示实验保持搁置；只有新的可变 query 假设在固定 E0/P0 上技术通过后，
    才能重新设计并启动。
 4. 独立工程队列：C4 自动混合精度、E5 代码边界、E6 分桶 batch、E7 lint/CI，以及将 B7 M1 接入
-   CIF 推理入口或正式退役 M4 兼容工具。
+   CIF 推理入口均已完成；M4 `cif2dos.py` 已退役。
 
 长期方向是在任意能量或频率上查询连续谱场：先证明读出接口，再验证数据表示，最后才进入连续谱场。
 
 ## 阻塞与关注点
 
 - `dataset.py` 中坐标默认断言的回归已修复（自动回退）；重跑 C2b 前须做冒烟测试。
-- `cif2dos.py` 当前兼容 M4，不是 B7 M1 的盲推理导出路径。
-- `output/` 中约有 74 GB 检查点；未经逐项明确批准不得删除。正式复现以 `results/`、完整命令和
+- 旧 M4 `cif2dos.py` 已删除；B7 M1 盲推理唯一入口为 `b7_cif_infer.py`。
+- `output/` 中约有 93 GB 检查点（92 个目录）；未经逐项明确批准不得删除。正式复现以 `results/`、完整命令和
   带日期日志为准，`output/*/config_used.yaml` 仅为本地产物。

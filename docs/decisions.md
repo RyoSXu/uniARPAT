@@ -68,7 +68,7 @@
    命令。Q1 数据集成测试仍只在本地完整套件执行。详见 `logs/log-2026-09-21-e7-lint-ci.md`。
 8. **B7 CIF 盲推理：**`b7_cif_infer.py` 是 B7 `_e9ctl` 的唯一 CIF 导出入口。它只接受 M1、seed 42、
    epoch 33 的严格 state dict，并以 Z0 `N_val(CIF)`、H1 gamma/eta 和 E0/P0 固定 bin 重建 blind 谱；
-   不得以旧 M4 `cif2dos.py` 或标签尺度声明 B7 推理。详见
+   旧 M4 `cif2dos.py` 已退役（Git 历史可恢复），不得以其或标签尺度声明 B7 推理。详见
    `logs/log-2026-09-21-b7-cif-blind-inference.md`。
 9. **D4 phDOS 标签形状审计：**以 Q1 train p90 固定的负频坐标质量阈值（0.129287）在 B7 test 划出
    230 条 high 样本，其 phDOS 失败率为 16.09%（other 2.09%，差 14.00pt、bootstrap 95% CI

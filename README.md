@@ -37,7 +37,7 @@ python3 -c "import json; print(json.load(open('data/train4ARPAT/manifest.json'))
 ```text
 uniARPAT/
 ├── run_ablation_experiments.py  # 训练与评估入口
-├── cif2dos.py                   # 从 CIF 预测 DOS 的入口
+├── b7_cif_infer.py              # 从 CIF 预测 DOS 的入口（B7 M1 blind）
 ├── thermo_props.py              # 热力学后处理库
 ├── model/ datasets/ utils/      # 模型、数据集适配层与通用工具
 ├── configs/                     # 受版本控制的模板默认值
@@ -62,16 +62,7 @@ uniARPAT/
 
 ## 推理
 
-`cif2dos.py` 是用于兼容 M4 的旧入口。它可以对 CIF 文件运行兼容的 M4 检查点，但尚未
-接入当前 B7 M1 盲推理模型的导出流程；不得据此宣称得到 B7 推理结果。提供兼容的检查点
-和 CIF 文件后，再选择输出目录：
-
-```bash
-python3 cif2dos.py --cif structure.cif --weights model.pth --output predictions/
-```
-
-可运行 `python3 cif2dos.py --help` 查看支持的选项。检查点必须与训练时的模型和归一化
-配置相匹配。
+旧 M4 入口 `cif2dos.py` 已退役，历史可从 Git 恢复，不得据此宣称得到 B7 推理结果。
 
 当前 B7 `_e9ctl` 的 CIF-only blind 推理使用独立入口。它要求明确的 epoch-33 checkpoint，
 从 CIF 的元素组成计算 Z0 价电子数，并使用 H1 eta/gamma 头恢复 E0/P0 窗口内的物理总量：
