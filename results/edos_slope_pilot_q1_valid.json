@@ -1,0 +1,25 @@
+{
+  "verdict": "park",
+  "primary_met": false,
+  "guardrails_met": true,
+  "mechanism_supported": false,
+  "roughness_threshold": 0.3516,
+  "roughness_high_n": 205,
+  "roughness_other_n": 2108,
+  "rules": {
+    "high_roughness_oracle_delta_median_min": 0.02,
+    "high_roughness_fail_delta_max_pp": 1.0,
+    "overall_oracle_and_blind_phdos_guards": {
+      "delta_median_min": -0.02,
+      "delta_fail_max_pp": 1.0
+    },
+    "mechanism": "high-gradient slope-error median-delta 95% CI upper bound < 0"
+  },
+  "split": "Q1 valid",
+  "checkpoint_epoch": 10,
+  "bootstrap_replicates": 2000,
+  "bootstrap_seed": 20260923,
+  "control_samples": "/root/home/newstudy/uniARPAT/results/edos_slope_pilot_q1_valid_control_samples.csv",
+  "candidate_samples": "/root/home/newstudy/uniARPAT/results/edos_slope_pilot_q1_valid_candidate_samples.csv",
+  "paired_metrics": "/root/home/newstudy/uniARPAT/results/edos_slope_pilot_q1_valid_paired_metrics.csv"
+}

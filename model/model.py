@@ -12,7 +12,15 @@ import torch.cuda.amp as amp
 import numpy as np
 import os
 
-from model.losses import compute_shape_loss, sumnorm_klw_loss, tv_loss, gradient_loss, weighted_smooth_l1_loss
+from model.losses import (
+    calibrate_additive_loss_weight,
+    compute_shape_loss,
+    edos_slope_matching_loss,
+    gradient_loss,
+    sumnorm_klw_loss,
+    tv_loss,
+    weighted_smooth_l1_loss,
+)
 
 class basemodel(nn.Module):
     def __init__(self, logger, **params) -> None:
@@ -59,6 +67,16 @@ class basemodel(nn.Module):
         self.w_w1 = float(self.params.get("w_w1", 1.0))
         self.w_huber = float(self.params.get("w_huber", 1.0))
         self.huber_delta = float(self.params.get("huber_delta", 0.02))
+        self.edos_slope_ratio = float(self.params.get("edos_slope_ratio", 0.0))
+        self.edos_slope_lambda = 0.0
+        self.edos_slope_calibrated = self.edos_slope_ratio == 0.0
+        self.edos_slope_calibration = None
+        if not np.isfinite(self.edos_slope_ratio) or self.edos_slope_ratio < 0.0:
+            raise ValueError("edos_slope_ratio must be finite and nonnegative")
+        if self.edos_slope_ratio > 0.0 and self.loss_form != "sumnorm_klw":
+            raise ValueError("eDOS slope matching requires the SumNorm loss")
+        if self.edos_slope_ratio > 0.0 and self.use_mask:
+            raise ValueError("eDOS slope matching currently requires use_mask=False")
         # C5 token-MoE load balancing.  It is zero for every non-C5 run.
         self.c5_moe_balance_w = float(self.params.get("c5_moe_balance_w", 0.01))
         self.begin_epoch = 0
@@ -187,11 +205,65 @@ class basemodel(nn.Module):
         # Direct spectrum regression uses Smooth L1 (Huber) loss.
         return F.smooth_l1_loss(predict, target)
 
+    def _calibrate_edos_slope_weight(
+        self, inp, mask, pos, edos_target, edos_cov, edos_x, phdos_x
+    ):
+        transformer = self.model["transformer"]
+        was_training = transformer.training
+        transformer.eval()
+        try:
+            with torch.enable_grad(), self.amp_autocast():
+                outputs = transformer(inp, mask, pos, edos_x, phdos_x)
+            outputs = self.fp32_outputs(outputs)
+            predict_edos = outputs["edos"]
+            if predict_edos.dim() == 3:
+                predict_edos = predict_edos.squeeze(1)
+            base_loss = sumnorm_klw_loss(
+                predict_edos,
+                edos_target,
+                edos_cov,
+                self.use_mask,
+                self.w_w1,
+                self.w_huber,
+                self.huber_delta,
+            ).mean()
+            slope_loss = edos_slope_matching_loss(predict_edos, edos_target)
+            weight, base_norm, slope_norm = calibrate_additive_loss_weight(
+                base_loss,
+                slope_loss,
+                transformer.parameters(),
+                self.edos_slope_ratio,
+            )
+            self.edos_slope_lambda = weight
+            self.edos_slope_calibrated = True
+            self.edos_slope_calibration = {
+                "target_gradient_ratio": self.edos_slope_ratio,
+                "lambda": weight,
+                "base_gradient_norm": base_norm,
+                "slope_gradient_norm": slope_norm,
+            }
+            if self.logger is not None:
+                self.logger.info(
+                    "eDOS slope loss calibrated: ratio=%.4f lambda=%.8g "
+                    "base_grad=%.8g slope_grad=%.8g",
+                    self.edos_slope_ratio,
+                    weight,
+                    base_norm,
+                    slope_norm,
+                )
+        finally:
+            transformer.train(was_training)
+
     def train_one_step(self, batch_data, step):
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
         edos_cov, phdos_cov, nvalence, edos_x, phdos_x = self.data_preprocess(batch_data)
+
+        if self.edos_slope_ratio > 0.0 and not self.edos_slope_calibrated:
+            self._calibrate_edos_slope_weight(
+                inp, mask, pos, edos_target, edos_cov, edos_x, phdos_x
+            )
 
         if len(self.model) == 1:
             with self.amp_autocast():
@@ -327,6 +399,10 @@ class basemodel(nn.Module):
         if self.grad_w > 0:
             loss_grad = gradient_loss(predict_edos, predict_phdos, edos_target, phdos_target)
             total_loss = total_loss + self.grad_w * loss_grad
+        loss_edos_slope = torch.zeros((), device=total_loss.device)
+        if self.edos_slope_lambda > 0.0:
+            loss_edos_slope = edos_slope_matching_loss(predict_edos, edos_target)
+            total_loss = total_loss + self.edos_slope_lambda * loss_edos_slope
 
         if len(self.optimizer) == 1:
             self.optimizer[list(self.optimizer.keys())[0]].zero_grad()
@@ -352,6 +428,9 @@ class basemodel(nn.Module):
             'loss_phdos': loss_phdos.item(),
             'loss_tv': loss_tv.item(),
             'loss_grad': loss_grad.item(),
+            'loss_edos_slope': loss_edos_slope.item(),
+            'edos_slope_ratio': self.edos_slope_ratio,
+            'edos_slope_lambda': self.edos_slope_lambda,
             'loss_shape_e': loss_shape_e.item() if 'loss_shape_e' in locals() else 0.0,
             'loss_shape_p': loss_shape_p.item() if 'loss_shape_p' in locals() else 0.0,
             'loss_scale_e': loss_scale_e.item() if 'loss_scale_e' in locals() else 0.0,

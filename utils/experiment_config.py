@@ -39,6 +39,7 @@ class ExperimentConfig:
     # --- Shape-loss weights ---
     tv_w: float = 0.0
     grad_w: float = 0.0
+    edos_slope_ratio: float = 0.0
     peak_w: float = 1.0
     tail_w: float = 1.0
     tail_start: int = -1
@@ -50,6 +51,7 @@ class ExperimentConfig:
     # --- Target normalization and masks ---
     norm: str = "sumnorm"
     use_mask: bool = False
+    skip_test_eval: bool = False
 
     # --- C4 CUDA automatic mixed precision (default off) ---
     use_amp: bool = False

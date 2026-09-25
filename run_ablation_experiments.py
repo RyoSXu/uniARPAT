@@ -109,6 +109,31 @@ def _ph_grid_centers(phdos_num: int):
     return None
 
 
+def maybe_get_test_loader(builder, cfg, sumnorm):
+    if cfg.skip_test_eval:
+        return None
+    return builder.get_dataloader(
+        split="test",
+        dos_minmax=True,
+        batch_size=cfg.batch_size,
+        dos_sumnorm=sumnorm,
+    )
+
+
+def write_edos_slope_calibration(config_path, calibration):
+    with open(config_path) as stream:
+        config_used = yaml.safe_load(stream)
+    runtime = config_used.setdefault("runtime", {})
+    runtime.update({
+        "edos_slope_ratio": calibration["target_gradient_ratio"],
+        "edos_slope_lambda": calibration["lambda"],
+        "edos_slope_base_gradient_norm": calibration["base_gradient_norm"],
+        "edos_slope_gradient_norm": calibration["slope_gradient_norm"],
+    })
+    with open(config_path, "w") as stream:
+        yaml.safe_dump(config_used, stream, sort_keys=False)
+
+
 def train_and_eval(cfg: ExperimentConfig):
     if cfg.model_name not in MODEL_CONFIGS :
         raise ValueError (f"Unknown model name: {cfg.model_name }. Available: {list (MODEL_CONFIGS .keys ())}")
@@ -147,6 +172,7 @@ def train_and_eval(cfg: ExperimentConfig):
     for _k ,_v in (("tv_w",cfg.tv_w ),("grad_w",cfg.grad_w ),("peak_w",cfg.peak_w ),
     ("tail_w",cfg.tail_w ),("tail_start",cfg.tail_start )):
         yaml_cfg ['model']['params'][_k ]=_v 
+    yaml_cfg ['model']['params']['edos_slope_ratio']=float (cfg.edos_slope_ratio )
         # Sum normalization selects the distribution-based loss below.
     yaml_cfg ['model']['params']['use_mask']=bool (cfg.use_mask )
     yaml_cfg ['model']['params']['use_amp']=bool (cfg.use_amp )
@@ -219,9 +245,10 @@ def train_and_eval(cfg: ExperimentConfig):
         'energy_code':cfg.energy_code ,'edos_grid':cfg.edos_grid ,
         'use_macro_lattice':cfg.use_macro_lattice ,
         'tv_w':cfg.tv_w ,'grad_w':cfg.grad_w ,'peak_w':cfg.peak_w ,
+        'edos_slope_ratio':cfg.edos_slope_ratio ,
         'tail_w':cfg.tail_w ,'tail_start':cfg.tail_start ,
         'augment':cfg.augment ,'disp_sigma':cfg.disp_sigma ,
-        'norm':cfg.norm ,'use_mask':cfg.use_mask ,'use_amp':cfg.use_amp ,'use_bucket_batch':cfg .use_bucket_batch ,'dropout':cfg.dropout ,
+        'norm':cfg.norm ,'use_mask':cfg.use_mask ,'use_amp':cfg.use_amp ,'use_bucket_batch':cfg .use_bucket_batch ,'skip_test_eval':cfg.skip_test_eval ,'dropout':cfg.dropout ,
         'weight_decay':cfg.weight_decay ,'warmup_epochs':_wu ,
         'lambda_ph':cfg.lambda_ph ,'grad_clip':cfg.grad_clip ,
         'w_w1':cfg.w_w1 ,'w_huber':cfg.w_huber ,
@@ -245,7 +272,7 @@ def train_and_eval(cfg: ExperimentConfig):
 
     train_loader =builder .get_dataloader (split ='train',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn ,use_bucket_batch =cfg .use_bucket_batch )
     val_loader =builder .get_dataloader (split ='valid',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn )
-    test_loader =builder .get_dataloader (split ='test',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn )
+    test_loader =maybe_get_test_loader(builder, cfg, _sn)
 
     model =builder .get_model ()
     device =torch .device ('cuda'if torch .cuda .is_available ()else 'cpu')
@@ -293,7 +320,14 @@ def train_and_eval(cfg: ExperimentConfig):
         try :
             ck =torch .load (latest_p ,map_location ='cpu')
             resume_meta =restore_ablation_checkpoint (
-                ck ,model .model ['transformer'],optimizer ,cfg .use_amp ,model .gscaler)
+                ck ,model .model ['transformer'],optimizer ,cfg .use_amp ,model .gscaler,
+                edos_slope_ratio=model.edos_slope_ratio)
+            if model.edos_slope_ratio > 0.0:
+                if resume_meta["edos_slope_lambda"] is None:
+                    raise ValueError("slope-loss checkpoint is missing its calibrated lambda")
+                model.edos_slope_lambda = float(resume_meta["edos_slope_lambda"])
+                model.edos_slope_calibrated = True
+                model.edos_slope_calibration = None
             start_epoch =resume_meta ['epoch']
             best_val_score =resume_meta ['best_val_score']
             # restore best_epoch + history (history file optional: killed runs
@@ -332,6 +366,12 @@ def train_and_eval(cfg: ExperimentConfig):
 
         for step ,batch in enumerate (train_loader ):
             loss_dict =model .train_one_step (batch ,step =step )
+            if model.edos_slope_calibration is not None:
+                write_edos_slope_calibration(
+                    os.path.join(save_dir, "config_used.yaml"),
+                    model.edos_slope_calibration,
+                )
+                model.edos_slope_calibration = None
             train_loss +=loss_dict ['loss']
             for k ,v in loss_dict .items ():
                 sub_loss_accum [k ]=sub_loss_accum .get (k ,0.0 )+v 
@@ -405,7 +445,9 @@ def train_and_eval(cfg: ExperimentConfig):
         def _ckpt (epoch_ ,best_ ):
             return build_ablation_checkpoint (
                 epoch_,cfg .model_name,cfg .seed,cfg .use_amp,
-                model .model ['transformer'],optimizer,best_,model .gscaler)
+                model .model ['transformer'],optimizer,best_,model .gscaler,
+                edos_slope_ratio=(model.edos_slope_ratio if model.edos_slope_ratio > 0.0 else None),
+                edos_slope_lambda=(model.edos_slope_lambda if model.edos_slope_ratio > 0.0 else None))
 
         if balanced <best_val_score :
             best_val_score =balanced 
@@ -420,6 +462,10 @@ def train_and_eval(cfg: ExperimentConfig):
         # Save training history
     df_history =pd .DataFrame (history )
     df_history .to_csv (f"./results/history_{suffix }.csv",index =False )
+
+    if cfg.skip_test_eval:
+        logger.info("Test loader and automatic test evaluation skipped by request")
+        return {"test_skipped": True}
 
     # Load best checkpoint and evaluate on Test set
     logger .info (f"\nEvaluating Best Model ({cfg.model_name }, Epoch {best_epoch }) on Test Set ({len (test_loader .dataset )} materials)...")
@@ -652,6 +698,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_macro_lattice', action='store_true', help='Enable E10 CIF-only macro lattice residual')
     parser.add_argument('--tv_w', type=float, default=0.0, help='Total-variation loss weight')
     parser.add_argument('--grad_w', type=float, default=0.0, help='Gradient-matching loss weight')
+    parser.add_argument('--edos_slope_ratio', type=float, default=0.0, help='Calibrated eDOS slope-loss gradient ratio; zero disables it')
     parser.add_argument('--peak_w', type=float, default=1.0, help='Weight for high-density eDOS bins')
     parser.add_argument('--tail_w', type=float, default=1.0, help='Weight for high-frequency phDOS bins')
     parser.add_argument('--tail_start', type=int, default=-1, help='First high-frequency phDOS bin; -1 disables the region')
@@ -659,6 +706,7 @@ if __name__ == '__main__':
     parser.add_argument('--disp_sigma', type=float, default=0.01, help='Coordinate-displacement standard deviation in fractional units')
     parser.add_argument('--norm', type=str, default='sumnorm', choices=['minmax', 'sumnorm'], help='Target normalization; sumnorm is the default')
     parser.add_argument('--use_mask', action='store_true', help='Experimental: mask unsupported bins in the loss')
+    parser.add_argument('--skip_test_eval', action='store_true', help='Do not construct or evaluate the test split')
     parser.add_argument('--use_amp', action='store_true', help='C4: CUDA FP16 automatic mixed precision')
     parser.add_argument('--use_bucket_batch', action='store_true', help='E6: fixed-window length bucket plus dynamic padding trim')
     parser.add_argument('--dropout', type=float, default=None, help='Transformer dropout; None uses the template value (0.05)')

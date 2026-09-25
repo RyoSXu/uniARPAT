@@ -67,6 +67,40 @@ def test_e5_amp_scaler_round_trip():
     assert meta["epoch"] == 3 and target_scaler.state == source_scaler.state
 
 
+def test_e5_slope_calibration_round_trip_and_mismatch_rejection():
+    model, optimizer = _parts()
+    payload = build_ablation_checkpoint(
+        2,
+        "M1",
+        42,
+        False,
+        model,
+        optimizer,
+        0.75,
+        edos_slope_ratio=0.1,
+        edos_slope_lambda=0.004,
+    )
+    target, target_opt = _parts()
+    meta = restore_ablation_checkpoint(
+        payload, target, target_opt, False, edos_slope_ratio=0.1
+    )
+
+    assert meta["edos_slope_ratio"] == 0.1
+    assert meta["edos_slope_lambda"] == 0.004
+    with unittest.TestCase().assertRaisesRegex(ValueError, "different edos_slope_ratio"):
+        restore_ablation_checkpoint(
+            payload, target, target_opt, False, edos_slope_ratio=0.2
+        )
+    with unittest.TestCase().assertRaisesRegex(ValueError, "different edos_slope_ratio"):
+        restore_ablation_checkpoint(
+            payload, target, target_opt, False, edos_slope_ratio=0.0
+        )
+    with unittest.TestCase().assertRaisesRegex(ValueError, "calibrated lambda"):
+        build_ablation_checkpoint(
+            2, "M1", 42, False, model, optimizer, 0.75, edos_slope_ratio=0.1
+        )
+
+
 class TestE5CheckpointBoundary(unittest.TestCase):
     def test_fp32_old(self):
         test_e5_fp32_schema_and_old_checkpoint_compatibility()
@@ -76,6 +110,9 @@ class TestE5CheckpointBoundary(unittest.TestCase):
 
     def test_amp_scaler(self):
         test_e5_amp_scaler_round_trip()
+
+    def test_slope_calibration(self):
+        test_e5_slope_calibration_round_trip_and_mismatch_rejection()
 
 
 if __name__ == "__main__":

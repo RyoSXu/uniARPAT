@@ -22,6 +22,8 @@
 | D4 phDOS 尖峰与负频坐标质量审计 | `design/design-d4-phdos-spike-imaginary-audit.md` | 已完成诊断设计 |
 | D4b 负频坐标来源与稳定性审计 | `design/design-d4b-negative-coordinate-provenance.md` | 已完成只读审计设计 |
 | D4c JARVIS `min_fd_phonon_mode` 语义审计 | `design/design-d4c-jarvis-min-fd-semantics.md` | 已完成并关闭的只读审计设计 |
+| eDOS Q1 valid 预测形状误差诊断 | `design/design-edos-shape-error-diagnostic.md` | 已完成的只读诊断设计 |
+| 高粗糙度 eDOS 一阶差分损失 pilot | `design/design-edos-slope-loss-pilot.md` | Q1 valid 成对 pilot 已完成并 park；未进入 35 epoch 确认 |
 | 当前 G2 周期多镜像边条件消息设计 | `design/design-g2-periodic-multi-image-message.md` | 当前实施设计 |
 | 当前 E10 宏观晶格状态实验 | `design/design-e10-macro-lattice.md` | 当前实施设计 |
 | 重大改动提案 | `design/_template.md` | 实施前复制并填写 |

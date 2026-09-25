@@ -52,6 +52,57 @@ def sumnorm_klw_loss(pred_raw, target, cov, use_mask, w_w1, w_huber, huber_delta
     return kl + w_w1 * w1 + w_huber * hub
 
 
+def edos_slope_matching_loss(pred_logits, target):
+    """Match first differences between normalized eDOS probability shapes."""
+    if pred_logits.ndim != 2 or pred_logits.shape != target.shape:
+        raise ValueError("eDOS logits and targets must be matching [batch, bins] tensors")
+    if pred_logits.shape[-1] < 2:
+        raise ValueError("eDOS slope loss requires at least two bins")
+    predicted_shape = F.softmax(pred_logits.float(), dim=-1)
+    target_shape = target.float()
+    predicted_slope = predicted_shape[:, 1:] - predicted_shape[:, :-1]
+    target_slope = target_shape[:, 1:] - target_shape[:, :-1]
+    return F.mse_loss(predicted_slope, target_slope)
+
+
+def calibrate_additive_loss_weight(base_loss, added_loss, parameters, target_ratio, eps=1e-12):
+    """Scale an added loss to a fixed fraction of the base gradient norm."""
+    if target_ratio <= 0 or not torch.isfinite(torch.tensor(target_ratio)):
+        raise ValueError("target_ratio must be finite and positive")
+    parameters = [parameter for parameter in parameters if parameter.requires_grad]
+    if not parameters:
+        raise ValueError("loss calibration requires trainable parameters")
+
+    base_gradients = torch.autograd.grad(
+        base_loss, parameters, retain_graph=True, allow_unused=True
+    )
+    added_gradients = torch.autograd.grad(
+        added_loss, parameters, allow_unused=True
+    )
+
+    def gradient_norm(gradients):
+        present = [
+            gradient.detach().float().square().sum()
+            for gradient in gradients
+            if gradient is not None
+        ]
+        if not present:
+            return torch.tensor(0.0)
+        return torch.stack(present).sum().sqrt()
+
+    base_norm = gradient_norm(base_gradients)
+    added_norm = gradient_norm(added_gradients)
+    if not torch.isfinite(base_norm) or not torch.isfinite(added_norm):
+        raise ValueError("loss calibration produced a non-finite gradient norm")
+    if base_norm <= eps or added_norm <= eps:
+        raise ValueError("loss calibration requires nonzero base and added gradients")
+
+    weight = target_ratio * base_norm / added_norm
+    if not torch.isfinite(weight) or weight <= 0:
+        raise ValueError("loss calibration produced an invalid weight")
+    return float(weight.item()), float(base_norm.item()), float(added_norm.item())
+
+
 def weighted_smooth_l1_loss(predict_edos, edos_target, edos_cov, predict_phdos, phdos_target, phdos_cov, use_mask, peak_w, tail_w, tail_start):
     """Smooth L1 with optional physical region weighting (C1.3).
     
