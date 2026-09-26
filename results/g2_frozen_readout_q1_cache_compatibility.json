@@ -1,0 +1,9 @@
+{
+  "reason": "Convert NumPy material ID strings to Python strings for weights_only loading; numerical tensors unchanged.",
+  "original_cache_sha256": "a9418d126847c96890afff7f89911572b4f145512ce5cd5cafdc867282300fa8",
+  "portable_cache_sha256": "59a286e646a9b135425155efa945658f8b4034105fe939ae09c6ffcaeca749d3",
+  "executed_script_sha256": "c4b2d2116c1e12d64692538d8ae51e2517eafe37ff59df905d7cf2d96fd88811",
+  "current_script_sha256": "4542c758fa20a10ae6039a20596fd8191aa22e57ba54d0735c8dd62f31aed11c",
+  "executed_script_snapshot": "output/g2_frozen_readout_q1/script_executed.py",
+  "weights_only_roundtrip_passed": true
+}

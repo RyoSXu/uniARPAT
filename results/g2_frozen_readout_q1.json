@@ -1,0 +1,48 @@
+{
+  "status": "complete",
+  "design": "docs/design/design-g2-frozen-readout-probe.md",
+  "source_epoch": 10,
+  "epochs": 10,
+  "pair_batch": 16,
+  "seed": 20260926,
+  "device": "cuda",
+  "input_sha256": {
+    "results/g2_structure_path_q1_pairs.csv": "a5c14407885359d288d46e9056a5994de34c8ad8c5ba9755b5a92cbee33e7236",
+    "output/ablation_m1_g2edge/config_used.yaml": "8bbc2240bfc593c9599294a91c7596eb3870ab4c3f48e56e8387fbf0dcd135d0",
+    "output/ablation_m1_g2edge/checkpoint_latest.pth": "1ab42285bbdd7229f8fe02b2577a0292c230f249085882b70d359b42b62cfb43",
+    "docs/design/design-g2-frozen-readout-probe.md": "a667989125bc2a9ac274aac2aa274f46c79d04760f3138269974dab25355de8e",
+    "tools/eval/g2_frozen_readout_probe.py": "c4b2d2116c1e12d64692538d8ae51e2517eafe37ff59df905d7cf2d96fd88811",
+    "data/train4ARPAT/train/train_index.npy": "f792232911a1c2c89479a4fa62d2e3ca90bc926c8327eba75a3c201f6f2d1a71",
+    "data/train4ARPAT/train/elements_train.npy": "c35d50cf9504cf78285b0e16197ebe2684d6b7513f2f26b07ba49f23459063fb",
+    "data/train4ARPAT/train/positions_train.npy": "5a7069e16aa7dd58c9241c8f3aaaa161af9c67846439168e55ec71deb6915579",
+    "data/train4ARPAT/train/edos_tgtdos_train.npy": "db5e14c57127515cbfd536df1b67cd1bbcba3c0301599a348ab99ae88b4d6907",
+    "data/train4ARPAT/train/nvalence_train.npy": "5b1cf5133812a5285ff95f0a35a69f50a4f24dc47c37ca417323b5b7da96a383",
+    "data/train4ARPAT/valid/valid_index.npy": "f043ccd29e52f2133195311ea011630a2daff9093677e3dd6560ac2f4f386cb5",
+    "data/train4ARPAT/valid/elements_valid.npy": "5abd3351f456ad3b1f2b0cef593f1bc514b0ed039e8694e2066ef61b2aa04d14",
+    "data/train4ARPAT/valid/positions_valid.npy": "f15cd98b7e34808b7a43d98d7ba16cbfa87d3f1efd960edfc0ede66746bde36f",
+    "data/train4ARPAT/valid/edos_tgtdos_valid.npy": "ab0b858a506d6639e1e3b8adf90e2cafc069d66061108ff2834bd5a8b949cf69",
+    "data/train4ARPAT/valid/nvalence_valid.npy": "792e74f956a181cbae80abbdff544f9e4cc6ecc8a8e4706843c7f3bbc454c17d"
+  },
+  "encoder_trained": false,
+  "test_evaluated": false,
+  "validation_used_for_selection": false,
+  "comparison_factor": "training feature-target correspondence",
+  "positive_control": {
+    "initial_mse": 0.7264696955680847,
+    "final_mse": 3.436695806158241e-06,
+    "final_to_initial": 4.730680201974308e-06,
+    "steps": 1000,
+    "passed": true
+  },
+  "train_equivalence_max_tv": 3.5063266068391385e-07,
+  "valid_equivalence_max_tv": 2.3149891603679862e-07,
+  "verdict": "readout_intervention_not_supported",
+  "elapsed_seconds": 279.48052689497126,
+  "cache_sha256": "a9418d126847c96890afff7f89911572b4f145512ce5cd5cafdc867282300fa8",
+  "updates_per_arm": {
+    "matched": 1620,
+    "shuffled": 1620
+  },
+  "trainable_parameters": 25357825,
+  "limitations": "Frozen representation and one training seed; probe is not a production accuracy candidate."
+}
