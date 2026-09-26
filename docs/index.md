@@ -28,6 +28,10 @@
 | 冻结 G2 结构信息通路核验 | `design/design-g2-structure-path-audit.md` | 已完成的只读诊断；G2 保持 park |
 | 冻结 G2 表征的结构谱差读出实验 | `design/design-g2-frozen-readout-probe.md` | 已完成；固定读出干预未获支持 |
 | G2 encoder 与读出联合适配实验 | `design/design-g2-encoder-adaptation-probe.md` | 已完成；开放 encoder 更新未获留出收益支持 |
+| G2 固定小样本的实际网络可拟合性检验 | `design/design-g2-small-fit-probe.md` | 已完成；联合第700步通过16／16，冻结末步8／16 |
+| G2 消息分支的固定小样本拟合 | `design/design-g2-value-fit-probe.md` | 已完成；检查点最多10／16，末步4／16；逐对中间轨迹缺口见日志 |
+| 冻结G2消息的固定小样本互补拟合 | `design/design-g2-non-value-fit-probe.md` | 已完成；第700步首次16／16，后续预定检查点及末步均保持 |
+| 最后一个普通encoder层的固定小样本拟合 | `design/design-g2-last-layer-fit-probe.md` | 已完成；第2000步首次16／16并重载复现，仅一个成功检查点 |
 | 当前 E10 宏观晶格状态实验 | `design/design-e10-macro-lattice.md` | 当前实施设计 |
 | 重大改动提案 | `design/_template.md` | 实施前复制并填写 |
 | 已完成任务的证据 | `logs/` 与 `../results/` | 历史记录 |

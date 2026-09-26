@@ -1,0 +1,24 @@
+{
+  "weights_only_load_passed": true,
+  "executed_snapshots_match": true,
+  "reevaluated_checkpoints": {
+    "frozen_final": {
+      "step": 2000,
+      "pairs_passed": 8,
+      "max_mse_ratio": 0.7353128025316177,
+      "max_tv_ratio": 0.8372874747087177
+    },
+    "joint_first_fit": {
+      "step": 700,
+      "pairs_passed": 16,
+      "max_mse_ratio": 0.004681593501444575,
+      "max_tv_ratio": 0.060133754875806016
+    },
+    "joint_final": {
+      "step": 2000,
+      "pairs_passed": 16,
+      "max_mse_ratio": 0.0012952519738944248,
+      "max_tv_ratio": 0.020991985694191598
+    }
+  }
+}

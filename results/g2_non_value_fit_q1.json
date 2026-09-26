@@ -1,0 +1,243 @@
+{
+  "source_epoch": 10,
+  "initialization_seed": 42,
+  "selection_seed": 20260926,
+  "steps_per_arm": 2000,
+  "evaluation_interval": 100,
+  "n_pairs": 16,
+  "n_materials": 32,
+  "split": "train",
+  "valid_evaluated": false,
+  "test_evaluated": false,
+  "dropout": false,
+  "optimizer": {
+    "type": "AdamW",
+    "lr": 5e-05,
+    "betas": [
+      0.9,
+      0.99
+    ],
+    "weight_decay": 0.01,
+    "independent_clip_norm": 1.0
+  },
+  "status": "complete",
+  "arm": "non_g2",
+  "design": "docs/design/design-g2-non-value-fit-probe.md",
+  "input_sha256": {
+    "docs/design/design-g2-small-fit-probe.md": "56652a1d595ea21abf7f08982111467da40a123dc1a4be10ce9c0e3a09764b70",
+    "tools/eval/g2_small_fit_probe.py": "31dd6eb667895265753caaa2002266c46bcab98cbb07d75bfaa36c6c7a1264de",
+    "output/g2_small_fit_q1/script_executed.py": "e0acbed21e48b2c12003640cbc42fbc3b599003ba0ddf92b96bef0efe8796a96",
+    "results/g2_frozen_readout_q1_plan.csv": "5f7e9ee811d7fa8c77f788633f5837c820de137086f9a3b38e0629ddab9f0a79",
+    "results/g2_encoder_adaptation_q1.json": "1e1feb754ebb21f614393e9d86d59ca6f67bb28cb8f22d8bc88d4972716f3b5e",
+    "output/ablation_m1_g2edge/config_used.yaml": "8bbc2240bfc593c9599294a91c7596eb3870ab4c3f48e56e8387fbf0dcd135d0",
+    "output/ablation_m1_g2edge/checkpoint_latest.pth": "1ab42285bbdd7229f8fe02b2577a0292c230f249085882b70d359b42b62cfb43",
+    "data/train4ARPAT/train/edos_mask_train.npy": "3417ed66a88253449ea065e3b592b4333cd41b20e781d26ee1eb6a78ae620787",
+    "data/train4ARPAT/train/edos_tgtdos_train.npy": "db5e14c57127515cbfd536df1b67cd1bbcba3c0301599a348ab99ae88b4d6907",
+    "data/train4ARPAT/train/elements_train.npy": "c35d50cf9504cf78285b0e16197ebe2684d6b7513f2f26b07ba49f23459063fb",
+    "data/train4ARPAT/train/nvalence_train.npy": "5b1cf5133812a5285ff95f0a35a69f50a4f24dc47c37ca417323b5b7da96a383",
+    "data/train4ARPAT/train/phdos_mask_train.npy": "fb27321e2a8c47180b3f36e55081e0086c741a4c0ff76ee78c781ca7ae0cff13",
+    "data/train4ARPAT/train/phdos_tgtdos_train.npy": "67756034c91fd0eaabee6cd4272247d91257cc6f72b82cc218a153dfd1187146",
+    "data/train4ARPAT/train/positions_train.npy": "5a7069e16aa7dd58c9241c8f3aaaa161af9c67846439168e55ec71deb6915579",
+    "data/train4ARPAT/train/train_index.npy": "f792232911a1c2c89479a4fa62d2e3ca90bc926c8327eba75a3c201f6f2d1a71",
+    "data/grids_c2b/grids.json": "183663c244a7bd3fc885f61214c471ca75beaac0c50a6167419fed217747a244",
+    "tools/eval/g2_encoder_adaptation_probe.py": "9797dbefe24ec0c5ed2326dfe5e304ce8f3b70fb0502dac093009d38898f05a2",
+    "tools/eval/g2_frozen_readout_probe.py": "4542c758fa20a10ae6039a20596fd8191aa22e57ba54d0735c8dd62f31aed11c",
+    "tools/eval/g2_structure_path_audit.py": "6ae24527fa05c7ab9280d1782311de54af59ccb5fe2c6077097a0f7fdb30e168",
+    "model/transformer.py": "8bb1235c0ef9e8b626b93c13112d561bd650f8887ef809a78e4fdc3314db269b",
+    "model/model.py": "966712abed392d68582210cb8356d7103228a754d5a7cb787571216b5376ef65",
+    "model/heads.py": "595c5fde69f26c7d4fe73a1a60406076cc4c84845fa3d0285dbae4a0cb1388c2",
+    "utils/relative_features.py": "b7402c099c98284bd98d270e5b999bfded12cd2d894c75f8fe5cbf809d47cd52",
+    "utils/g2_periodic_edges.py": "e6dba018b05b8804c5e9679d8c978180f1a7738cdcfb43009bd5aea6e4ec811e",
+    "utils/rp_encoding.py": "f87c4c310f1d706f2f07d1a4dc8f2c5d11fd7e50da84640a0ad206336cf4a993",
+    "utils/atom_feature.py": "b71bb2c3d0d472ea3cd7b33b169c80e5b6ba1aa802fcfb557637efaa407df491",
+    "utils/metrics.py": "f71af09d0f9d8f76f0fe4f549c854d4b74e927651f4ed61d752579b223498860",
+    "utils/builder.py": "6e808b7f3f68651ea081b1689bca63d1edf9c80e72e16667b368e0499027d8b7",
+    "utils/ablation_checkpoint.py": "8660241a8fbd615e153d999631174aca103b1ce0a20cc7eba1eb55f8f1ab982f",
+    "datasets/dataset.py": "6740d3808a3a07a549a39ff0dd77743361870c260ac60135fec74102b3fca191",
+    "run_ablation_experiments.py": "04eb02c8c9db9c49d2b7f258d159ae8b1460c0fad4b6f04d12118cf60c55bd4b",
+    "docs/design/design-g2-non-value-fit-probe.md": "7486533095ebd6865daccf89409686fafb1e299c2ba81636b934221cdbfb680e",
+    "tools/eval/g2_value_fit_probe.py": "b406b411b051795ea6d603dd04f466fdea86ef7c3c7c12ebfadc79d267ee1f6a",
+    "tools/eval/g2_non_value_fit_probe.py": "e367515edf3e56bbaa811f73ed03d8cca60f2f908c12496ecad70fa277bf780b",
+    "output/g2_small_fit_q1/train_cache.pt": "98ec2b34d588ad9aec16a14e2afd3eeb7c4555d019fa50a7d37d67ae20e158ed",
+    "results/g2_small_fit_q1.json": "edd113193ea5a5d48faef0d3a302991539e7b004182425a67ce01a0b66796faa",
+    "results/g2_small_fit_q1_selection.csv": "c23b3baccb90be8639ae49d82d689b2cf5664f50c28964b6d95b2dd1a07af282",
+    "results/g2_small_fit_q1_history.csv": "b9d28379452c9fdf22038eb552d758f77a4895c22111149ed12414a3405a5995",
+    "results/g2_small_fit_q1_pair_history.csv": "8ccead51dfccaad28fd6e2c8663f7e53956a5cd0c7fecad203f8c73b6752625a",
+    "results/g2_small_fit_q1_samples.csv": "b3aea255a5b8953defcec5cb28c5f2dc5cb62fdda27f935a7e646d3894aa8191",
+    "results/g2_small_fit_q1_final_pairs.csv": "eb50675cffc9230ca663f867e0caf7fd27a899231a163393d741b2d43530fb9f",
+    "results/g2_small_fit_q1_summary.csv": "046d8eee897ea3a588a1364bf479cc346a61bd55263ab4b8ee8cef51ade4ce01",
+    "results/g2_small_fit_q1_checkpoint_verification.json": "5560d7d0097b0e8bdf57ef8f76c8b91a8f4b95f139dc3684d1129e1520fc4d59",
+    "output/g2_value_fit_q1/small_fit_helper_executed.py": "407c7d0f083c90f6bd24be8526b550c365c62e2b939bdbc7fb6901f6feebf20c",
+    "docs/design/design-g2-value-fit-probe.md": "8b2dc399f9307384c4a0ea0bc870679cdd64607a5bcd8c642ff42032bb63c576",
+    "output/g2_value_fit_q1/script_executed.py": "5ba6262d06f2c70b8d7ab8de769ef613e4306c1ce67cdc6ae62eceec18ab08a1",
+    "output/g2_value_fit_q1/small_fit_helper_finalized.py": "d36d72b7870d7d9426ba31c3f68d7e3c35ab18d6b6ef87c7b88b5b938a7aa79e",
+    "output/g2_value_fit_q1/finalizer_executed.py": "c32af0d7069a834c41fc0f0fc521f91d86424f48a81d4303424f68c0a8b88dc0",
+    "output/g2_value_fit_q1/config.json": "39f0598b45eff6308493c4abfd3659589745fe1416836e011182a4152216480b",
+    "output/g2_value_fit_q1/g2_only_history.csv": "dc0187407fcb89229f9d6979add398a2b46d481cb7be49197f81834e896fbdec",
+    "output/g2_value_fit_q1/g2_only_final.pth": "9e1ba7ad7a91aefe286a808edc9c479adca60b7740be34cda81ecfe0a40a16a0",
+    "results/g2_value_fit_q1.json": "68134fcbc4d9a12cd17985053bcffe957c040f6dfca77f176ce097bacc9a3f43",
+    "results/g2_value_fit_q1_selection.csv": "c23b3baccb90be8639ae49d82d689b2cf5664f50c28964b6d95b2dd1a07af282",
+    "results/g2_value_fit_q1_history.csv": "dcf2b1f0a94030a1cdd14c67c740cd5cbeb908c89505811356a23027714a8757",
+    "results/g2_value_fit_q1_pair_history.csv": "af94831ede9d89defd95378dd6fd05e54b2c0c424bb6733c2d585357aff025a0",
+    "results/g2_value_fit_q1_samples.csv": "2bb84c67c8f926ef4e6b248bc9f6e2bbf0d745499fd8d106ac4b22878430c1c5",
+    "results/g2_value_fit_q1_final_pairs.csv": "0af7a3536d5dc68280e15d38bd05a4041169d497bc80a82a50289a7ec1632305",
+    "results/g2_value_fit_q1_summary.csv": "5349da34a943a0b1a86080cea1299dd1cf534186baad0d615956819b5f5e7f8d",
+    "results/g2_value_fit_q1_checkpoint_verification.json": "9cdddb3cd36f73dc10f0fa3693c1a1f5a50ba71ebfa18f7f4535d1813bf65ac8"
+  },
+  "runner": "tools/eval/g2_non_value_fit_probe.py",
+  "reference": "results/g2_small_fit_q1.json",
+  "comparison_reference": "results/g2_value_fit_q1.json",
+  "reference_artifact_deviations": {
+    "missing_pair_history_steps": [
+      100,
+      200,
+      300,
+      400,
+      500,
+      600,
+      700,
+      800,
+      900,
+      1000,
+      1100,
+      1200,
+      1300,
+      1400,
+      1500,
+      1600,
+      1700,
+      1800,
+      1900
+    ],
+    "cause": "export failed before per-pair trajectory was persisted",
+    "aggregate_history_complete": true,
+    "training_repeated": false
+  },
+  "reference_script_snapshot": "output/g2_small_fit_q1/script_executed.py",
+  "cache_sha256": "98ec2b34d588ad9aec16a14e2afd3eeb7c4555d019fa50a7d37d67ae20e158ed",
+  "device": "cuda",
+  "comparison_factor": "encoder parameter updates restricted to non-G2 encoder",
+  "torch_version": "2.2.1",
+  "cuda_version": "12.1",
+  "equivalence": {
+    "max_prediction_tv": 1.9013896235264838e-07,
+    "max_relative_blind_scale_error": 2.5776023448997876e-07,
+    "readout_gradient_relative_rms": 2.047422640316654e-05,
+    "loss_relative_error": 0.0,
+    "cached_loss": 1.8979833126068115,
+    "recomputed_loss": 1.8979833126068115
+  },
+  "gradient_boundary": {
+    "loss": 1.897983431816101,
+    "layers": [
+      {
+        "layer": 0,
+        "gradient_l2": 0.09283901822942055,
+        "trainable_values": 2397184
+      },
+      {
+        "layer": 1,
+        "gradient_l2": 0.07296075568489598,
+        "trainable_values": 2397184
+      },
+      {
+        "layer": 2,
+        "gradient_l2": 0.07324118482504423,
+        "trainable_values": 2397184
+      },
+      {
+        "layer": 3,
+        "gradient_l2": 0.0757054982718649,
+        "trainable_values": 2397184
+      },
+      {
+        "layer": 4,
+        "gradient_l2": 0.08208073456716951,
+        "trainable_values": 2397184
+      },
+      {
+        "layer": 5,
+        "gradient_l2": 0.09597128779222587,
+        "trainable_values": 2397184
+      }
+    ],
+    "arm": "non_g2",
+    "encoder_total_parameters": 17734662,
+    "encoder_trainable_parameters": 14383104,
+    "readout_trainable_parameters": 25357825,
+    "frozen_gradients_absent": true
+  },
+  "positive_logit_control_reused": {
+    "initial_mse": 1.8970386981964111,
+    "final_mse": 6.5986841946141794e-06,
+    "final_to_initial": 3.478413066052794e-06,
+    "steps": 1000,
+    "passed": true
+  },
+  "verdict": "non_g2_updates_sufficient_for_small_fit",
+  "first_fit_step": {
+    "frozen": null,
+    "joint": 700,
+    "g2_only": null,
+    "non_g2": 700
+  },
+  "final_all_pairs_passed": true,
+  "parameter_changes": {
+    "encoder": {
+      "changed_values": 14383088,
+      "relative_l2": 0.01814833726970767
+    },
+    "readout": {
+      "changed_values": 25357787,
+      "relative_l2": 0.020750436912578614
+    },
+    "eta_head": {
+      "changed_values": 0,
+      "relative_l2": 0.0
+    },
+    "g2_messages": {
+      "changed_values": 0,
+      "relative_l2": 0.0
+    },
+    "encoder_except_g2": {
+      "changed_values": 14383088,
+      "relative_l2": 0.022273281135984497
+    }
+  },
+  "checkpoint_verification": {
+    "status": "passed",
+    "arm": "non_g2",
+    "checkpoints": [
+      {
+        "checkpoint": "output/g2_non_value_fit_q1/non_g2_first_fit.pth",
+        "sha256": "5fa3807b42dc22c71c6f68542c0f1a6856d2f2d147ca05b8bec1e95e7614e185",
+        "step": 700,
+        "n_pairs_passed": 16,
+        "all_pairs_passed": true,
+        "max_mse_ratio": 0.003705910711269322,
+        "max_tv_ratio": 0.03799620072173734,
+        "max_prediction_tv_vs_final": null,
+        "max_repeat_prediction_tv": 3.6904850730934413e-07
+      },
+      {
+        "checkpoint": "output/g2_non_value_fit_q1/non_g2_final.pth",
+        "sha256": "e10733781a5d295f4353747ff761d06817d6a0d69d31f92893c14f5c5f1af07f",
+        "step": 2000,
+        "n_pairs_passed": 16,
+        "all_pairs_passed": true,
+        "max_mse_ratio": 0.002219021149501495,
+        "max_tv_ratio": 0.04307582003391665,
+        "max_prediction_tv_vs_final": 2.72512920673762e-07,
+        "max_repeat_prediction_tv": 2.819488145178184e-07
+      }
+    ],
+    "repeat_forwards": 5,
+    "numerical_tv_tolerance": 1e-05
+  },
+  "elapsed_seconds": 227.34027679706924,
+  "timing_scope": "training_and_finalization",
+  "training_elapsed_seconds": 220.79726106196176,
+  "peak_cuda_memory_bytes": 2880454656,
+  "peak_memory_scope": "training_and_finalization",
+  "limitations": "One fixed train selection and initialization; restricted weight updates do not freeze attention activations; no generalization claim."
+}

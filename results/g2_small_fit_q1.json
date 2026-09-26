@@ -1,0 +1,115 @@
+{
+  "status": "complete",
+  "design": "docs/design/design-g2-small-fit-probe.md",
+  "input_sha256": {
+    "docs/design/design-g2-small-fit-probe.md": "56652a1d595ea21abf7f08982111467da40a123dc1a4be10ce9c0e3a09764b70",
+    "tools/eval/g2_small_fit_probe.py": "e0acbed21e48b2c12003640cbc42fbc3b599003ba0ddf92b96bef0efe8796a96",
+    "results/g2_frozen_readout_q1_plan.csv": "5f7e9ee811d7fa8c77f788633f5837c820de137086f9a3b38e0629ddab9f0a79",
+    "results/g2_encoder_adaptation_q1.json": "1e1feb754ebb21f614393e9d86d59ca6f67bb28cb8f22d8bc88d4972716f3b5e",
+    "output/ablation_m1_g2edge/config_used.yaml": "8bbc2240bfc593c9599294a91c7596eb3870ab4c3f48e56e8387fbf0dcd135d0",
+    "output/ablation_m1_g2edge/checkpoint_latest.pth": "1ab42285bbdd7229f8fe02b2577a0292c230f249085882b70d359b42b62cfb43",
+    "data/train4ARPAT/train/edos_mask_train.npy": "3417ed66a88253449ea065e3b592b4333cd41b20e781d26ee1eb6a78ae620787",
+    "data/train4ARPAT/train/edos_tgtdos_train.npy": "db5e14c57127515cbfd536df1b67cd1bbcba3c0301599a348ab99ae88b4d6907",
+    "data/train4ARPAT/train/elements_train.npy": "c35d50cf9504cf78285b0e16197ebe2684d6b7513f2f26b07ba49f23459063fb",
+    "data/train4ARPAT/train/nvalence_train.npy": "5b1cf5133812a5285ff95f0a35a69f50a4f24dc47c37ca417323b5b7da96a383",
+    "data/train4ARPAT/train/phdos_mask_train.npy": "fb27321e2a8c47180b3f36e55081e0086c741a4c0ff76ee78c781ca7ae0cff13",
+    "data/train4ARPAT/train/phdos_tgtdos_train.npy": "67756034c91fd0eaabee6cd4272247d91257cc6f72b82cc218a153dfd1187146",
+    "data/train4ARPAT/train/positions_train.npy": "5a7069e16aa7dd58c9241c8f3aaaa161af9c67846439168e55ec71deb6915579",
+    "data/train4ARPAT/train/train_index.npy": "f792232911a1c2c89479a4fa62d2e3ca90bc926c8327eba75a3c201f6f2d1a71",
+    "data/grids_c2b/grids.json": "183663c244a7bd3fc885f61214c471ca75beaac0c50a6167419fed217747a244",
+    "tools/eval/g2_encoder_adaptation_probe.py": "9797dbefe24ec0c5ed2326dfe5e304ce8f3b70fb0502dac093009d38898f05a2",
+    "tools/eval/g2_frozen_readout_probe.py": "4542c758fa20a10ae6039a20596fd8191aa22e57ba54d0735c8dd62f31aed11c",
+    "tools/eval/g2_structure_path_audit.py": "6ae24527fa05c7ab9280d1782311de54af59ccb5fe2c6077097a0f7fdb30e168",
+    "model/transformer.py": "8bb1235c0ef9e8b626b93c13112d561bd650f8887ef809a78e4fdc3314db269b",
+    "model/model.py": "966712abed392d68582210cb8356d7103228a754d5a7cb787571216b5376ef65",
+    "model/heads.py": "595c5fde69f26c7d4fe73a1a60406076cc4c84845fa3d0285dbae4a0cb1388c2",
+    "utils/relative_features.py": "b7402c099c98284bd98d270e5b999bfded12cd2d894c75f8fe5cbf809d47cd52",
+    "utils/g2_periodic_edges.py": "e6dba018b05b8804c5e9679d8c978180f1a7738cdcfb43009bd5aea6e4ec811e",
+    "utils/rp_encoding.py": "f87c4c310f1d706f2f07d1a4dc8f2c5d11fd7e50da84640a0ad206336cf4a993",
+    "utils/atom_feature.py": "b71bb2c3d0d472ea3cd7b33b169c80e5b6ba1aa802fcfb557637efaa407df491",
+    "utils/metrics.py": "f71af09d0f9d8f76f0fe4f549c854d4b74e927651f4ed61d752579b223498860",
+    "utils/builder.py": "6e808b7f3f68651ea081b1689bca63d1edf9c80e72e16667b368e0499027d8b7",
+    "utils/ablation_checkpoint.py": "8660241a8fbd615e153d999631174aca103b1ce0a20cc7eba1eb55f8f1ab982f",
+    "datasets/dataset.py": "6740d3808a3a07a549a39ff0dd77743361870c260ac60135fec74102b3fca191",
+    "run_ablation_experiments.py": "04eb02c8c9db9c49d2b7f258d159ae8b1460c0fad4b6f04d12118cf60c55bd4b"
+  },
+  "source_epoch": 10,
+  "initialization_seed": 42,
+  "selection_seed": 20260926,
+  "steps_per_arm": 2000,
+  "evaluation_interval": 100,
+  "n_pairs": 16,
+  "n_materials": 32,
+  "split": "train",
+  "valid_evaluated": false,
+  "test_evaluated": false,
+  "device": "cuda",
+  "comparison_factor": "encoder parameters enabled for optimization",
+  "dropout": false,
+  "optimizer": {
+    "type": "AdamW",
+    "lr": 5e-05,
+    "betas": [
+      0.9,
+      0.99
+    ],
+    "weight_decay": 0.01,
+    "independent_clip_norm": 1.0
+  },
+  "torch_version": "2.2.1",
+  "cuda_version": "12.1",
+  "verdict": "joint_adaptation_fit_only",
+  "first_fit_step": {
+    "frozen": null,
+    "joint": 700
+  },
+  "equivalence": {
+    "max_prediction_tv": 1.8195896700490266e-07,
+    "max_relative_blind_scale_error": 2.2426890211590944e-07,
+    "readout_gradient_relative_rms": 2.0576970200636424e-05,
+    "loss_relative_error": 6.280839708071595e-08,
+    "cached_loss": 1.8979833126068115,
+    "recomputed_loss": 1.897983431816101
+  },
+  "positive_logit_control": {
+    "initial_mse": 1.8970386981964111,
+    "final_mse": 6.5986841946141794e-06,
+    "final_to_initial": 3.478413066052794e-06,
+    "steps": 1000,
+    "passed": true
+  },
+  "parameter_changes": {
+    "frozen": {
+      "encoder": {
+        "changed_values": 0,
+        "relative_l2": 0.0
+      },
+      "readout": {
+        "changed_values": 25357808,
+        "relative_l2": 0.03348836125171059
+      },
+      "eta_head": {
+        "changed_values": 0,
+        "relative_l2": 0.0
+      }
+    },
+    "joint": {
+      "encoder": {
+        "changed_values": 17734649,
+        "relative_l2": 0.023946291609236132
+      },
+      "readout": {
+        "changed_values": 25357794,
+        "relative_l2": 0.024210215083949795
+      },
+      "eta_head": {
+        "changed_values": 0,
+        "relative_l2": 0.0
+      }
+    }
+  },
+  "cache_sha256": "98ec2b34d588ad9aec16a14e2afd3eeb7c4555d019fa50a7d37d67ae20e158ed",
+  "elapsed_seconds": 375.79136946599465,
+  "peak_cuda_memory_bytes": 3147312128,
+  "limitations": "Training-set fitting witness only; one selection and initialization; pure contrast objective does not constrain shared spectra."
+}

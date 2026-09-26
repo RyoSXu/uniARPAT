@@ -1,0 +1,17 @@
+split,group,sample_index_a,sample_index_b,mpid_a,mpid_b,reduced_group,primary_valid
+train,15:16|48:8,423,3943,mp-aaaaabjd,mp-aaaaarxw,15:2|48:1,False
+train,8:3|60:2,1183,2658,mp-aaaaaech,mp-aaaaalty,8:3|60:2,False
+train,16:6|19:2|42:6,2704,14113,mp-aaaaamae,mp-aaackvdk,16:3|19:1|42:3,False
+train,8:3|68:2,4142,18148,mp-aaaaatio,mp-aaacrsyy,8:3|68:2,False
+train,8:16|11:2|41:6,4399,9528,mp-aaaaavmx,mp-aaabjmwk,8:8|11:1|41:3,False
+train,28:2|83:2,5792,12620,mp-aaaabhvh,mp-aaacewhi,28:1|83:1,False
+train,8:8|23:2|83:2,5885,7789,mp-aaaabici,mp-aaabfbmg,8:4|23:1|83:1,False
+train,8:12|11:4|17:4,6004,8109,mp-aaaabini,mp-aaabfqcc,8:3|11:1|17:1,False
+train,8:6|37:4|40:2,10121,10417,mp-aaabqvan,mp-aaabraoy,8:3|37:2|40:1,False
+train,8:18|56:8|73:4,10582,16766,mp-aaabruec,mp-aaacpwra,8:9|56:4|73:2,False
+train,59:1|68:3,11977,11981,mp-aaacdnzr,mp-aaacdoad,59:1|68:3,False
+train,62:3|69:1,12147,12167,mp-aaacdsei,mp-aaacdspp,62:3|69:1,False
+train,48:2|71:1,12799,13366,mp-aaacfkmg,mp-aaacilmc,48:2|71:1,False
+train,15:1|20:3|83:1,12895,12903,mp-aaacfrja,mp-aaacfroo,15:1|20:3|83:1,False
+train,46:2|51:2|57:2,13082,13180,mp-aaacfzan,mp-aaacgikg,46:1|51:1|57:1,False
+train,19:3|31:1,15832,15834,mp-aaacpkso,mp-aaacpktf,19:3|31:1,False

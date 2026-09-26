@@ -17,3 +17,22 @@ G2 残差，追踪 encoder／decoder／谱输出响应与误差；设计见
 `g2_encoder_adaptation_probe.py`：沿用冻结读出配对任务，只开放现有encoder更新；相同初值、
 读出优化规则及1620步预算，对比已保存的冻结matched结果。blind尺度从更新后的表征重算；
 设计见 `docs/design/design-g2-encoder-adaptation-probe.md`；源文件、数据与旧结果均校验哈希。
+
+`g2_small_fit_probe.py`：标签无关抽取16个train组成对，先核对输入区分性，再比较冻结／联合
+实际网络各2000步的小样本拟合；保存首次全部达到逐对门槛的权重与末步结果，只检验训练可拟合性。
+设计见 `docs/design/design-g2-small-fit-probe.md`；只加载train，拒绝覆盖已有产物。
+`plot_g2_small_fit.py`从完成后的正式history绘制各检查点的最差pair残留和通过数量，不改变判据。
+
+`g2_value_fit_probe.py`：复用同一16对缓存和两臂对照，只更新6个G2消息模块与原读出；
+训练前检查跨冻结层梯度，结束后逐值检查冻结边界并重载最终／首次拟合权重。
+设计见 `docs/design/design-g2-value-fit-probe.md`；旧执行快照与当前helper分别登记哈希。
+若2000步已完成而结果导出中断，可用`--finalize-existing`从现有最终权重汇总；先核对旧执行
+快照与保护输入，不执行训练。缺失的中间逐对轨迹会明确标记，不能由末步预测补造。
+
+`g2_non_value_fit_probe.py`：冻结G2消息参数，只训练其余encoder与读出的16对互补臂；
+复用同一训练、梯度边界和重载实现，保留冻结模块的反向传播。比较包含前三个臂，并保留
+已有缺失明细标记；设计见`docs/design/design-g2-non-value-fit-probe.md`。
+
+`g2_last_layer_fit_probe.py`：固定G2与前5个普通encoder层，只训练最后一层及读出；沿用同一
+16对和2000步。首次／最终权重重载时核对冻结参数及缓冲区；设计见
+`docs/design/design-g2-last-layer-fit-probe.md`。

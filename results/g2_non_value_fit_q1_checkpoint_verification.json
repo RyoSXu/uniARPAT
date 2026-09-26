@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "arm": "non_g2",
+  "checkpoints": [
+    {
+      "checkpoint": "output/g2_non_value_fit_q1/non_g2_first_fit.pth",
+      "sha256": "5fa3807b42dc22c71c6f68542c0f1a6856d2f2d147ca05b8bec1e95e7614e185",
+      "step": 700,
+      "n_pairs_passed": 16,
+      "all_pairs_passed": true,
+      "max_mse_ratio": 0.003705910711269322,
+      "max_tv_ratio": 0.03799620072173734,
+      "max_prediction_tv_vs_final": null,
+      "max_repeat_prediction_tv": 3.6904850730934413e-07
+    },
+    {
+      "checkpoint": "output/g2_non_value_fit_q1/non_g2_final.pth",
+      "sha256": "e10733781a5d295f4353747ff761d06817d6a0d69d31f92893c14f5c5f1af07f",
+      "step": 2000,
+      "n_pairs_passed": 16,
+      "all_pairs_passed": true,
+      "max_mse_ratio": 0.002219021149501495,
+      "max_tv_ratio": 0.04307582003391665,
+      "max_prediction_tv_vs_final": 2.72512920673762e-07,
+      "max_repeat_prediction_tv": 2.819488145178184e-07
+    }
+  ],
+  "repeat_forwards": 5,
+  "numerical_tv_tolerance": 1e-05
+}

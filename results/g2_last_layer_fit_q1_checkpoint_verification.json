@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "arm": "last_layer",
+  "checkpoints": [
+    {
+      "checkpoint": "output/g2_last_layer_fit_q1/last_layer_first_fit.pth",
+      "sha256": "f121ae09d335a4f3d9523c4d5711f9a7d7e5b0b642be88afb2bde213b360bbd9",
+      "step": 2000,
+      "n_pairs_passed": 16,
+      "all_pairs_passed": true,
+      "max_mse_ratio": 0.0056014090031557655,
+      "max_tv_ratio": 0.05224607995525014,
+      "max_prediction_tv_vs_final": null,
+      "max_repeat_prediction_tv": 4.3746018718593405e-07,
+      "frozen_state_changed_values": 0
+    },
+    {
+      "checkpoint": "output/g2_last_layer_fit_q1/last_layer_final.pth",
+      "sha256": "839b28f35686f3981f2fe093814b6d52653c664002cf809f9390df0f2560d11e",
+      "step": 2000,
+      "n_pairs_passed": 16,
+      "all_pairs_passed": true,
+      "max_mse_ratio": 0.005601408208979272,
+      "max_tv_ratio": 0.052246266108714065,
+      "max_prediction_tv_vs_final": 4.1900824498952716e-07,
+      "max_repeat_prediction_tv": 4.772805937136582e-07,
+      "frozen_state_changed_values": 0
+    }
+  ],
+  "repeat_forwards": 5,
+  "numerical_tv_tolerance": 1e-05
+}

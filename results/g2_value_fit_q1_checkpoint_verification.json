@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "arm": "g2_only",
+  "checkpoints": [
+    {
+      "checkpoint": "output/g2_value_fit_q1/g2_only_final.pth",
+      "sha256": "9e1ba7ad7a91aefe286a808edc9c479adca60b7740be34cda81ecfe0a40a16a0",
+      "step": 2000,
+      "n_pairs_passed": 4,
+      "all_pairs_passed": false,
+      "max_mse_ratio": 0.6014761447961805,
+      "max_tv_ratio": 0.7935945960606084,
+      "max_prediction_tv_vs_final": 6.338059392874129e-07,
+      "max_repeat_prediction_tv": 6.616268137804582e-07
+    }
+  ],
+  "repeat_forwards": 5,
+  "numerical_tv_tolerance": 1e-05
+}
