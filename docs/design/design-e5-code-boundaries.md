@@ -32,3 +32,15 @@
 - 生产 runner 的 `evaluate_split` 是唯一的当前实验评估接口：在 SumNorm 下它先 softmax、再按真实总量恢复物理谱，并负责样本表、oracle/blind 与 Cv 产物。
 - `basemodel.test_one_step` 只被 `tools/legacy/train.py`、`tools/legacy/test.py` 与 `tools/legacy/test_cif.py` 调用；它保留 raw-logit NormMAE、历史 M5 反归一化和 `dosdata/` 导出语义。
 - 二者并非可等价的重复实现；已共享的 `per_sample_spectral_metrics` 是唯一安全共用点。故 E5b 不移动或合并评估代码，而是明确生产／历史兼容边界，避免无行为变化重构伪装成语义迁移。
+
+## 2026-09-26：恢复失败保护修复
+
+- 马尚酱已确认先修复审阅发现的 runner 恢复保护漏洞，再开展冻结 G2 诊断。
+- `train_and_eval` 先恢复 checkpoint 和 history；失败时向调用方抛出异常，停止该次运行。
+  配置写入延后到恢复成功之后；已有恢复配置保留，避免丢失 slope 校准等运行时证据。
+  新实验或缺少配置文件的兼容恢复仍生成有效配置。
+- 复用 `restore_ablation_checkpoint` 的 AMP／slope 检查与旧 FP32 兼容语义，保留既有 optimizer
+  状态宽容回退，不改变 checkpoint 格式、模型、损失或学习率策略。
+- 验收在临时目录调用真实 runner，以微型模型和模拟数据隔离生产产物：AMP／slope 不匹配、
+  缺失校准、检查点损坏、模型权重不兼容及 history 损坏均须零训练步、零评估，配置／history／
+  best／latest 字节不变；兼容 FP32／AMP／slope 恢复从下一 epoch 继续，新实验正常写出结果。

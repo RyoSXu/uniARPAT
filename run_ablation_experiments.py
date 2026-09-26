@@ -234,40 +234,6 @@ def train_and_eval(cfg: ExperimentConfig):
     yaml_cfg ['dataset']['train']['augment']=bool (cfg.augment )
     yaml_cfg ['dataset']['train']['disp_sigma']=float (cfg.disp_sigma )
 
-    # Save the effective configuration beside local checkpoints for recovery.
-    with open (os .path .join (save_dir ,'config_used.yaml'),'w')as f :
-        yaml .dump ({'cli':{'model':cfg.model_name ,'epochs':cfg.epochs ,
-        'batch_size':cfg.batch_size ,'lr':cfg.lr ,'seed':cfg.seed ,
-        'data_dir':cfg.data_dir ,'edos_num':cfg.edos_num ,
-        'phdos_num':cfg.phdos_num ,'atom_feat':cfg.atom_feat ,
-        'decoder_layers':cfg.decoder_layers ,
-        'use_atom_additive_phdos':cfg.use_atom_additive_phdos ,
-        'energy_code':cfg.energy_code ,'edos_grid':cfg.edos_grid ,
-        'use_macro_lattice':cfg.use_macro_lattice ,
-        'tv_w':cfg.tv_w ,'grad_w':cfg.grad_w ,'peak_w':cfg.peak_w ,
-        'edos_slope_ratio':cfg.edos_slope_ratio ,
-        'tail_w':cfg.tail_w ,'tail_start':cfg.tail_start ,
-        'augment':cfg.augment ,'disp_sigma':cfg.disp_sigma ,
-        'norm':cfg.norm ,'use_mask':cfg.use_mask ,'use_amp':cfg.use_amp ,'use_bucket_batch':cfg .use_bucket_batch ,'skip_test_eval':cfg.skip_test_eval ,'dropout':cfg.dropout ,
-        'weight_decay':cfg.weight_decay ,'warmup_epochs':_wu ,
-        'lambda_ph':cfg.lambda_ph ,'grad_clip':cfg.grad_clip ,
-        'w_w1':cfg.w_w1 ,'w_huber':cfg.w_huber ,
-        'scale_mode':cfg.scale_mode ,'freeze_backbone':cfg.freeze_backbone ,
-        'eta_sup_w':cfg.eta_sup_w ,
-        'delta_edos':cfg.delta_edos ,'delta_phdos':cfg.delta_phdos ,
-        'scalar_mode':cfg.scalar_mode ,'scalar_sup_w':cfg.scalar_sup_w ,
-        'use_g1':cfg.use_g1 ,'g1_r_cut':cfg.g1_r_cut ,
-        'g1_max_neighbors':cfg.g1_max_neighbors ,
-        'use_g2':cfg.use_g2 ,'g2_r_cut':5.5 ,
-        'q1_coord':cfg.q1_coord ,'q1_hidden':cfg.q1_hidden ,
-        'q2_fourier':cfg.q2_fourier ,
-        'c5_moe':cfg.c5_moe ,'c5_moe_balance_w':cfg.c5_moe_balance_w ,
-        'r1a_point':cfg.r1a_point ,
-        'r1b_coord':cfg.r1b_coord ,
-        'init_ckpt':cfg.init_ckpt ,'scale_sup_w':cfg.scale_sup_w },
-        'config':yaml_cfg },f ,indent =2 ,sort_keys =False ,
-        default_flow_style =False )
-
     builder =ConfigBuilder (**yaml_cfg )
 
     train_loader =builder .get_dataloader (split ='train',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn ,use_bucket_batch =cfg .use_bucket_batch )
@@ -345,10 +311,47 @@ def train_and_eval(cfg: ExperimentConfig):
             model .to (device )
             logger .info (f"[{cfg.model_name }] Resumed from epoch {start_epoch } "
             f"(best ep {best_epoch }, score {best_val_score :.4f})")
-        except Exception as e :
-            logger .info (f"[{cfg.model_name }] Resume failed ({e }); starting fresh.")
-            start_epoch ,history =0 ,[]
-            best_val_score ,best_epoch =float ('inf'),0 
+        except Exception:
+            logger.exception("[%s] Resume failed; existing run artifacts are preserved", cfg.model_name)
+            raise
+
+    # Only persist configuration after recovery has succeeded. Preserve an
+    # existing resume config, including its recorded slope calibration.
+    config_path = os.path.join(save_dir, "config_used.yaml")
+    if not os.path.exists(latest_p) or not os.path.exists(config_path):
+        with open(config_path, "w") as f:
+            yaml .dump ({'cli':{'model':cfg.model_name ,'epochs':cfg.epochs ,
+            'batch_size':cfg.batch_size ,'lr':cfg.lr ,'seed':cfg.seed ,
+            'data_dir':cfg.data_dir ,'edos_num':cfg.edos_num ,
+            'phdos_num':cfg.phdos_num ,'atom_feat':cfg.atom_feat ,
+            'decoder_layers':cfg.decoder_layers ,
+            'use_atom_additive_phdos':cfg.use_atom_additive_phdos ,
+            'energy_code':cfg.energy_code ,'edos_grid':cfg.edos_grid ,
+            'use_macro_lattice':cfg.use_macro_lattice ,
+            'tv_w':cfg.tv_w ,'grad_w':cfg.grad_w ,'peak_w':cfg.peak_w ,
+            'edos_slope_ratio':cfg.edos_slope_ratio ,
+            'tail_w':cfg.tail_w ,'tail_start':cfg.tail_start ,
+            'augment':cfg.augment ,'disp_sigma':cfg.disp_sigma ,
+            'norm':cfg.norm ,'use_mask':cfg.use_mask ,'use_amp':cfg.use_amp ,'use_bucket_batch':cfg .use_bucket_batch ,'skip_test_eval':cfg.skip_test_eval ,'dropout':cfg.dropout ,
+            'weight_decay':cfg.weight_decay ,'warmup_epochs':_wu ,
+            'lambda_ph':cfg.lambda_ph ,'grad_clip':cfg.grad_clip ,
+            'w_w1':cfg.w_w1 ,'w_huber':cfg.w_huber ,
+            'scale_mode':cfg.scale_mode ,'freeze_backbone':cfg.freeze_backbone ,
+            'eta_sup_w':cfg.eta_sup_w ,
+            'delta_edos':cfg.delta_edos ,'delta_phdos':cfg.delta_phdos ,
+            'scalar_mode':cfg.scalar_mode ,'scalar_sup_w':cfg.scalar_sup_w ,
+            'use_g1':cfg.use_g1 ,'g1_r_cut':cfg.g1_r_cut ,
+            'g1_max_neighbors':cfg.g1_max_neighbors ,
+            'use_g2':cfg.use_g2 ,'g2_r_cut':5.5 ,
+            'q1_coord':cfg.q1_coord ,'q1_hidden':cfg.q1_hidden ,
+            'q2_fourier':cfg.q2_fourier ,
+            'c5_moe':cfg.c5_moe ,'c5_moe_balance_w':cfg.c5_moe_balance_w ,
+            'r1a_point':cfg.r1a_point ,
+            'r1b_coord':cfg.r1b_coord ,
+            'init_ckpt':cfg.init_ckpt ,'scale_sup_w':cfg.scale_sup_w },
+            'config':yaml_cfg },f ,indent =2 ,sort_keys =False ,
+            default_flow_style =False )
+
 
     for epoch in range (start_epoch ,cfg.epochs ):
     # Advance the distributed sampler so each epoch receives a new order.
