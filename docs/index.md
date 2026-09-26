@@ -25,6 +25,7 @@
 | eDOS Q1 valid 预测形状误差诊断 | `design/design-edos-shape-error-diagnostic.md` | 已完成的只读诊断设计 |
 | 高粗糙度 eDOS 一阶差分损失 pilot | `design/design-edos-slope-loss-pilot.md` | Q1 valid 成对 pilot 已完成并 park；未进入 35 epoch 确认 |
 | 当前 G2 周期多镜像边条件消息设计 | `design/design-g2-periodic-multi-image-message.md` | 当前实施设计 |
+| 冻结 G2 结构信息通路核验 | `design/design-g2-structure-path-audit.md` | 已完成的只读诊断；G2 保持 park |
 | 当前 E10 宏观晶格状态实验 | `design/design-e10-macro-lattice.md` | 当前实施设计 |
 | 重大改动提案 | `design/_template.md` | 实施前复制并填写 |
 | 已完成任务的证据 | `logs/` 与 `../results/` | 历史记录 |

@@ -22,6 +22,7 @@ fi
     tests.test_gated_attention \
     tests.test_scale_norm \
     tests.test_g1_graph \
+    tests.test_g2_structure_path_audit \
     tests.test_q2_fourier \
     tests.test_c5_token_moe \
     tests.test_c4_amp \

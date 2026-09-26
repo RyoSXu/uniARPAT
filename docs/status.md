@@ -1,6 +1,6 @@
 # 项目状态与计划
 
-更新日期：2026-09-25。此页是唯一的整体计划：记录当前基线、已完成工作、当前关卡、待办顺序和
+更新日期：2026-09-26。此页是唯一的整体计划：记录当前基线、已完成工作、当前关卡、待办顺序和
 阻塞项。任务细节见 `logs/` 与 `results/`，固化规则见 `decisions.md`。
 
 ## 当前基线与默认方案
@@ -35,6 +35,7 @@
 - **E10 已完成并 park。**Q1 M1×10 中，宏观状态相对对照的 eDOS/phDOS 中位 R² 为
   −0.0060/−0.0058，phDOS 失败率 +0.74pt；无 accuracy win，不进入 35 epoch。
 - **G2a 已完成并 park。**资源实测耗时 +27.3%~+29.5%、显存 +16.5%；Q1 M1×10 成对 pilot 双任务指标均在平局线内（Δmed 约为 −0.007/−0.005），无 accuracy win，代码默认关闭。
+- **冻结 G2 结构信息通路核验完成。**Q1 train/valid、两臂 epoch 10；valid 开关 G2 的 encoder／decoder 相对 RMS 中位数为 `0.0537/0.0637`，eDOS 谱 TV 为 `0.0147`，分支影响已传到输出。冻结 edge 关闭分支后 eDOS oracle 中位 R²下降 `0.0083`，但 edge 相对独立训练 control 的 Δmedian 仅 `−0.0007`；320 个同组成对的谱差误差改善区间包含零。不能认定通路完全失效，也不足以指定下一项改模；诊断关闭，G2 保持 park。未读取 test、未训练或改写 checkpoint。详见 `logs/log-2026-09-26-g2-structure-path-audit.md`。
 - **R2a：共享 decoder 6→3 层 pilot 已作为低成本载体通过。**Oracle 的 eDOS/phDOS 中位 R²变化为
   −0.0164/−0.0011，失败率 +0.48/+0.35pt，均未越过负向平局线；平均每轮耗时 −17.9%、峰值显存
   −18.8%。它不是 accuracy win，B7 6 层仍是参考与默认；R2a 3 层仅准入后续原子加性 phDOS 读出。
@@ -51,11 +52,12 @@
 - **E5 代码边界：完成。**checkpoint 责任已提取；生产 `evaluate_split` 与历史
   `basemodel.test_one_step` 语义不同，明确隔离而不强行合并。详细见
   `logs/log-2026-09-21-e5a-checkpoint-boundary.md` 与 `logs/log-2026-09-21-e5b-evaluation-boundary.md`。
+- **训练恢复失败保护：完成。**runner 的 checkpoint／history 恢复异常现在终止运行，配置写入延后；六类失败的旧产物字节保护及正常恢复／新实验均通过测试，完整套件 133/133 通过。详见 `logs/log-2026-09-26-checkpoint-recovery-guard.md`。
 - **E6 分桶 batch：技术通过。**`--use_bucket_batch` 默认关闭；Q1 batch 32 的 V100 门禁中，平均原子槽
   为固定宽度的 0.171x、单步耗时 0.539x、峰值显存无变化。它改变 batch 组成，只作为可选成本载体，
   不产生 accuracy 结论。详细见 `logs/log-2026-09-21-e6-bucketed-batches.md`。
 - **E7 lint/CI：完成。**`bash tools/ci/check-static.sh` 固定 Ruff 致命错误检查、所有受跟踪 Python 文件的
-  编译及 48 项无缓存 CPU 合同测试；GitHub Actions 在 push/PR 上复现。它不读取 Q1、不启动训练，完整的
+  编译及无缓存 CPU 合同测试（9 月 26 日纳入恢复保护与通路探针后为 66 项）；GitHub Actions 在 push/PR 上复现。它不读取 Q1、不启动训练，完整的
   本地数据回归仍由 `python3 -m unittest discover tests` 覆盖。详细见 `logs/log-2026-09-21-e7-lint-ci.md`。
 - **B7 M1 CIF 盲推理入口：完成。**`b7_cif_infer.py` 严格加载 B7 epoch 33、按 Z0 的 CIF `N_val` 和
   H1 eta/gamma 重建 E0/P0 blind 谱；旧 M4 `cif2dos.py` 已退役（Git 历史可恢复）。详细见
@@ -75,10 +77,13 @@
   `logs/log-2026-09-23-eDOS归因.md`、`logs/log-2026-09-23-eDOS-valid复核.md` 和 `logs/log-2026-09-23-eDOS形状诊断.md`。
 - **eDOS slope-loss pilot 已完成并 park。**Q1 valid、M1×10、seed 42 的成对结果中，高粗糙度组 eDOS oracle Δmedian R² 为 `−0.00167`（95% bootstrap CI `−0.01788…0.01379`），未达 `+0.02` 主门槛；整体保护项通过，但 slope-error 机制不支持。两臂均跳过 test；不进入 M1×35 确认或权重扫描，默认损失不变。详见 `logs/log-2026-09-23-eDOS-slope-loss-pilot.md`。
 - **eDOS 高粗糙度组梯度归因完成（只读）。**在冻结 B7 epoch 33 的 Q1 train 全集上，高粗糙度组占 10.0%，但其每样本 eDOS 梯度范数为其他组的 2.06–4.94 倍；按样本比例加权后，在 encoder/decoder/eDOS head 探针中的梯度范数占比为 35.4%/20.6%/18.6%，两组梯度方向余弦均为正。样本比例稀释假设不获支持，不做高粗糙度样本加权 pilot。未访问 valid/test；详见 `logs/log-2026-09-25-eDOS-gradient-group-attribution.md`。
+- **eDOS 高粗糙度 train–valid 冻结诊断完成（只读）。**B7 epoch 33、Q1 oracle、固定 train p90=`0.351600`：高组 train/valid 中位 R² 为 `0.5053/0.3478`，失败率为 `0.32%/11.71%`；其他组为 `0.6138/0.5290`、`0.87%/5.74%`。高组在 train 已有中位准确率差距，valid 又出现更大的额外下降与失败率增幅；不能据此判定根因。未读取 test，未改训练或评估口径。详见 `logs/log-2026-09-26-edos-train-valid-roughness.md`。
+- **eDOS 全体谱形支持与同组成材料对诊断完成（只读）。**Q1 train/valid、B7 epoch 33 oracle：按 train 目标谱最近邻总变差分四组，最近至最远组的 valid 中位 R² 为 `0.6336→0.3695`、失败率为 `2.30%→11.76%`；对应 train 中位 R² 为 `0.6828→0.5257`，train–valid 差距随组增大。valid 的 320 个同组成材料对中，目标／预测谱差中位 TV 为 `0.2697/0.0160`。这些是谱形稀有度与结构条件响应的线索，不构成根因判定或新训练方案；未读取 test。逐样本与成对证据见 `results/edos_spectral_support_q1_train_valid_samples.csv`、`results/edos_spectral_support_q1_valid_pairs.csv`；方法与限制见 `logs/log-2026-09-26-edos-spectral-support.md`。
 
 ## 待办顺序
 
-1. **下一步待讨论：**eDOS slope-loss 与样本稀释两条假设均未支持新的训练 pilot；不做 M1×35 确认、样本加权或常规损失扫描。与马尚酱讨论另一条可证伪的 eDOS 机制假设，优先检查谱形表达能力或结构条件信息；新设计获批前不启动训练。记录见 `logs/log-2026-09-23-eDOS-slope-loss-pilot.md` 和 `logs/log-2026-09-25-eDOS-gradient-group-attribution.md`。C4 AMP 与 E6 分桶 batch 保持默认关闭。
+1. **已确认工作已完成，暂无新 pilot：**训练恢复保护与冻结 G2 通路核验均已收口。分支有作用且影响谱输出，但未改善独立对照的整体准确率，也未明确改善同组成结构谱差；现有证据不足以在输入、读出或优化改动中选定唯一因素，不据此继续放大 G2、改读出或增加损失权重。下一次选题先与马尚酱明确可区分剩余解释的干预和相反结果预期，再形成单因素 pilot；以全体 eDOS 中位 R²／失败率为主目标，结构配对误差作机制证据，blind／phDOS 为保护项。最新证据见 `logs/log-2026-09-26-g2-structure-path-audit.md`；此前 train–valid／谱形支持背景见 `logs/log-2026-09-26-edos-train-valid-roughness.md` 与 `logs/log-2026-09-26-edos-spectral-support.md`。B7 默认及 C4 AMP、E6 分桶 batch 默认关闭状态保持原状。
+   - **解释边界：**B7 的单元素几何盲点已确认，但单元素只占 valid 的 1.60%；G2 能产生非零结构响应也不等于预测正确。冻结关闭分支测的是当前权重依赖，不能替代重新训练消融。近期提交审阅见 `logs/log-2026-09-26-recent-commit-review.md`。
 2. C2.1b 已 park；除非出现区别于 L3 的有方向机制，不重开或做常规权重扫描。C3 PhysMoE、D3 eDOS
    辅助数据和 phDOS 尖峰/虚频路线仍不进入近期顺序。
 3. 网格、窗口与 bin 的数据表示实验保持搁置；只有新的可变 query 假设在固定 E0/P0 上技术通过后，

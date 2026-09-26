@@ -1,0 +1,109 @@
+{
+  "epoch": 10,
+  "seed": 42,
+  "device": "cuda",
+  "batch_size": 32,
+  "counts": {
+    "train": 18706,
+    "valid": 2313
+  },
+  "checkpoint_and_input_sha256": {
+    "output/ablation_m1_g2ctl/checkpoint_latest.pth": "ffe6363a907e9beff8ecad727543d486687866348ec5b9bd9f68268c036557cb",
+    "output/ablation_m1_g2ctl/config_used.yaml": "eb61a4dcb6e87b777fb60e157887d1600e850e6c6340643d109d61ae33d5f865",
+    "output/ablation_m1_g2edge/checkpoint_latest.pth": "1ab42285bbdd7229f8fe02b2577a0292c230f249085882b70d359b42b62cfb43",
+    "output/ablation_m1_g2edge/config_used.yaml": "8bbc2240bfc593c9599294a91c7596eb3870ab4c3f48e56e8387fbf0dcd135d0",
+    "data/train4ARPAT/train/train_index.npy": "f792232911a1c2c89479a4fa62d2e3ca90bc926c8327eba75a3c201f6f2d1a71",
+    "data/train4ARPAT/train/elements_train.npy": "c35d50cf9504cf78285b0e16197ebe2684d6b7513f2f26b07ba49f23459063fb",
+    "data/train4ARPAT/train/positions_train.npy": "5a7069e16aa7dd58c9241c8f3aaaa161af9c67846439168e55ec71deb6915579",
+    "data/train4ARPAT/train/edos_tgtdos_train.npy": "db5e14c57127515cbfd536df1b67cd1bbcba3c0301599a348ab99ae88b4d6907",
+    "data/train4ARPAT/train/phdos_tgtdos_train.npy": "67756034c91fd0eaabee6cd4272247d91257cc6f72b82cc218a153dfd1187146",
+    "data/train4ARPAT/train/edos_mask_train.npy": "3417ed66a88253449ea065e3b592b4333cd41b20e781d26ee1eb6a78ae620787",
+    "data/train4ARPAT/train/phdos_mask_train.npy": "fb27321e2a8c47180b3f36e55081e0086c741a4c0ff76ee78c781ca7ae0cff13",
+    "data/train4ARPAT/train/nvalence_train.npy": "5b1cf5133812a5285ff95f0a35a69f50a4f24dc47c37ca417323b5b7da96a383",
+    "data/train4ARPAT/valid/valid_index.npy": "f043ccd29e52f2133195311ea011630a2daff9093677e3dd6560ac2f4f386cb5",
+    "data/train4ARPAT/valid/elements_valid.npy": "5abd3351f456ad3b1f2b0cef593f1bc514b0ed039e8694e2066ef61b2aa04d14",
+    "data/train4ARPAT/valid/positions_valid.npy": "f15cd98b7e34808b7a43d98d7ba16cbfa87d3f1efd960edfc0ede66746bde36f",
+    "data/train4ARPAT/valid/edos_tgtdos_valid.npy": "ab0b858a506d6639e1e3b8adf90e2cafc069d66061108ff2834bd5a8b949cf69",
+    "data/train4ARPAT/valid/phdos_tgtdos_valid.npy": "f202d67d7cc80718204b03bde7cf91ec6474f4d3e8f56b25a6b1818415221992",
+    "data/train4ARPAT/valid/edos_mask_valid.npy": "ca2f0ef4fb73d5df56d5788309f45b1c26d1bcb375613e604cbd6aaca01c8d6f",
+    "data/train4ARPAT/valid/phdos_mask_valid.npy": "b008de7e7100ec498b42569e341d448a0d726fff7ef9c6dfe8e6337b35b2a760",
+    "data/train4ARPAT/valid/nvalence_valid.npy": "792e74f956a181cbae80abbdff544f9e4cc6ecc8a8e4706843c7f3bbc454c17d",
+    "data/train4ARPAT/manifest.json": "bb4501f256aa8b1411c9b46337beddb118f39ee29826df68a20c436ec1d2cc6a",
+    "data/grids_c2b/grids.json": "183663c244a7bd3fc885f61214c471ca75beaac0c50a6167419fed217747a244",
+    "results/edos_spectral_support_q1_valid_pairs.csv": "40af297326d901aaf5fad089de75f2cb44b9b96c271f5e996548659fcb53032d"
+  },
+  "script_sha256": "6ae24527fa05c7ab9280d1782311de54af59ccb5fe2c6077097a0f7fdb30e168",
+  "g2_alpha": {
+    "g2ctl": [],
+    "g2edge": [
+      -0.022157086059451103,
+      0.02680974267423153,
+      -0.03105960600078106,
+      -0.029218636453151703,
+      0.030165355652570724,
+      0.025100477039813995
+    ]
+  },
+  "numerical_controls": {
+    "g2ctl_train": {
+      "control": {
+        "repeat_edos_max_tv": 1.8285300029674545e-07,
+        "repeat_phdos_max_tv": 3.610104215567844e-07,
+        "permutation_edos_max_tv": 1.6768854038673453e-07,
+        "permutation_phdos_max_tv": 3.476843630778603e-07
+      }
+    },
+    "g2ctl_valid": {
+      "control": {
+        "repeat_edos_max_tv": 0.0,
+        "repeat_phdos_max_tv": 0.0,
+        "permutation_edos_max_tv": 2.714925244617916e-07,
+        "permutation_phdos_max_tv": 4.869249323746772e-07
+      }
+    },
+    "g2edge_train": {
+      "edge": {
+        "repeat_edos_max_tv": 1.6595367924310267e-07,
+        "repeat_phdos_max_tv": 3.361272149504657e-07,
+        "permutation_edos_max_tv": 2.0920265342283528e-07,
+        "permutation_phdos_max_tv": 2.9532017720157455e-07
+      },
+      "edge_zero": {
+        "repeat_edos_max_tv": 0.0,
+        "repeat_phdos_max_tv": 0.0,
+        "permutation_edos_max_tv": 1.5489058569073677e-07,
+        "permutation_phdos_max_tv": 3.021687859927624e-07
+      }
+    },
+    "g2edge_valid": {
+      "edge": {
+        "repeat_edos_max_tv": 2.3230046508615487e-07,
+        "repeat_phdos_max_tv": 4.2000436906164396e-07,
+        "permutation_edos_max_tv": 2.6666765506888623e-07,
+        "permutation_phdos_max_tv": 3.9548666563860024e-07
+      },
+      "edge_zero": {
+        "repeat_edos_max_tv": 0.0,
+        "repeat_phdos_max_tv": 0.0,
+        "permutation_edos_max_tv": 2.643853918016248e-07,
+        "permutation_phdos_max_tv": 4.4001342303090496e-07
+      }
+    }
+  },
+  "elapsed_seconds": 395.5337526440271,
+  "checkpoint_written": false,
+  "optimizer_called": false,
+  "test_evaluated": false,
+  "output_paths": {
+    "samples": "/root/home/newstudy/uniARPAT/results/g2_structure_path_q1_samples.csv",
+    "pairs": "/root/home/newstudy/uniARPAT/results/g2_structure_path_q1_pairs.csv",
+    "interventions": "/root/home/newstudy/uniARPAT/results/g2_structure_path_q1_interventions.csv",
+    "summary": "/root/home/newstudy/uniARPAT/results/g2_structure_path_q1_summary.csv",
+    "comparisons": "/root/home/newstudy/uniARPAT/results/g2_structure_path_q1_comparisons.csv",
+    "pair_summary": "/root/home/newstudy/uniARPAT/results/g2_structure_path_q1_pair_summary.csv",
+    "pair_comparisons": "/root/home/newstudy/uniARPAT/results/g2_structure_path_q1_pair_comparisons.csv",
+    "residuals": "/root/home/newstudy/uniARPAT/results/g2_structure_path_q1_residuals.csv",
+    "metadata": "/root/home/newstudy/uniARPAT/results/g2_structure_path_q1.json"
+  },
+  "interpretation": "Frozen-model dependence only; hidden distances are not information or causal accuracy gains."
+}

@@ -1,0 +1,17 @@
+split,comparison,metric,paired_delta_median,cluster_ci_low,cluster_ci_high
+train,edge_minus_control,predicted_tv,0.00011351643479429185,,
+train,edge_minus_control,contrast_error_tv,4.985167834092863e-06,,
+train,edge_minus_control,encoder_relative_rms,-0.0002940118720119872,,
+train,edge_minus_control,decoder_relative_rms,0.0001652984357300965,,
+valid,edge_minus_control,predicted_tv,1.2208064958940668e-06,-0.0006296336650848389,0.00108140923830433
+valid,edge_minus_control,contrast_error_tv,-1.1346768587827682e-05,-0.00022317788534564897,1.0022906110407348e-05
+valid,edge_minus_control,encoder_relative_rms,-0.0004749950607817025,-0.009492328974515102,0.0019876172838419934
+valid,edge_minus_control,decoder_relative_rms,7.63300336775051e-05,-0.003853979724031639,0.004891242856517063
+train,edge_minus_edge_zero,predicted_tv,0.00018204213120043278,,
+train,edge_minus_edge_zero,contrast_error_tv,-3.4198061484858044e-06,,
+train,edge_minus_edge_zero,encoder_relative_rms,0.0004305104106792322,,
+train,edge_minus_edge_zero,decoder_relative_rms,0.00114661072721748,,
+valid,edge_minus_edge_zero,predicted_tv,6.757900592901933e-05,-2.1398760509327985e-05,0.00016519054770469666
+valid,edge_minus_edge_zero,contrast_error_tv,-8.428777789504238e-06,-6.397432034646044e-05,2.421491234372192e-06
+valid,edge_minus_edge_zero,encoder_relative_rms,0.00023631525968323728,6.741425987621258e-05,0.001023652085300042
+valid,edge_minus_edge_zero,decoder_relative_rms,0.00037576924254353146,8.767668682471591e-05,0.0009921071023620415
