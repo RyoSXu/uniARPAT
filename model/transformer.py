@@ -39,13 +39,28 @@ class PeriodicEdgeMessage(nn.Module):
     and a zero-initialized per-layer scalar ``alpha``. No direction, no top-k,
     no dense ``[B,L,L,S]`` tensor; flat sparse edges aggregated with
     ``index_add``. With ``alpha == 0`` the forward is exactly the identity.
+
+    ``content_mode="joint"`` is candidate 1: the separable content is replaced
+    by the joint receiver/sender/radial concatenation
+    ``phi2(SiLU(phi1([W_i h_i ; W_v h_j ; W_g phi(d)])))`` with a fixed hidden
+    width (``JOINT_HIDDEN``), while the edge set, RBF, quintic cutoff,
+    ``index_add`` aggregation, ``1/sqrt(degree)`` normalization, ``W_o`` and
+    ``alpha`` are shared with the radial mode. The new parameters live only in
+    the joint branch, so radial/off paths keep their exact parameter keys and
+    initialization order. ``alpha`` is never an early-exit condition, so its
+    gradient always flows even while it is exactly zero.
     """
 
-    def __init__(self, d_model=512, rbf_num=64, r_cut=5.5):
+    JOINT_HIDDEN = 256  # frozen by the candidate-1 contract; deliberately not a knob
+
+    def __init__(self, d_model=512, rbf_num=64, r_cut=5.5, content_mode="radial"):
         super().__init__()
         self.d_model = int(d_model)
         self.rbf_num = int(rbf_num)
         self.r_cut = float(r_cut)
+        if content_mode not in ("radial", "joint"):
+            raise ValueError(f"content_mode must be 'radial' or 'joint', got {content_mode!r}")
+        self.content_mode = str(content_mode)
         self.W_v = nn.Linear(d_model, d_model)
         self.W_g = nn.Linear(rbf_num, d_model)
         self.W_o = nn.Linear(d_model, d_model)
@@ -53,9 +68,17 @@ class PeriodicEdgeMessage(nn.Module):
         centers = torch.linspace(0.01 * self.r_cut, 0.99 * self.r_cut, self.rbf_num)
         self.register_buffer("rbf_centers", centers)
         self.register_buffer("rbf_width", centers[1] - centers[0])
+        # Candidate-1 joint content branch. Instantiated only in joint mode so
+        # the radial/off paths keep their parameter keys and RNG order intact.
+        if self.content_mode == "joint":
+            self.W_i = nn.Linear(d_model, d_model)
+            self.phi1 = nn.Linear(3 * d_model, self.JOINT_HIDDEN)
+            self.phi2 = nn.Linear(self.JOINT_HIDDEN, d_model)
 
     def forward(self, h, edge_batch, edge_dst, edge_src, edge_dist):
         # h: [B, L, d]; edges: [E] (empty allowed).
+        if self.content_mode == "joint":
+            return self._forward_joint(h, edge_batch, edge_dst, edge_src, edge_dist)
         if edge_batch.numel() == 0:
             return h
         B, L, D = h.shape
@@ -69,6 +92,35 @@ class PeriodicEdgeMessage(nn.Module):
         x = (dist / self.r_cut).clamp(0.0, 1.0)
         cut = (1.0 - 10.0 * x ** 3 + 15.0 * x ** 4 - 6.0 * x ** 5).clamp(0.0, 1.0)
         m = cut.unsqueeze(-1) * (v_src * gate)  # [E, D]
+        lin = edge_batch * L + edge_dst  # [E]
+        agg_flat = torch.zeros(B * L, D, device=h.device, dtype=h.dtype)
+        agg_flat.index_add_(0, lin, m)
+        agg = agg_flat.view(B, L, D)
+        deg_flat = torch.zeros(B * L, device=h.device, dtype=h.dtype)
+        deg_flat.index_add_(0, lin, torch.ones_like(dist))
+        deg = deg_flat.view(B, L)
+        agg = agg * (1.0 / torch.sqrt(torch.clamp(deg, min=1.0))).unsqueeze(-1)
+        return h + self.alpha * self.W_o(agg)
+
+    def _forward_joint(self, h, edge_batch, edge_dst, edge_src, edge_dist):
+        # Candidate-1 joint content: c_ij = phi2(SiLU(phi1([W_i h_i; W_v h_j; W_g phi(d)]))),
+        # then the shared quintic cutoff, index_add, 1/sqrt(degree), W_o, alpha path.
+        if edge_batch.numel() == 0:
+            return h
+        B, L, D = h.shape
+        dist = edge_dist.to(device=h.device, dtype=h.dtype)
+        centers = self.rbf_centers.to(device=h.device, dtype=h.dtype)
+        width = self.rbf_width.to(device=h.device, dtype=h.dtype)
+        phi = torch.exp(-((dist.unsqueeze(-1) - centers) ** 2) / (2 * width ** 2))
+        e = self.W_g(phi)  # [E, D]
+        u = self.W_i(h)  # [B, L, D] receiver projection before gather
+        v = self.W_v(h)  # [B, L, D]
+        u_dst = u[edge_batch, edge_dst]  # [E, D]
+        v_src = v[edge_batch, edge_src]  # [E, D]
+        c = self.phi2(F.silu(self.phi1(torch.cat([u_dst, v_src, e], dim=-1))))  # [E, D]
+        x = (dist / self.r_cut).clamp(0.0, 1.0)
+        cut = (1.0 - 10.0 * x ** 3 + 15.0 * x ** 4 - 6.0 * x ** 5).clamp(0.0, 1.0)
+        m = cut.unsqueeze(-1) * c  # [E, D]
         lin = edge_batch * L + edge_dst  # [E]
         agg_flat = torch.zeros(B * L, D, device=h.device, dtype=h.dtype)
         agg_flat.index_add_(0, lin, m)
@@ -95,7 +147,8 @@ class Transformer(nn.Module):
                   r1a_point=False, r1b_coord=False, use_macro_lattice=False,
                   use_atom_additive_phdos=False,
                   macro_lattice_mean=(2.96373232, 1.22763338),
-                  macro_lattice_std=(0.41023959, 0.51526549)):
+                  macro_lattice_std=(0.41023959, 0.51526549),
+                  g2_content_mode="radial"):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
@@ -148,6 +201,13 @@ class Transformer(nn.Module):
         # Single-factor discipline: G2a sits on B7 dense attention, never on G1.
         self.use_g2 = bool(use_g2)
         self.g2_r_cut = float(g2_r_cut)
+        # Candidate-1 edge content function. joint is never silent: it requires
+        # use_g2 and stays subject to the G1/G2 single-factor exclusion below.
+        self.g2_content_mode = str(g2_content_mode)
+        if self.g2_content_mode not in ("radial", "joint"):
+            raise ValueError(f"g2_content_mode must be 'radial' or 'joint', got {self.g2_content_mode!r}")
+        if self.g2_content_mode == "joint" and not self.use_g2:
+            raise ValueError("g2_content_mode='joint' requires use_g2=True; silent fallback to radial is forbidden")
         if self.use_g1 and self.use_g2:
             raise ValueError("G2a is a single-factor module on B7; use_g1 and use_g2 are mutually exclusive")
         if self.use_g1:
@@ -209,10 +269,11 @@ class Transformer(nn.Module):
         encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
         self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
         if self.use_g2:
-            # Six independent per-layer residuals (~0.559M params each).
+            # Independent per-layer residuals (D512: radial ~0.559M, joint ~1.346M).
             # Off-path creates no attribute, keeping legacy state dicts intact.
             self.encoder.g2_msgs = nn.ModuleList([
-                PeriodicEdgeMessage(d_model, rbf_num=64, r_cut=self.g2_r_cut)
+                PeriodicEdgeMessage(d_model, rbf_num=64, r_cut=self.g2_r_cut,
+                                    content_mode=self.g2_content_mode)
                 for _ in range(num_encoder_layers)
             ])
 

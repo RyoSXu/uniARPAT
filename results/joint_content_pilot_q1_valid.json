@@ -1,0 +1,294 @@
+{
+  "tool": "joint_content_pilot_verdict",
+  "split": "Q1 valid",
+  "checkpoint_epoch": 10,
+  "expected_valid_count": 2313,
+  "bootstrap_replicates": 2000,
+  "bootstrap_seed": 20260923,
+  "bootstrap_note": "paired intervals are reported only; the verdict never uses them",
+  "device": "cuda",
+  "arms": {
+    "control": {
+      "checkpoint": "/root/home/newstudy/uniARPAT/output/ablation_m1_jcctl/checkpoint_latest.pth",
+      "config": "/root/home/newstudy/uniARPAT/output/ablation_m1_jcctl/config_used.yaml",
+      "use_g2": false,
+      "g2_content_mode": "radial",
+      "samples_csv": "/root/home/newstudy/uniARPAT/results/joint_content_pilot_q1_valid_control_samples.csv"
+    },
+    "radial": {
+      "checkpoint": "/root/home/newstudy/uniARPAT/output/ablation_m1_jcrad/checkpoint_latest.pth",
+      "config": "/root/home/newstudy/uniARPAT/output/ablation_m1_jcrad/config_used.yaml",
+      "use_g2": true,
+      "g2_content_mode": "radial",
+      "samples_csv": "/root/home/newstudy/uniARPAT/results/joint_content_pilot_q1_valid_radial_samples.csv"
+    },
+    "joint": {
+      "checkpoint": "/root/home/newstudy/uniARPAT/output/ablation_m1_jcjoint/checkpoint_latest.pth",
+      "config": "/root/home/newstudy/uniARPAT/output/ablation_m1_jcjoint/config_used.yaml",
+      "use_g2": true,
+      "g2_content_mode": "joint",
+      "samples_csv": "/root/home/newstudy/uniARPAT/results/joint_content_pilot_q1_valid_joint_samples.csv"
+    }
+  },
+  "comparisons": {
+    "joint_vs_control": {
+      "reference_arm": "control",
+      "candidate_arm": "joint",
+      "csv": "/root/home/newstudy/uniARPAT/results/joint_content_pilot_q1_valid_joint_vs_control.csv",
+      "metrics": {
+        "edos_oracle": {
+          "metric": "edos_oracle",
+          "n": 2313,
+          "reference_median": 0.5173379182815552,
+          "candidate_median": 0.5185273885726929,
+          "delta_median": 0.0011894702911376953,
+          "reference_fail": 0.06658019887591872,
+          "candidate_fail": 0.06571552096843926,
+          "delta_fail": -0.0008646779074794608,
+          "delta_median_ci_low": -0.004172283411026001,
+          "delta_median_ci_high": 0.0033773928880691524,
+          "delta_fail_ci_low": -0.004334198011240824,
+          "delta_fail_ci_high": 0.0025940337224383825
+        },
+        "edos_blind": {
+          "metric": "edos_blind",
+          "n": 2313,
+          "reference_median": 0.4792011380195617,
+          "candidate_median": 0.4786505103111267,
+          "delta_median": -0.0005506277084350031,
+          "reference_fail": 0.09684392563769996,
+          "candidate_fail": 0.09727626459143969,
+          "delta_fail": 0.0004323389537397304,
+          "delta_median_ci_low": -0.0045770600438118526,
+          "delta_median_ci_high": 0.0035912141203880824,
+          "delta_fail_ci_low": -0.002161694768698666,
+          "delta_fail_ci_high": 0.0034587116299178437
+        },
+        "phdos_oracle": {
+          "metric": "phdos_oracle",
+          "n": 2313,
+          "reference_median": 0.7426454424858093,
+          "candidate_median": 0.7427617311477661,
+          "delta_median": 0.00011628866195678711,
+          "reference_fail": 0.038478166882836146,
+          "candidate_fail": 0.038478166882836146,
+          "delta_fail": 0.0,
+          "delta_median_ci_low": -0.004743203520774841,
+          "delta_median_ci_high": 0.005209742486476896,
+          "delta_fail_ci_low": -0.00302637267617812,
+          "delta_fail_ci_high": 0.00302637267617812
+        },
+        "phdos_blind": {
+          "metric": "phdos_blind",
+          "n": 2313,
+          "reference_median": 0.7316578030586243,
+          "candidate_median": 0.7346900701522827,
+          "delta_median": 0.0030322670936584473,
+          "reference_fail": 0.043666234327712924,
+          "candidate_fail": 0.04669260700389105,
+          "delta_fail": 0.0030263726761781268,
+          "delta_median_ci_low": -0.004030159115791321,
+          "delta_median_ci_high": 0.006175218522548674,
+          "delta_fail_ci_low": 0.0,
+          "delta_fail_ci_high": 0.006052745352356247
+        }
+      }
+    },
+    "joint_vs_radial": {
+      "reference_arm": "radial",
+      "candidate_arm": "joint",
+      "csv": "/root/home/newstudy/uniARPAT/results/joint_content_pilot_q1_valid_joint_vs_radial.csv",
+      "metrics": {
+        "edos_oracle": {
+          "metric": "edos_oracle",
+          "n": 2313,
+          "reference_median": 0.5202454924583435,
+          "candidate_median": 0.5185273885726929,
+          "delta_median": -0.0017181038856506348,
+          "reference_fail": 0.06571552096843926,
+          "candidate_fail": 0.06571552096843926,
+          "delta_fail": 0.0,
+          "delta_median_ci_low": -0.00720030814409256,
+          "delta_median_ci_high": 0.0010150238871574375,
+          "delta_fail_ci_low": -0.0030263726761781268,
+          "delta_fail_ci_high": 0.0030263726761781268
+        },
+        "edos_blind": {
+          "metric": "edos_blind",
+          "n": 2313,
+          "reference_median": 0.4799630641937256,
+          "candidate_median": 0.4786505103111267,
+          "delta_median": -0.001312553882598877,
+          "reference_fail": 0.09727626459143969,
+          "candidate_fail": 0.09727626459143969,
+          "delta_fail": 0.0,
+          "delta_median_ci_low": -0.005095891654491423,
+          "delta_median_ci_high": 0.0022107779979706325,
+          "delta_fail_ci_low": -0.003458711629917857,
+          "delta_fail_ci_high": 0.0038910505836575876
+        },
+        "phdos_oracle": {
+          "metric": "phdos_oracle",
+          "n": 2313,
+          "reference_median": 0.7417616844177246,
+          "candidate_median": 0.7427617311477661,
+          "delta_median": 0.001000046730041504,
+          "reference_fail": 0.039342844790315606,
+          "candidate_fail": 0.038478166882836146,
+          "delta_fail": -0.0008646779074794608,
+          "delta_median_ci_low": -0.0036158576607704163,
+          "delta_median_ci_high": 0.005799967050552368,
+          "delta_fail_ci_low": -0.004323389537397318,
+          "delta_fail_ci_high": 0.0025940337224383894
+        },
+        "phdos_blind": {
+          "metric": "phdos_blind",
+          "n": 2313,
+          "reference_median": 0.7332341074943542,
+          "candidate_median": 0.7346900701522827,
+          "delta_median": 0.0014559626579284668,
+          "reference_fail": 0.04539559014267185,
+          "candidate_fail": 0.04669260700389105,
+          "delta_fail": 0.0012970168612191982,
+          "delta_median_ci_low": -0.0039593905210495,
+          "delta_median_ci_high": 0.005216439068317405,
+          "delta_fail_ci_low": -0.002161694768698659,
+          "delta_fail_ci_high": 0.004755728491137048
+        }
+      }
+    },
+    "radial_vs_control": {
+      "reference_arm": "control",
+      "candidate_arm": "radial",
+      "csv": "/root/home/newstudy/uniARPAT/results/joint_content_pilot_q1_valid_radial_vs_control.csv",
+      "metrics": {
+        "edos_oracle": {
+          "metric": "edos_oracle",
+          "n": 2313,
+          "reference_median": 0.5173379182815552,
+          "candidate_median": 0.5202454924583435,
+          "delta_median": 0.00290757417678833,
+          "reference_fail": 0.06658019887591872,
+          "candidate_fail": 0.06571552096843926,
+          "delta_fail": -0.0008646779074794608,
+          "delta_median_ci_low": -0.0012259483337402344,
+          "delta_median_ci_high": 0.0068561568856239305,
+          "delta_fail_ci_low": -0.004323389537397318,
+          "delta_fail_ci_high": 0.0025940337224383964
+        },
+        "edos_blind": {
+          "metric": "edos_blind",
+          "n": 2313,
+          "reference_median": 0.4792011380195617,
+          "candidate_median": 0.4799630641937256,
+          "delta_median": 0.0007619261741638739,
+          "reference_fail": 0.09684392563769996,
+          "candidate_fail": 0.09727626459143969,
+          "delta_fail": 0.0004323389537397304,
+          "delta_median_ci_low": -0.0034400403499603256,
+          "delta_median_ci_high": 0.0056715607643128,
+          "delta_fail_ci_low": -0.003458711629917857,
+          "delta_fail_ci_high": 0.0038910505836575876
+        },
+        "phdos_oracle": {
+          "metric": "phdos_oracle",
+          "n": 2313,
+          "reference_median": 0.7426454424858093,
+          "candidate_median": 0.7417616844177246,
+          "delta_median": -0.0008837580680847168,
+          "reference_fail": 0.038478166882836146,
+          "candidate_fail": 0.039342844790315606,
+          "delta_fail": 0.0008646779074794608,
+          "delta_median_ci_low": -0.005848808586597443,
+          "delta_median_ci_high": 0.0039903476834297034,
+          "delta_fail_ci_low": -0.002161694768698666,
+          "delta_fail_ci_high": 0.0038910505836575876
+        },
+        "phdos_blind": {
+          "metric": "phdos_blind",
+          "n": 2313,
+          "reference_median": 0.7316578030586243,
+          "candidate_median": 0.7332341074943542,
+          "delta_median": 0.0015763044357299805,
+          "reference_fail": 0.043666234327712924,
+          "candidate_fail": 0.04539559014267185,
+          "delta_fail": 0.0017293558149589286,
+          "delta_median_ci_low": -0.004541073739528656,
+          "delta_median_ci_high": 0.005918741226196289,
+          "delta_fail_ci_low": -0.0012970168612191982,
+          "delta_fail_ci_high": 0.004755728491137048
+        }
+      }
+    }
+  },
+  "verdict": {
+    "verdict": "tie",
+    "win_conditions": {
+      "blind_edos_median_ge_0.02": false,
+      "blind_edos_fail_lt_0.01": true,
+      "oracle_edos_median_ge_0": true,
+      "oracle_phdos_median_ge_-0.02": true,
+      "oracle_phdos_fail_lt_0.01": true,
+      "blind_phdos_median_ge_-0.02": true,
+      "blind_phdos_fail_lt_0.01": true
+    },
+    "tie_conditions": {
+      "edos_oracle": true,
+      "edos_blind": true,
+      "phdos_oracle": true,
+      "phdos_blind": true
+    },
+    "guard_breaches": {
+      "edos_oracle_median_le_-0.02": false,
+      "edos_oracle_fail_ge_0.01": false,
+      "edos_blind_median_le_-0.02": false,
+      "edos_blind_fail_ge_0.01": false,
+      "phdos_oracle_median_le_-0.02": false,
+      "phdos_oracle_fail_ge_0.01": false,
+      "phdos_blind_median_le_-0.02": false,
+      "phdos_blind_fail_ge_0.01": false
+    },
+    "deltas": {
+      "edos_oracle": {
+        "delta_median": 0.0011894702911376953,
+        "delta_fail": -0.0008646779074794608
+      },
+      "edos_blind": {
+        "delta_median": -0.0005506277084350031,
+        "delta_fail": 0.0004323389537397304
+      },
+      "phdos_oracle": {
+        "delta_median": 0.00011628866195678711,
+        "delta_fail": 0.0
+      },
+      "phdos_blind": {
+        "delta_median": 0.0030322670936584473,
+        "delta_fail": 0.0030263726761781268
+      }
+    },
+    "joint_wins_vs_radial": false,
+    "only_beats_radial": false,
+    "only_beats_radial_note": "auxiliary classification only; it never changes the primary verdict and never starts another route"
+  },
+  "auxiliary": {
+    "csv": "/root/home/newstudy/uniARPAT/results/joint_content_pilot_q1_valid_auxiliary_readouts.csv",
+    "composition_pairs_csv": "/root/home/newstudy/uniARPAT/results/joint_content_pilot_q1_valid_composition_pairs.csv",
+    "gaps": []
+  },
+  "rules": {
+    "win": {
+      "blind_edos_delta_median_min": 0.02,
+      "blind_edos_fail_delta_max": 0.01,
+      "oracle_edos_delta_median_min": 0.0,
+      "phdos_oracle_delta_median_min": -0.02,
+      "phdos_oracle_fail_delta_max": 0.01,
+      "phdos_blind_delta_median_min": -0.02,
+      "phdos_blind_fail_delta_max": 0.01
+    },
+    "tie": {
+      "abs_delta_median_lt": 0.02,
+      "abs_delta_fail_lt": 0.01
+    },
+    "note": "point estimates decide; bootstrap intervals are reported only; tag is not recorded in config_used.yaml so it is not compared"
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "tool": "joint_content_resource_gate",
+  "measurement": "single_cold_train_step",
+  "steady_state": false,
+  "note": "one complete train_one_step per arm on the same fixed batch; cold-step timings are cost evidence, not a steady-state claim, and carry no automatic stop threshold",
+  "device": "Tesla V100-SXM2-32GB",
+  "batch_size": 32,
+  "batch_sha256": "a0af8fd0fb3afe503f07472d7bb7d1d6377f934e5b5f4737893b9720d3a460cc",
+  "r_cut": 5.5,
+  "init_ckpt": "./output/ablation_m1_e9ctl/checkpoint_best.pth",
+  "init_config": "./output/ablation_m1_e9ctl/config_used.yaml",
+  "expected_sha256": "cbbf94f227c9a3b4802c09bad7c1058ea015283b0acbd868831a829368d9ad40",
+  "arms": {
+    "control": {
+      "arm": "control",
+      "content_mode": "radial",
+      "use_g2": false,
+      "device": "Tesla V100-SXM2-32GB",
+      "trainable_params": 71152964,
+      "alpha_grad_norms": [],
+      "batch": {
+        "batch_size": 32,
+        "atom_slots": 2560,
+        "nonzero_atom_flags": 81,
+        "batch_sha256": "a0af8fd0fb3afe503f07472d7bb7d1d6377f934e5b5f4737893b9720d3a460cc"
+      },
+      "cold": {
+        "gpu_time_ms": 1857.6092529296875,
+        "wall_time_ms": 1857.6867629308254,
+        "peak_alloc_mb": 6554.72705078125,
+        "peak_reserved_mb": 7344.0,
+        "loss": 0.6868759393692017,
+        "loss_edos": 0.258920282125473,
+        "loss_phdos": 0.4194888174533844,
+        "loss_eta": 0.008466813713312149
+      }
+    },
+    "radial": {
+      "arm": "radial",
+      "content_mode": "radial",
+      "use_g2": true,
+      "device": "Tesla V100-SXM2-32GB",
+      "trainable_params": 74504522,
+      "alpha_grad_norms": [
+        0.003075619228184223,
+        0.008095765486359596,
+        0.0030418564565479755,
+        0.00013450486585497856,
+        0.008310722187161446,
+        0.02742011472582817
+      ],
+      "batch": {
+        "batch_size": 32,
+        "atom_slots": 2560,
+        "nonzero_atom_flags": 81,
+        "batch_sha256": "a0af8fd0fb3afe503f07472d7bb7d1d6377f934e5b5f4737893b9720d3a460cc"
+      },
+      "cold": {
+        "gpu_time_ms": 1993.6651611328125,
+        "wall_time_ms": 1993.7423069495708,
+        "peak_alloc_mb": 6804.97998046875,
+        "peak_reserved_mb": 7634.0,
+        "loss": 0.6868759393692017,
+        "loss_edos": 0.258920282125473,
+        "loss_phdos": 0.4194888174533844,
+        "loss_eta": 0.008466813713312149
+      }
+    },
+    "joint": {
+      "arm": "joint",
+      "content_mode": "joint",
+      "use_g2": true,
+      "device": "Tesla V100-SXM2-32GB",
+      "trainable_params": 79230794,
+      "alpha_grad_norms": [
+        0.0033144382759928703,
+        0.0022741914726793766,
+        0.004266522359102964,
+        0.005271509289741516,
+        0.029639046639204025,
+        0.009613859467208385
+      ],
+      "batch": {
+        "batch_size": 32,
+        "atom_slots": 2560,
+        "nonzero_atom_flags": 81,
+        "batch_sha256": "a0af8fd0fb3afe503f07472d7bb7d1d6377f934e5b5f4737893b9720d3a460cc"
+      },
+      "cold": {
+        "gpu_time_ms": 1978.249267578125,
+        "wall_time_ms": 1978.3204189734533,
+        "peak_alloc_mb": 6916.41455078125,
+        "peak_reserved_mb": 7788.0,
+        "loss": 0.6868759393692017,
+        "loss_edos": 0.258920282125473,
+        "loss_phdos": 0.4194888174533844,
+        "loss_eta": 0.008466813713312149
+      }
+    }
+  },
+  "comparison": {
+    "joint_vs_control": {
+      "time_ratio": 1.0649436981745073,
+      "wall_time_ratio": 1.0649375656056823,
+      "peak_alloc_ratio": 1.0551796432098406,
+      "peak_reserved_ratio": 1.0604575163398693
+    },
+    "joint_vs_radial": {
+      "time_ratio": 0.9922675613461951,
+      "wall_time_ratio": 0.9922648539270288,
+      "peak_alloc_ratio": 1.0163754442529342,
+      "peak_reserved_ratio": 1.0201729106628241
+    },
+    "radial_vs_control": {
+      "time_ratio": 1.0732424798102977,
+      "wall_time_ratio": 1.0732392278039888,
+      "peak_alloc_ratio": 1.038179000856744,
+      "peak_reserved_ratio": 1.0394880174291938
+    }
+  },
+  "verdict": "MEASURED_NO_OOM_SINGLE_STEP"
+}

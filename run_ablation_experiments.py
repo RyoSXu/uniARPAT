@@ -33,6 +33,64 @@ def setup_ablation_seed(seed: int):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
+G2_CONTENT_MODES = ("radial", "joint")
+
+
+def load_joint_initial_state(transformer, state):
+    """Accept complete joint weights or a complete B7 backbone, never partial G2.
+
+    Check keys and shapes before copying any weights. This is only the explicit
+    joint initialization path; ordinary checkpoint restoration stays strict.
+    """
+    expected = transformer.state_dict()
+    branch = {key for key in expected if key.startswith("encoder.g2_msgs.")}
+    if not branch or transformer.g2_content_mode != "joint":
+        raise ValueError("joint initialization requires a joint G2 model")
+    missing = set(expected) - set(state)
+    unexpected = set(state) - set(expected)
+    if unexpected or (missing and missing != branch):
+        raise ValueError(
+            "joint init requires a complete joint state or B7 backbone; "
+            f"missing={sorted(missing)}, unexpected={sorted(unexpected)}")
+    bad_shapes = [key for key in state
+                  if not isinstance(state[key], torch.Tensor)
+                  or state[key].shape != expected[key].shape]
+    if bad_shapes:
+        raise ValueError(f"joint init has incompatible tensors: {sorted(bad_shapes)}")
+    return transformer.load_state_dict(state, strict=not missing)
+
+
+def validate_g2_config(cfg: ExperimentConfig) -> None:
+    """Reject illegal G2 combinations before any directory or data access.
+
+    Candidate-1 contract: ``g2_content_mode="joint"`` must be explicit and run
+    together with ``--use_g2``; G2 never combines with G1. Silent fallback to
+    radial is forbidden, so invalid combinations raise here instead of being
+    ignored after artifacts and data loaders already exist.
+    """
+    if cfg.g2_content_mode not in G2_CONTENT_MODES:
+        raise ValueError(
+            f"g2_content_mode must be one of {G2_CONTENT_MODES}, got {cfg.g2_content_mode!r}")
+    if cfg.g2_content_mode == "joint" and not cfg.use_g2:
+        raise ValueError(
+            "g2_content_mode='joint' requires --use_g2; silent fallback to radial is forbidden")
+    if cfg.use_g1 and cfg.use_g2:
+        raise ValueError(
+            "G2 is a single-factor module on B7; --use_g1 and --use_g2 are mutually exclusive")
+
+
+def validate_reset_rng_config(cfg: ExperimentConfig) -> None:
+    """Reject ``--reset_rng_after_init`` without an initialization checkpoint.
+
+    Resetting the RNG only has meaning after an init checkpoint has been
+    consumed. The check runs alongside ``validate_g2_config`` so an unusable
+    flag fails before any directory, config template, or data loader exists.
+    """
+    if cfg.reset_rng_after_init and not cfg.init_ckpt:
+        raise ValueError("--reset_rng_after_init requires --init_ckpt")
+
+
 MODEL_CONFIGS = {
     'M1': {
         'desc': 'Shared decoder with asymmetric eDOS and phDOS output heads.',
@@ -137,6 +195,11 @@ def write_edos_slope_calibration(config_path, calibration):
 def train_and_eval(cfg: ExperimentConfig):
     if cfg.model_name not in MODEL_CONFIGS :
         raise ValueError (f"Unknown model name: {cfg.model_name }. Available: {list (MODEL_CONFIGS .keys ())}")
+    # Explicit early rejection of illegal G2 combinations: before save_dir is
+    # created and before any data or config template is loaded.
+    validate_g2_config(cfg)
+    # Same early boundary: an RNG reset without an init checkpoint is meaningless.
+    validate_reset_rng_config(cfg)
 
     setup_ablation_seed (cfg.seed )
     # A tag isolates artifacts from runs with a different configuration.
@@ -193,6 +256,9 @@ def train_and_eval(cfg: ExperimentConfig):
     # No neighbor-count or shift-range knobs are exposed for scanning.
     yaml_cfg ['model']['params']['sub_model']['transformer']['use_g2']=bool (cfg.use_g2 )
     yaml_cfg ['model']['params']['sub_model']['transformer']['g2_r_cut']=5.5
+    # Candidate-1 edge content function; joint requires use_g2 (validated above)
+    # and reaches the model through the same transformer params channel.
+    yaml_cfg ['model']['params']['sub_model']['transformer']['g2_content_mode']=str (cfg.g2_content_mode )
     # Optional coordinate-conditioned output trunks.
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_coord']=bool (cfg.q1_coord )
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_hidden']=int (cfg.q1_hidden )
@@ -251,9 +317,22 @@ def train_and_eval(cfg: ExperimentConfig):
     if cfg.init_ckpt :
         _ck =torch .load (cfg.init_ckpt ,map_location ='cpu')
         _st =_ck ['model']if isinstance (_ck ,dict )and 'model'in _ck else _ck 
-        _miss ,_unexp =model .model ['transformer'].load_state_dict (_st ,strict =False )
+        if cfg.g2_content_mode == 'joint':
+            _miss, _unexp = load_joint_initial_state(model.model['transformer'], _st)
+        else:
+            _miss ,_unexp =model .model ['transformer'].load_state_dict (_st ,strict =False )
         logger .info (f"[{cfg.model_name }] init_ckpt loaded: missing={list (_miss )[:5 ]} unexpected={list (_unexp )[:5 ]}")
         model .to (device )
+    # Candidate-1 fairness shim: after the init checkpoint is consumed and
+    # before the first training iteration, realign the Python/NumPy/PyTorch RNG.
+    # Architecture-dependent parameter initialization consumes a different
+    # number of random draws, so a shared seed alone does not align the dropout
+    # stream. Only runs when explicitly requested; default path is unchanged.
+    if cfg.reset_rng_after_init:
+        setup_ablation_seed(cfg.seed)
+        logger.info(
+            f"[{cfg.model_name}] RNG reset after init_ckpt load "
+            f"(--reset_rng_after_init, seed={cfg.seed})")
     if cfg.freeze_backbone :
         model .model ['transformer'].requires_grad_ (False )
         ntr =0 
@@ -343,12 +422,14 @@ def train_and_eval(cfg: ExperimentConfig):
             'use_g1':cfg.use_g1 ,'g1_r_cut':cfg.g1_r_cut ,
             'g1_max_neighbors':cfg.g1_max_neighbors ,
             'use_g2':cfg.use_g2 ,'g2_r_cut':5.5 ,
+            'g2_content_mode':cfg.g2_content_mode ,
             'q1_coord':cfg.q1_coord ,'q1_hidden':cfg.q1_hidden ,
             'q2_fourier':cfg.q2_fourier ,
             'c5_moe':cfg.c5_moe ,'c5_moe_balance_w':cfg.c5_moe_balance_w ,
             'r1a_point':cfg.r1a_point ,
             'r1b_coord':cfg.r1b_coord ,
-            'init_ckpt':cfg.init_ckpt ,'scale_sup_w':cfg.scale_sup_w },
+            'init_ckpt':cfg.init_ckpt ,'scale_sup_w':cfg.scale_sup_w ,
+            'reset_rng_after_init':bool (cfg.reset_rng_after_init )},
             'config':yaml_cfg },f ,indent =2 ,sort_keys =False ,
             default_flow_style =False )
 
@@ -679,7 +760,8 @@ def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :
 
     return summary 
 
-if __name__ == '__main__':
+def build_arg_parser():
+    """CLI parser (exposed so contract tests can exercise the exact options)."""
     parser = argparse.ArgumentParser(description='uniARPAT Ablation Experiments Runner')
     parser.add_argument('--model', type=str, default='M1', choices=['M1', 'M2', 'M3', 'M4', 'M5', 'all'], help='Model variant to run')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
@@ -729,6 +811,8 @@ if __name__ == '__main__':
     parser.add_argument('--g1_r_cut', type=float, default=5.5, help='Sparse-graph cutoff in Å')
     parser.add_argument('--g1_max_neighbors', type=int, default=48, help='Maximum graph neighbors per atom')
     parser.add_argument('--use_g2', action='store_true', help='Enable G2a periodic multi-image Value residual (fixed R=5.5)')
+    parser.add_argument('--g2_content_mode', type=str, default='radial', choices=['radial', 'joint'],
+                        help='G2a edge content function; joint requires --use_g2 (candidate 1)')
     parser.add_argument('--q1_coord', action='store_true', help='Enable coordinate-conditioned output trunks')
     parser.add_argument('--q1_hidden', type=int, default=128, help='Hidden size of coordinate trunks')
     parser.add_argument('--q2_fourier', action='store_true', help='Use Fourier features in coordinate trunks')
@@ -737,7 +821,15 @@ if __name__ == '__main__':
     parser.add_argument('--r1b_coord', action='store_true', help='Enable R1b coordinate-generated decoder query')
     parser.add_argument('--freeze_backbone', action='store_true', help='Train only auxiliary heads after initialization')
     parser.add_argument('--init_ckpt', type=str, default='', help='Checkpoint used to initialize the model')
+    parser.add_argument('--reset_rng_after_init', action='store_true',
+                        help='Re-seed the training RNG right after --init_ckpt is loaded '
+                             '(candidate-1 fairness shim; requires --init_ckpt)')
     parser.add_argument('--scale_sup_w', type=float, default=1.0, help='Weight of scale-prediction supervision')
+    return parser
+
+
+if __name__ == '__main__':
+    parser = build_arg_parser()
     args = parser.parse_args()
 
     if args.model == 'all':

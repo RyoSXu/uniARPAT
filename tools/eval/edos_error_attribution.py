@@ -19,6 +19,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+# Frozen Q1 eDOS grid width; SumNorm shapes are per-sample softmax vectors.
+EXPECTED_EDOS_BINS = 128
+
 
 def spectral_descriptors(spectra: np.ndarray, edge_bins: int = 8) -> dict[str, np.ndarray]:
     spectra = np.asarray(spectra, dtype=np.float64)
@@ -251,12 +254,57 @@ def _spearman(left: np.ndarray, right: np.ndarray) -> float:
     return float(spearmanr(left[valid], right[valid]).statistic)
 
 
+def validate_edos_shape_sumnorm(
+    shapes: np.ndarray,
+    expected_count: int,
+    row_sum_atol: float = 1e-4,
+) -> np.ndarray:
+    """Validate per-sample SumNorm eDOS shapes before they are persisted.
+
+    Shapes must be a two-dimensional ``[samples, bins]`` array with exactly
+    ``expected_count`` rows and ``EXPECTED_EDOS_BINS`` columns, finite,
+    nonnegative, and each row summing to one.
+    """
+    shapes = np.asarray(shapes, dtype=np.float64)
+    if shapes.ndim != 2:
+        raise ValueError("SumNorm eDOS shapes must be a two-dimensional [samples, bins] array")
+    if shapes.shape[0] != expected_count:
+        raise ValueError(
+            f"SumNorm eDOS shapes have {shapes.shape[0]} rows, expected {expected_count}")
+    if shapes.shape[1] != EXPECTED_EDOS_BINS:
+        raise ValueError(
+            f"SumNorm eDOS shapes have {shapes.shape[1]} bins, expected {EXPECTED_EDOS_BINS}")
+    if not np.isfinite(shapes).all():
+        raise ValueError("SumNorm eDOS shapes must be finite")
+    if (shapes < 0.0).any():
+        raise ValueError("SumNorm eDOS shapes must be nonnegative")
+    if not np.allclose(shapes.sum(axis=1), 1.0, atol=row_sum_atol, rtol=0):
+        raise ValueError("SumNorm eDOS shape rows must sum to one")
+    return shapes
+
+
+def finalize_evaluation_arrays(result: dict[str, list]) -> dict[str, np.ndarray]:
+    """Convert scalar lists and variable-size shape batches to stable arrays."""
+    arrays = {}
+    for name, values in result.items():
+        if name == "edos_shape_sumnorm":
+            arrays[name] = (
+                np.concatenate(values, axis=0).astype(np.float64, copy=False)
+                if values
+                else np.empty((0, EXPECTED_EDOS_BINS), dtype=np.float64)
+            )
+        else:
+            arrays[name] = np.asarray(values, dtype=np.float64)
+    return arrays
+
+
 def evaluate_b7(
     checkpoint_path: Path,
     config_path: Path,
     device: torch.device,
     split: str = "test",
     expected_epoch: int | None = 33,
+    collect_edos_shape_sumnorm: bool = False,
 ) -> dict[str, np.ndarray]:
     from utils.builder import ConfigBuilder
     from utils.metrics import per_sample_spectral_metrics
@@ -299,6 +347,8 @@ def evaluate_b7(
         "slope_error_other_gradient_mae": [],
         "slope_error_high_gradient_share": [],
     }
+    if collect_edos_shape_sumnorm:
+        result["edos_shape_sumnorm"] = []
     delta_edos = float(model.params.get("delta_edos", 0.09375))
     with torch.no_grad():
         for batch in loader:
@@ -329,6 +379,8 @@ def evaluate_b7(
                 model.model["transformer"](inp, attention_mask, pos, edos_x, phdos_x)
             )
             shape = F.softmax(outputs["edos"], dim=-1)
+            if collect_edos_shape_sumnorm:
+                result["edos_shape_sumnorm"].append(shape.detach().cpu().numpy())
             phdos_shape = F.softmax(outputs["phdos"], dim=-1)
             target = edos_target * (edos_max - edos_min) + edos_min
             oracle_prediction = torch.clamp(shape * (edos_max - edos_min) + edos_min, min=0.0)
@@ -387,7 +439,7 @@ def evaluate_b7(
                 value_array = values.detach().cpu().numpy() if torch.is_tensor(values) else values
                 result[name].extend(np.asarray(value_array).reshape(-1).tolist())
 
-    return {name: np.asarray(values, dtype=np.float64) for name, values in result.items()}
+    return finalize_evaluation_arrays(result)
 
 
 def ordered_valid_reference_r2(reference: pd.DataFrame, expected_count: int) -> np.ndarray:
@@ -562,6 +614,7 @@ def run_audit(
     split: str = "test",
     expected_epoch: int | None = 33,
     verify_reference_r2: bool = True,
+    edos_shape_sumnorm_path: Path | None = None,
 ) -> tuple[Path, Path]:
     os.chdir(REPO_ROOT)
     if split not in {"valid", "test"}:
@@ -589,6 +642,7 @@ def run_audit(
         device,
         split=split,
         expected_epoch=expected_epoch,
+        collect_edos_shape_sumnorm=edos_shape_sumnorm_path is not None,
     )
     if len(evaluated["r2_oracle_unmasked"]) != len(ids):
         raise ValueError(f"B7 inference output does not match the Q1 {split} split length")
@@ -626,6 +680,15 @@ def run_audit(
             evaluated["r2_oracle_unmasked"], reference_r2, atol=2e-5, rtol=0
         ):
             raise ValueError("recomputed B7 valid oracle R2 does not reproduce C2.1b samples")
+
+    if edos_shape_sumnorm_path is not None:
+        shape_path = Path(edos_shape_sumnorm_path)
+        if not shape_path.is_absolute():
+            shape_path = REPO_ROOT / shape_path
+        shapes = validate_edos_shape_sumnorm(
+            evaluated["edos_shape_sumnorm"], expected_count)
+        shape_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(shape_path, shapes.astype(np.float32))
 
     train_spectra = np.load("data/train4ARPAT/train/edos_tgtdos_train.npy")
     split_spectra = np.load(f"data/train4ARPAT/{split}/edos_tgtdos_{split}.npy")

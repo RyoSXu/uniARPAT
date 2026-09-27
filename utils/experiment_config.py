@@ -78,6 +78,11 @@ class ExperimentConfig:
     delta_phdos: float = 19.6875
     freeze_backbone: bool = False
     init_ckpt: str = ""
+    # Candidate-1 pilot fairness shim: when set, re-seed the training RNG right
+    # after an init checkpoint is loaded, so arms with different module counts
+    # enter the first iteration from the same random stream. Default off keeps
+    # the existing B7 trajectory byte-identical.
+    reset_rng_after_init: bool = False
     
     # --- Optional boundary scalars ---
     scalar_mode: str = "none"
@@ -91,6 +96,9 @@ class ExperimentConfig:
     # --- G2a periodic multi-image edge-conditioned message (fixed R=5.5) ---
     use_g2: bool = False
     g2_r_cut: float = 5.5
+    # Candidate-1 edge content function: "radial" keeps G2a; "joint" is only
+    # valid together with use_g2=True and is never silently ignored.
+    g2_content_mode: str = "radial"
     
     # --- Optional coordinate-conditioned output trunks ---
     q1_coord: bool = False

@@ -11,6 +11,15 @@
 | 已确定的选择与基准事实 | `decisions.md` | 固化结论 |
 | 训练数据与缓存边界 | `data.md` | 当前数据约定 |
 | 结构重构方向的事实、候选与保留项 | `design/design-structural-refinement.md` | 讨论底稿 |
+| 模型调研与升级的 agent 分工、模型配置和提示词 | `design/design-model-research-agent-orchestration.md` | 执行分工；候选1已完成 pilot 并 park |
+| 联合边内容与谱监督的升级候选取舍 | `design/design-model-upgrade-candidates.md` | 候选1已完成 pilot 并 park；候选2未自动启动 |
+| 联合边内容实现与CPU验收 | `logs/log-2026-09-27-joint-content-implementation.md` | 256维实现完成；后续阶段A资源已通过 |
+| 联合边内容基线兼容性审查 | `logs/log-2026-09-27-joint-content-flash-review.md` | Flash初审及协调者纠正；不是独立最终验收 |
+| 联合边内容资源核查与valid-only pilot设计 | `design/design-joint-content-pilot.md` | 已执行；阶段B正式平局并 park |
+| 联合边内容pilot设计核查日志 | `logs/log-2026-09-27-joint-content-pilot-design.md` | 只读核查完成；未运行GPU、真实数据前向或训练 |
+| 联合边内容RNG前置与阶段A资源核查 | `logs/log-2026-09-27-joint-content-rng-resource-tools.md` | V100三臂冷启动单步通过；阶段B随后获批并完成 |
+| 联合边内容valid-only判决工具 | `logs/log-2026-09-27-joint-content-verdict-tool.md` | epoch10 latest、三臂同序与预注册阈值已锁定并正式执行 |
+| 联合边内容Q1 valid-only三臂pilot | `logs/log-2026-09-28-joint-content-pilot.md` | 正式平局并park；未读取test，不进入M1×35 |
 | R2a 共享 decoder 深度缩减设计 | `design/design-r2a-decoder-depth.md` | 已完成设计 |
 | R2b 原子加性 phDOS 读出设计 | `design/design-r2b-atom-additive-phdos.md` | 已完成设计 |
 | C2.1b 验证集损失归因审计设计 | `design/design-c2-1b-loss-attribution.md` | 已完成诊断 |
