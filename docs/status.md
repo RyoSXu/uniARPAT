@@ -43,6 +43,13 @@
   control/radial 为 `1.355x/1.066x`。冻结 320 个同组成对中，真实谱差 TV 中位 `0.26975`，
   control/radial/joint 预测仅 `0.01918/0.01829/0.01871`；联合内容未修复该响应缺口。未读取 test。
   详见 `logs/log-2026-09-28-joint-content-pilot.md`。
+- **同组成谱差辅助 Stage B 完成并 park。**两臂均从 B7 epoch33 初始化，Q1 M1×10、seed42、
+  epoch10 latest，且主 batch、pair 计划与辅助前向相同；candidate 仅增加校准后的谱差梯度。相对 control，
+  全体 valid eDOS blind 中位 R²为 `+0.00159`、失败率为 `+0.216pt`，未过 `+0.02` 主门；oracle
+  eDOS 为 `+0.00162/+0.130pt`。phDOS oracle/blind 中位 R²为 `−0.00251/−0.00181`，保护门通过。
+  117 组／163 pair 的组等权谱差误差只下降 `0.465%`（95% bootstrap `0.104%…0.880%`），未过
+  `5%` 机制门；paired-256 保护门通过。正式裁决 `park`，不进入 M1×35，不扫描或追加诊断，未读取
+  test。详见 `logs/log-2026-09-28-edos-pair-aux-pilot.md`。
 - **冻结 G2 结构信息通路核验完成。**Q1 train/valid、两臂 epoch 10；valid 开关 G2 的 encoder／decoder 相对 RMS 中位数为 `0.0537/0.0637`，eDOS 谱 TV 为 `0.0147`，分支影响已传到输出。冻结 edge 关闭分支后 eDOS oracle 中位 R²下降 `0.0083`，但 edge 相对独立训练 control 的 Δmedian 仅 `−0.0007`；320 个同组成对的谱差误差改善区间包含零。不能认定通路完全失效，也不足以指定下一项改模；诊断关闭，G2 保持 park。未读取 test、未训练或改写 checkpoint。详见 `logs/log-2026-09-26-g2-structure-path-audit.md`。
 - **冻结 G2 结构谱差读出实验完成，具体干预未获支持。**正确／随机对应各训练读出1620步；train组等权谱差TV误差相对原读出下降6.11%，但从未出现在encoder训练中的valid163对／117组成组误差增加2.73%（改善95%区间`−0.01208…−0.00327`）。谱差MSE在train下降16.84%、留出增加9.30%；主valid配对256材料的eDOS oracle中位R²为`0.4687→−0.8478`，纯谱差目标未保护共有谱形。不能晋级该探针，也不能推出encoder无信息。源checkpoint和特征保持，未读取test。详见 `logs/log-2026-09-26-g2-frozen-readout-probe.md`。
 - **G2 encoder／读出联合适配实验完成，干预未获支持。**同初值、配对目标与1620步预算，只开放encoder更新；主valid117组成的TV误差相对冻结matched下降1.14%，改善区间`−0.00212…0.00859`跨零，且比original仍恶化1.55%。MSE相对冻结matched下降8.54%，但主valid单谱oracle／blind中位R²退至`−1.1274／−1.1641`，失败率`85.55%／86.72%`。不能晋级或断言encoder无信息；默认不变，未读取test。详见 `logs/log-2026-09-26-g2-encoder-adaptation-probe.md`。
@@ -102,16 +109,12 @@
 
 ## 待办顺序
 
-1. **当前关卡：同组成谱差辅助 Stage A 已通过，等待是否批准 Stage B 两臂 M1×10。**实现锁定
-   2,591 个合法 pair／1,198 个约化组成组，每轮组等权取一对并分成 75 个辅助 batch；默认关闭时
-   不建立计划或 loader。B7 epoch 33 初值上的无优化步校准得到 `lambda_pair=0.2593688071`，参数与
-   optimizer 状态未变，control/candidate 主输出逐值相同。V100 代表性 16 step 成本门中，control／
-   candidate 时间比分别 `1.0981x/1.0991x`，显存比均为 `0.9990x`，通过 `1.25x/1.10x` 门槛。
-   runner 已锁定 Q1、seed 42、M1×10、B7 文件身份、完整单因素配方和 test 隔离；valid-only 判决工具
-   已预注册五项门槛。Stage A 没有精度结论，未读取 test，也未启动 M1×10。只有另行批准后才能执行
-   `_pcctl` 与 `_pcaux`；任一非 win 结果直接 park，不追加拆层、扫描或训练集诊断。设计见
-   `design/design-edos-pair-auxiliary-pilot.md`，证据见
-   `logs/log-2026-09-28-edos-pair-aux-stage-a.md`。
+1. **当前关卡：同组成谱差辅助已完成并 park，回到模型决策层。**Stage B 的总体主门和机制门均失败，
+   三项保护门通过；该路线不进入 M1×35，不扫描 ratio、pair 频率、损失形式或 sampler，也不追加逐层
+   或训练集诊断。联合边内容、D3a 支持扩充和同组成谱差辅助三条近期候选均已按独立 valid 证据关闭。
+   下一步先审核累计证据与模型调用链，提出一个能直接改变模型选择或进入独立 valid 检验的新假设；
+   在新设计写明单一因素、指标、不同结果的行动和停止条件之前，不启动训练。设计与结果见
+   `design/design-edos-pair-auxiliary-pilot.md`、`logs/log-2026-09-28-edos-pair-aux-pilot.md`。
    - **首轮交付与复核完成：**R1代码审计可用于后续设计；R2实际由OpenCode MiMo-V2.6-Pro完成，历史数字抽查相符，但划分口径与四类机制推断须按审查收窄；R3由Antigravity交付，其公式归属、角特征位置、复杂度和Mat2Spec解释有实质错误，原推荐不通过。额度暂停后的两项独立审查与协调者Mat2Spec核验已于9月27日完成，原报告保留，纠正结论见 `logs/log-2026-09-27-research-report-review.md`，不再全量重复派发。
    - **候选设计、实现与 pilot 均完成：**9月27日通过本机OpenCode CLI、Go MiMo-V2.6-Pro/Build完成P8及唯一一轮定向修正，Codex完成关键公式、调用链、成本口径和比较条件收口；实现与工程前置通过。9月28日阶段B正式平局并 park，谱监督不会因主案失败自动转入训练。派发记录见 `logs/log-2026-09-27-model-upgrade-design-dispatch.md`，实验结论见 `logs/log-2026-09-28-joint-content-pilot.md`。
    - **执行平台偏好更新：**依用户要求，后续边界明确的调查、文档、获准实现和实验整理优先交OpenCode，Codex保留协调与关键证据/改动复核；本轮结果不构成模型能力排名。具体分工、P8提示词与验收见 `design/design-model-research-agent-orchestration.md`。本机已能尝试CLI直接派发，是否成功以任务交付记录为准；未建立自动重试/切换平台的调度服务。

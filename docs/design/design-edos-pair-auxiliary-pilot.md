@@ -1,8 +1,9 @@
 # 设计：完整谱锚定的 eDOS 同组成谱差辅助 Pilot
 
-状态：**Stage A 已完成并通过；Stage B 未授权。**路线证据见
+状态：**Stage B 已完成并 park；未读取 test，不进入 M1×35。**路线证据见
 `../logs/log-2026-09-28-next-step-gate-review.md`，实现与资源证据见
-`../logs/log-2026-09-28-edos-pair-aux-stage-a.md`。本设计只定义一个可证伪候选，不把外部方法名、
+`../logs/log-2026-09-28-edos-pair-aux-stage-a.md`，正式结果见
+`../logs/log-2026-09-28-edos-pair-aux-pilot.md`。本设计只定义一个可证伪候选，不把外部方法名、
 训练内响应或子集改善当作采用理由。
 
 ## 项目决策
@@ -90,10 +91,15 @@
 - V100 资源门禁只跑固定少量 step，不形成精度结果：平均 step 耗时 `<=1.25x`、峰值显存
   `<=1.10x` 同配置无辅助参照；任一失败即停止，不缩减 pair 覆盖率救场。
 
-### B. Q1 valid-only 两臂 Pilot（需另行批准）
+### B. Q1 valid-only 两臂 Pilot（已完成）
 
 正式使用 epoch 10 `checkpoint_latest.pth`，不按 valid 挑 epoch。2,313 条 valid 同序配对，2,000 次
 bootstrap 只报告区间，点估计与预注册门槛共同裁决。
+
+2026-09-28 执行结果为 `park`：blind eDOS 中位 R²只提高 `0.00159`，未达到 `+0.02` 主门槛；
+117 组／163 pair 的组等权谱差误差相对下降 `0.465%`（95% bootstrap 区间
+`0.104%…0.880%`），未达到 `5%` 机制门槛。谱形、共享任务和 paired-256 三项保护门均通过。
+依行动表不进入 M1×35，不扫描，不追加诊断。
 
 ## 验收与行动
 

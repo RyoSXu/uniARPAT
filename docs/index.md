@@ -24,8 +24,9 @@
 | D3a 数据源与接口审计 | `logs/log-2026-09-28-d3a-source-interface-audit.md` | OpenCode DeepSeek V4.1 Flash只读核查；候选集合与本地归属边界 |
 | D3a eDOS-only 候选支持面裁决 | `logs/log-2026-09-28-d3a-edos-support-adjudication.md` | 已closed；严格与全可读敏感性均未覆盖valid Q4缺口 |
 | D3a 后下一步关卡复核 | `logs/log-2026-09-28-next-step-gate-review.md` | 撤回逐层响应诊断；只准入一个直接连接独立valid的候选设计 |
-| 完整谱锚定的同组成谱差辅助 pilot | `design/design-edos-pair-auxiliary-pilot.md` | Stage A 已通过；Stage B 两臂 M1×10 未授权 |
+| 完整谱锚定的同组成谱差辅助 pilot | `design/design-edos-pair-auxiliary-pilot.md` | Stage B 已完成并park；主门与机制门未通过 |
 | 同组成谱差辅助 Stage A 实现与资源门 | `logs/log-2026-09-28-edos-pair-aux-stage-a.md` | CPU 合同、B7 初值校准与 V100 成本门已通过；无精度结论 |
+| 同组成谱差辅助 Q1 valid-only pilot | `logs/log-2026-09-28-edos-pair-aux-pilot.md` | 两臂M1×10完成并park；未读取test，不进入M1×35 |
 | R2a 共享 decoder 深度缩减设计 | `design/design-r2a-decoder-depth.md` | 已完成设计 |
 | R2b 原子加性 phDOS 读出设计 | `design/design-r2b-atom-additive-phdos.md` | 已完成设计 |
 | C2.1b 验证集损失归因审计设计 | `design/design-c2-1b-loss-attribution.md` | 已完成诊断 |
