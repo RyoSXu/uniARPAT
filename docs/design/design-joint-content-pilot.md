@@ -1,5 +1,8 @@
 # 设计：联合边内容（候选1）资源核查与 Q1 valid-only M1×10 pilot
 
+> **已完成的单项实验设计：**本文件的边界和行动表仅适用于联合边内容候选；该候选已 park。它不限制
+> 新的 encoder、decoder/head 或数据学习方案。当前方向见[结构条件谱形路线图](design-structural-refinement.md)。
+
 > 关联：[状态与计划](../status.md)（阶段 B 已完成并 park）、
 > [候选取舍草案](design-model-upgrade-candidates.md)（候选1）、
 > [实施与 CPU 验收日志](../logs/log-2026-09-27-joint-content-implementation.md)、

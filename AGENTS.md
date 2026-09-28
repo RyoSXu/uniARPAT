@@ -1,42 +1,23 @@
-# AGENTS.md — 项目导航
+# AGENTS.md — 项目协作约定
 
-## 首先阅读
+uniARPAT 从晶体结构预测 eDOS 与 phDOS。当前科学目标与证据见 `docs/status.md`；总体路线见
+`docs/design/design-structural-refinement.md`。
 
-每次会话先阅读 `docs/status.md`，再阅读 `docs/index.md`；涉及术语或指标时，继续阅读
-`docs/glossary.md`。模型或实验工作还要阅读 `docs/status.md` 中对应条目；数据工作还要
-阅读 `docs/data.md` 和 `index/z0_REPORT.md`。
+## 开始前
 
-`docs/workflow.md` 是必须遵守的会话流程，其中规定了计划、决策、日志、结果和设计文档
-的存放位置。
+- 阅读 `docs/status.md`、`docs/index.md`；按任务需要阅读 `docs/workflow.md`、`docs/data.md`、`docs/glossary.md` 和相关证据。
+- 修改前检查 `git status --short`，保留已有改动，不覆盖无关工作。
 
-## 项目概览
+## 研究与实施
 
-uniARPAT 从晶体结构预测电子态密度和声子态密度。当前参考实验是 B7 `_e9ctl`
-（Q1、M1×35、最佳 epoch 33）：eDOS 中位 R² 为 0.518、失败率 5.73%；phDOS 为
-0.741、失败率 3.50%。
+- 人负责目标、约束和取舍；Agent 应独立探索、核查证据、提出替代解释，也可以质疑当前路线图。路线图是方向，不是候选白名单。
+- 区分代码/日志支持的事实、推断和待验证假设。历史实验只约束其实际检验的方案，不自动否定更大的研究方向。
+- 在修改模型、改变数据契约或启动训练前，先交代目标、影响范围、判断标准和成本；需用户决定的事项得到确认后再执行。
+- 实验设计可以是单因素对照，也可以是相互依赖的完整架构方案；按问题选择合适预算，不预设固定 pilot 长度。
+- 模型选择使用 train/valid；不得用 test 调参或选型。结果报告中说明数据口径、任务、指标与 blind/oracle 模式。
 
-默认方案为 M1、总和归一化的 KL/W1/Huber 损失、H1 eta/gamma 盲推理头、0.05 dropout，
-以及 Q1 清洁数据池。
+## 保留边界
 
-## 常用命令
-
-```bash
-python3 -m unittest discover tests
-python3 run_ablation_experiments.py --model M1 --epochs 10 --tag _pilot
-python3 run_ablation_experiments.py --model M1 --epochs 35 --tag _e9ctl
-```
-
-未经明确批准，禁止运行 `--model all --epochs 100`。禁止在不同归一化方案之间复用检查点。
-长训练使用 `setsid + nohup`；正式摘要存入 `results/`，检查点保留在 `output/`。
-
-## 约束
-
-- 启动训练、消融或机制实验前，设计必须写明它服务的项目决策、主要指标与数据划分，并列出不同结果分别对应的行动和停止条件。项目决策须涉及候选方案取舍、阻塞精度改进的具体假设，或下一项独立验证检验。
-- 若没有任何可能结果会改变模型选择、验证安排或实验顺序，或结果只会引出另一项训练集诊断而不能进入预先指定的独立验证检验，则不启动实验；先用已有产物做只读分析。
-- 仅在训练集上做的小样本拟合／容量检查只能支持对应设置下的机制结论。只有其结果会决定一项具体的独立验证检验时才启动；不得据此宣称准确率或泛化收益，也不得连续堆叠训练集诊断。
-- 每个实验只改变一个因素，并只给出一个结论。先做 pilot，再做等算力对照。
-- 使用中位 R² 和失败率；报告数据口径以及 oracle/blind 模式。
-- 平局线为 `|Δmed| < 0.02` 且 `|Δfail| < 1 个百分点`。
-- 工作树有未提交改动时保留无关改动。未经逐项明确批准，不得删除检查点。
-- 启动下一项实验前，确保上一项结论已写入日志、`status.md`，并在会影响后续工作时
-同步写入 `status.md`。
+- 不同归一化方案不得复用 checkpoint。
+- 未经明确批准，不运行 `--model all --epochs 100`，不删除 checkpoint，不执行破坏性 Git 操作或提交。
+- 完成后简要说明改动、依据、验证及未解决事项；文档改动检查引用和差异，代码改动执行相关检查。

@@ -1,5 +1,8 @@
 # 设计：模型升级机制候选（P8 设计草案）
 
+> **历史候选评审：**候选 1 已完成并 park，候选 2 未启动。文中的排序、筛除项和候选范围只反映当时
+> 的评审，不是当前架构白名单；当前方向见[结构条件谱形路线图](design-structural-refinement.md)。
+
 > 关联：[状态与计划](../status.md)、[G2a 实施设计](design-g2-periodic-multi-image-message.md)、
 > [R1 代码审计](../logs/log-2026-09-26-r1-model-code-audit.md)、
 > [报告复核](../logs/log-2026-09-27-research-report-review.md)、
