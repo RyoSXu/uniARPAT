@@ -40,6 +40,8 @@ class ExperimentConfig:
     tv_w: float = 0.0
     grad_w: float = 0.0
     edos_slope_ratio: float = 0.0
+    pair_aux_arm: str = "none"
+    pair_ratio: float = 0.0
     peak_w: float = 1.0
     tail_w: float = 1.0
     tail_start: int = -1

@@ -15,6 +15,7 @@ import os
 from model.losses import (
     calibrate_additive_loss_weight,
     compute_shape_loss,
+    edos_pair_contrast_loss,
     edos_slope_matching_loss,
     gradient_loss,
     sumnorm_klw_loss,
@@ -77,6 +78,25 @@ class basemodel(nn.Module):
             raise ValueError("eDOS slope matching requires the SumNorm loss")
         if self.edos_slope_ratio > 0.0 and self.use_mask:
             raise ValueError("eDOS slope matching currently requires use_mask=False")
+        self.pair_aux_arm = str(self.params.get("pair_aux_arm", "none"))
+        self.pair_ratio = float(self.params.get("pair_ratio", 0.0))
+        self.pair_lambda = 0.0
+        self.pair_aux_calibrated = self.pair_aux_arm == "none"
+        self.pair_aux_calibration = None
+        if self.pair_aux_arm not in {"none", "control", "candidate"}:
+            raise ValueError("pair_aux_arm must be none, control, or candidate")
+        if not np.isfinite(self.pair_ratio) or self.pair_ratio < 0.0:
+            raise ValueError("pair_ratio must be finite and nonnegative")
+        if self.pair_aux_arm == "none" and self.pair_ratio != 0.0:
+            raise ValueError("pair_ratio must be zero when pair auxiliary mode is disabled")
+        if self.pair_aux_arm != "none" and self.pair_ratio <= 0.0:
+            raise ValueError("active pair auxiliary mode requires a positive pair_ratio")
+        if self.pair_aux_arm != "none" and self.loss_form != "sumnorm_klw":
+            raise ValueError("eDOS pair auxiliary loss requires the SumNorm loss")
+        if self.pair_aux_arm != "none" and self.use_mask:
+            raise ValueError("eDOS pair auxiliary loss currently requires use_mask=False")
+        if self.pair_aux_arm != "none" and self.use_amp:
+            raise ValueError("eDOS pair auxiliary loss does not support AMP")
         # C5 token-MoE load balancing.  It is zero for every non-C5 run.
         self.c5_moe_balance_w = float(self.params.get("c5_moe_balance_w", 0.01))
         self.begin_epoch = 0
@@ -254,7 +274,59 @@ class basemodel(nn.Module):
         finally:
             transformer.train(was_training)
 
-    def train_one_step(self, batch_data, step):
+    def _pair_forward_loss(self, pair_batch):
+        pair_data = self.data_preprocess(pair_batch)
+        inp, pos, mask, edos_target = pair_data[:4]
+        edos_x, phdos_x = pair_data[-2:]
+        pair_count = inp.shape[0] // 2
+        if pair_count == 0 or inp.shape[0] != 2 * pair_count:
+            raise ValueError("pair auxiliary batch must contain A endpoints followed by B endpoints")
+        with self.amp_autocast():
+            outputs = self.model["transformer"](inp, mask, pos, edos_x, phdos_x)
+        outputs = self.fp32_outputs(outputs)
+        logits = outputs["edos"]
+        if logits.dim() == 3:
+            logits = logits.squeeze(1)
+        loss = edos_pair_contrast_loss(
+            logits[:pair_count], logits[pair_count:],
+            edos_target[:pair_count], edos_target[pair_count:],
+        )
+        return loss, logits, edos_target, pair_data[13]
+
+    def _calibrate_edos_pair_weight(self, pair_batch):
+        transformer = self.model["transformer"]
+        was_training = transformer.training
+        transformer.eval()
+        try:
+            with torch.enable_grad():
+                pair_loss, logits, targets, coverage = self._pair_forward_loss(pair_batch)
+                base_loss = sumnorm_klw_loss(
+                    logits, targets, coverage, self.use_mask,
+                    self.w_w1, self.w_huber, self.huber_delta,
+                ).mean()
+                weight, base_norm, pair_norm = calibrate_additive_loss_weight(
+                    base_loss, pair_loss, transformer.parameters(), self.pair_ratio,
+                )
+            if not 1e-4 <= weight <= 1e4:
+                raise ValueError("calibrated pair_lambda must be within [1e-4, 1e4]")
+            self.pair_lambda = weight
+            self.pair_aux_calibrated = True
+            self.pair_aux_calibration = {
+                "target_gradient_ratio": self.pair_ratio,
+                "lambda": weight,
+                "base_gradient_norm": base_norm,
+                "pair_gradient_norm": pair_norm,
+            }
+            if self.logger is not None:
+                self.logger.info(
+                    "eDOS pair loss calibrated: ratio=%.4f lambda=%.8g "
+                    "base_grad=%.8g pair_grad=%.8g",
+                    self.pair_ratio, weight, base_norm, pair_norm,
+                )
+        finally:
+            transformer.train(was_training)
+
+    def train_one_step(self, batch_data, step, pair_batch=None):
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
@@ -264,6 +336,11 @@ class basemodel(nn.Module):
             self._calibrate_edos_slope_weight(
                 inp, mask, pos, edos_target, edos_cov, edos_x, phdos_x
             )
+        if pair_batch is not None and self.pair_aux_arm == "none":
+            raise ValueError("pair_batch requires an active pair auxiliary arm")
+        if self.pair_aux_arm != "none" and pair_batch is not None \
+                and not self.pair_aux_calibrated:
+            raise RuntimeError("pair auxiliary loss must be calibrated before training")
 
         if len(self.model) == 1:
             with self.amp_autocast():
@@ -403,11 +480,32 @@ class basemodel(nn.Module):
         if self.edos_slope_lambda > 0.0:
             loss_edos_slope = edos_slope_matching_loss(predict_edos, edos_target)
             total_loss = total_loss + self.edos_slope_lambda * loss_edos_slope
+        loss_edos_pair = torch.zeros((), device=total_loss.device)
+        reported_total_loss = total_loss
 
         if len(self.optimizer) == 1:
             self.optimizer[list(self.optimizer.keys())[0]].zero_grad()
             optimizer = self.optimizer[list(self.optimizer.keys())[0]]
-            if self.use_amp:
+            if pair_batch is not None:
+                # Free the main graph before constructing the pair graph. Both
+                # backwards accumulate into the same optimizer step, preserving
+                # the exact additive gradient while bounding peak memory.
+                total_loss.backward()
+                loss_edos_pair, _pair_logits, _pair_targets, _pair_coverage = \
+                    self._pair_forward_loss(pair_batch)
+                pair_weight = (
+                    self.pair_lambda if self.pair_aux_arm == "candidate" else 0.0
+                )
+                (pair_weight * loss_edos_pair).backward()
+                reported_total_loss = (
+                    total_loss.detach() + pair_weight * loss_edos_pair.detach()
+                )
+                if self.grad_clip > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model[list(self.model.keys())[0]].parameters(), self.grad_clip
+                    )
+                optimizer.step()
+            elif self.use_amp:
                 self.gscaler.scale(total_loss).backward()
                 if self.grad_clip > 0:
                     self.gscaler.unscale_(optimizer)
@@ -422,8 +520,8 @@ class basemodel(nn.Module):
         else:
             raise NotImplementedError('Invalid model type.')
 
-        return {
-            'loss': total_loss.item(),
+        result = {
+            'loss': reported_total_loss.item(),
             'loss_edos': loss_edos.item(),
             'loss_phdos': loss_phdos.item(),
             'loss_tv': loss_tv.item(),
@@ -440,6 +538,13 @@ class basemodel(nn.Module):
             'loss_sum': loss_sum.item() if 'loss_sum' in locals() else 0.0,
             'loss_c5_moe_balance': loss_c5_moe_balance.item(),
         }
+        if self.pair_aux_arm != "none":
+            result.update({
+                'loss_edos_pair': loss_edos_pair.item(),
+                'pair_ratio': self.pair_ratio,
+                'pair_lambda': self.pair_lambda,
+            })
+        return result
 
     def test_one_step(self, batch_data, step=None, save_predict=False):
         # Unpack the same batch layout used by training.

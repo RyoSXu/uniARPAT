@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+import hashlib
 import json
 import random
 import yaml
@@ -13,6 +14,9 @@ from model.model import basemodel
 from utils.experiment_config import ExperimentConfig
 from utils.ablation_checkpoint import (
     atomic_torch_save, build_ablation_checkpoint, restore_ablation_checkpoint,
+)
+from utils.pair_aux_batches import (
+    PairPlanBatchSampler, build_pair_universe, schedule_auxiliary_batches,
 )
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -35,6 +39,8 @@ def setup_ablation_seed(seed: int):
 
 
 G2_CONTENT_MODES = ("radial", "joint")
+PAIR_B7_CHECKPOINT = os.path.abspath("./output/ablation_m1_e9ctl/checkpoint_best.pth")
+PAIR_B7_CHECKPOINT_SHA256 = "cbbf94f227c9a3b4802c09bad7c1058ea015283b0acbd868831a829368d9ad40"
 
 
 def load_joint_initial_state(transformer, state):
@@ -89,6 +95,103 @@ def validate_reset_rng_config(cfg: ExperimentConfig) -> None:
     """
     if cfg.reset_rng_after_init and not cfg.init_ckpt:
         raise ValueError("--reset_rng_after_init requires --init_ckpt")
+
+
+def validate_pair_aux_config(cfg: ExperimentConfig) -> None:
+    """Keep the pair auxiliary path opt-in and isolated to its frozen recipe."""
+    if cfg.pair_aux_arm not in {"none", "control", "candidate"}:
+        raise ValueError("pair_aux_arm must be none, control, or candidate")
+    if not np.isfinite(cfg.pair_ratio) or cfg.pair_ratio < 0:
+        raise ValueError("pair_ratio must be finite and nonnegative")
+    if cfg.pair_aux_arm == "none":
+        if cfg.pair_ratio != 0:
+            raise ValueError("pair_ratio must be zero when pair auxiliary mode is disabled")
+        return
+    if cfg.pair_ratio != 0.10:
+        raise ValueError("the frozen pair auxiliary design requires pair_ratio=0.10")
+    if not cfg.skip_test_eval:
+        raise ValueError("pair auxiliary runs require --skip_test_eval")
+    if os.path.abspath(cfg.init_ckpt) != PAIR_B7_CHECKPOINT or not cfg.reset_rng_after_init:
+        raise ValueError("pair auxiliary runs require the frozen B7 checkpoint and RNG reset")
+    expected_tag = "_pcctl" if cfg.pair_aux_arm == "control" else "_pcaux"
+    if cfg.tag != expected_tag:
+        raise ValueError(f"{cfg.pair_aux_arm} pair arm requires tag {expected_tag}")
+    frozen_values = {
+        "model_name": (cfg.model_name, "M1"),
+        "epochs": (cfg.epochs, 10),
+        "batch_size": (cfg.batch_size, 32),
+        "lr": (cfg.lr, 5e-5),
+        "seed": (cfg.seed, 42),
+        "data_dir": (os.path.abspath(cfg.data_dir), os.path.abspath("./data/train4ARPAT")),
+        "decoder_layers": (cfg.decoder_layers, 6),
+        "atom_feat": (cfg.atom_feat, "legacy3"),
+        "energy_code": (cfg.energy_code, "none"),
+        "norm": (cfg.norm, "sumnorm"),
+        "scale_mode": (cfg.scale_mode, "eta"),
+        "scalar_mode": (cfg.scalar_mode, "none"),
+        "tv_w": (cfg.tv_w, 0.0),
+        "grad_w": (cfg.grad_w, 0.0),
+        "peak_w": (cfg.peak_w, 1.0),
+        "tail_w": (cfg.tail_w, 1.0),
+        "tail_start": (cfg.tail_start, -1),
+        "eta_sup_w": (cfg.eta_sup_w, 1.0),
+        "scale_sup_w": (cfg.scale_sup_w, 1.0),
+    }
+    mismatches = {
+        name: values for name, values in frozen_values.items() if values[0] != values[1]
+    }
+    if mismatches:
+        raise ValueError(f"pair auxiliary frozen recipe mismatch: {mismatches}")
+    optional_defaults = {
+        "dropout": (cfg.dropout, {None, 0.05}),
+        "warmup_epochs": (cfg.warmup_epochs, {None, 5}),
+        "weight_decay": (cfg.weight_decay, {None}),
+        "lambda_ph": (cfg.lambda_ph, {None, 1.0}),
+        "grad_clip": (cfg.grad_clip, {None, 0.0}),
+        "w_w1": (cfg.w_w1, {None, 1.0}),
+        "w_huber": (cfg.w_huber, {None, 1.0}),
+    }
+    bad_optional = sorted(
+        name for name, (value, allowed) in optional_defaults.items() if value not in allowed
+    )
+    if bad_optional:
+        raise ValueError(f"pair auxiliary frozen optional settings differ: {bad_optional}")
+    conflicts = {
+        "use_amp": cfg.use_amp,
+        "use_bucket_batch": cfg.use_bucket_batch,
+        "augment": cfg.augment,
+        "use_mask": cfg.use_mask,
+        "freeze_backbone": cfg.freeze_backbone,
+        "use_g1": cfg.use_g1,
+        "use_g2": cfg.use_g2,
+        "q1_coord": cfg.q1_coord,
+        "q2_fourier": cfg.q2_fourier,
+        "c5_moe": cfg.c5_moe,
+        "r1a_point": cfg.r1a_point,
+        "r1b_coord": cfg.r1b_coord,
+        "use_macro_lattice": cfg.use_macro_lattice,
+        "use_atom_additive_phdos": cfg.use_atom_additive_phdos,
+        "edos_slope_ratio": cfg.edos_slope_ratio != 0,
+    }
+    enabled = sorted(name for name, value in conflicts.items() if value)
+    if enabled:
+        raise ValueError(f"pair auxiliary is a single-factor experiment; conflicts={enabled}")
+
+
+def validate_pair_aux_init_checkpoint(cfg: ExperimentConfig) -> None:
+    """Verify the exact B7 epoch-33 initialization before creating artifacts."""
+    if cfg.pair_aux_arm == "none":
+        return
+    digest = hashlib.sha256()
+    with open(cfg.init_ckpt, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(chunk)
+    if digest.hexdigest() != PAIR_B7_CHECKPOINT_SHA256:
+        raise ValueError("pair auxiliary init checkpoint SHA-256 mismatch")
+    checkpoint = torch.load(cfg.init_ckpt, map_location="cpu", weights_only=True)
+    identity = (checkpoint.get("epoch"), checkpoint.get("model_name"), checkpoint.get("seed"))
+    if identity != (33, "M1", 42) or checkpoint.get("use_amp", False):
+        raise ValueError(f"pair auxiliary requires the FP32 B7 epoch-33 checkpoint: {identity}")
 
 
 MODEL_CONFIGS = {
@@ -192,6 +295,41 @@ def write_edos_slope_calibration(config_path, calibration):
         yaml.safe_dump(config_used, stream, sort_keys=False)
 
 
+def write_pair_aux_calibration(config_path, calibration, frozen_plan_hash, epoch_plan_hash):
+    with open(config_path) as stream:
+        config_used = yaml.safe_load(stream)
+    runtime = config_used.setdefault("runtime", {})
+    runtime.update({
+        "pair_ratio": calibration["target_gradient_ratio"],
+        "pair_lambda": calibration["lambda"],
+        "pair_base_gradient_norm": calibration["base_gradient_norm"],
+        "pair_gradient_norm": calibration["pair_gradient_norm"],
+        "pair_plan_hash": frozen_plan_hash,
+        "pair_epoch_plan_hash": epoch_plan_hash,
+    })
+    with open(config_path, "w") as stream:
+        yaml.safe_dump(config_used, stream, sort_keys=False)
+
+
+def maybe_get_pair_aux_loader(train_loader, cfg):
+    """Build the label-free plan only for an explicitly active pair arm."""
+    if cfg.pair_aux_arm == "none":
+        return None, None
+    from torch.utils.data import DataLoader
+    index_path = os.path.join(cfg.data_dir, "train", "train_index.npy")
+    sample_ids = np.load(index_path)
+    universe = build_pair_universe(train_loader.dataset.elements, sample_ids)
+    sampler = PairPlanBatchSampler(universe, cfg.seed, pairs_per_batch=16)
+    loader = DataLoader(
+        train_loader.dataset,
+        batch_sampler=sampler,
+        collate_fn=train_loader.collate_fn,
+        num_workers=0,
+        pin_memory=train_loader.pin_memory,
+    )
+    return loader, sampler
+
+
 def train_and_eval(cfg: ExperimentConfig):
     if cfg.model_name not in MODEL_CONFIGS :
         raise ValueError (f"Unknown model name: {cfg.model_name }. Available: {list (MODEL_CONFIGS .keys ())}")
@@ -200,6 +338,8 @@ def train_and_eval(cfg: ExperimentConfig):
     validate_g2_config(cfg)
     # Same early boundary: an RNG reset without an init checkpoint is meaningless.
     validate_reset_rng_config(cfg)
+    validate_pair_aux_config(cfg)
+    validate_pair_aux_init_checkpoint(cfg)
 
     setup_ablation_seed (cfg.seed )
     # A tag isolates artifacts from runs with a different configuration.
@@ -236,6 +376,8 @@ def train_and_eval(cfg: ExperimentConfig):
     ("tail_w",cfg.tail_w ),("tail_start",cfg.tail_start )):
         yaml_cfg ['model']['params'][_k ]=_v 
     yaml_cfg ['model']['params']['edos_slope_ratio']=float (cfg.edos_slope_ratio )
+    yaml_cfg ['model']['params']['pair_aux_arm']=str (cfg.pair_aux_arm )
+    yaml_cfg ['model']['params']['pair_ratio']=float (cfg.pair_ratio )
         # Sum normalization selects the distribution-based loss below.
     yaml_cfg ['model']['params']['use_mask']=bool (cfg.use_mask )
     yaml_cfg ['model']['params']['use_amp']=bool (cfg.use_amp )
@@ -303,6 +445,7 @@ def train_and_eval(cfg: ExperimentConfig):
     builder =ConfigBuilder (**yaml_cfg )
 
     train_loader =builder .get_dataloader (split ='train',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn ,use_bucket_batch =cfg .use_bucket_batch )
+    pair_loader ,pair_sampler =maybe_get_pair_aux_loader (train_loader ,cfg )
     val_loader =builder .get_dataloader (split ='valid',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn )
     test_loader =maybe_get_test_loader(builder, cfg, _sn)
 
@@ -320,7 +463,9 @@ def train_and_eval(cfg: ExperimentConfig):
         if cfg.g2_content_mode == 'joint':
             _miss, _unexp = load_joint_initial_state(model.model['transformer'], _st)
         else:
-            _miss ,_unexp =model .model ['transformer'].load_state_dict (_st ,strict =False )
+            _strict_init =cfg.pair_aux_arm !="none"
+            _miss ,_unexp =model .model ['transformer'].load_state_dict (
+                _st ,strict =_strict_init )
         logger .info (f"[{cfg.model_name }] init_ckpt loaded: missing={list (_miss )[:5 ]} unexpected={list (_unexp )[:5 ]}")
         model .to (device )
     # Candidate-1 fairness shim: after the init checkpoint is consumed and
@@ -333,6 +478,11 @@ def train_and_eval(cfg: ExperimentConfig):
         logger.info(
             f"[{cfg.model_name}] RNG reset after init_ckpt load "
             f"(--reset_rng_after_init, seed={cfg.seed})")
+    pair_latest_path =os .path .join (save_dir ,'checkpoint_latest.pth')
+    if pair_sampler is not None and not os .path .exists (pair_latest_path ):
+        pair_sampler .set_epoch (0 )
+        first_pair_batch =next (iter (pair_loader ))
+        model ._calibrate_edos_pair_weight (first_pair_batch )
     if cfg.freeze_backbone :
         model .model ['transformer'].requires_grad_ (False )
         ntr =0 
@@ -361,18 +511,40 @@ def train_and_eval(cfg: ExperimentConfig):
     # checkpoint_latest.pth carries {epoch, model, optimizer, best_val_score}.
     latest_p =os .path .join (save_dir ,'checkpoint_latest.pth')
     hist_p =f"./results/history_{suffix }.csv"
+    config_path =os .path .join (save_dir ,"config_used.yaml")
     if os .path .exists (latest_p ):
         try :
             ck =torch .load (latest_p ,map_location ='cpu')
+            expected_pair_plan_hash =None
+            expected_pair_lambda =None
+            if pair_sampler is not None:
+                saved_epoch =int (ck .get ('epoch',0 ))
+                if saved_epoch <=0:
+                    raise ValueError("pair auxiliary checkpoint must follow a completed epoch")
+                expected_pair_plan_hash =pair_sampler .frozen_plan_hash ()
+                if not os .path .exists (config_path ):
+                    raise ValueError("pair auxiliary resume requires config_used.yaml")
+                with open (config_path )as stream:
+                    saved_runtime =yaml .safe_load (stream ).get ("runtime",{})
+                expected_pair_lambda =saved_runtime .get ("pair_lambda")
+                if saved_runtime .get ("pair_plan_hash")!=expected_pair_plan_hash:
+                    raise ValueError("pair auxiliary config has a different pair plan")
             resume_meta =restore_ablation_checkpoint (
                 ck ,model .model ['transformer'],optimizer ,cfg .use_amp ,model .gscaler,
-                edos_slope_ratio=model.edos_slope_ratio)
+                edos_slope_ratio=model.edos_slope_ratio,
+                pair_aux_arm=cfg.pair_aux_arm,pair_ratio=cfg.pair_ratio,
+                pair_lambda=expected_pair_lambda,
+                pair_plan_hash=expected_pair_plan_hash)
             if model.edos_slope_ratio > 0.0:
                 if resume_meta["edos_slope_lambda"] is None:
                     raise ValueError("slope-loss checkpoint is missing its calibrated lambda")
                 model.edos_slope_lambda = float(resume_meta["edos_slope_lambda"])
                 model.edos_slope_calibrated = True
                 model.edos_slope_calibration = None
+            if pair_sampler is not None:
+                model.pair_lambda = float(resume_meta["pair_lambda"])
+                model.pair_aux_calibrated = True
+                model.pair_aux_calibration = None
             start_epoch =resume_meta ['epoch']
             best_val_score =resume_meta ['best_val_score']
             # restore best_epoch + history (history file optional: killed runs
@@ -396,7 +568,6 @@ def train_and_eval(cfg: ExperimentConfig):
 
     # Only persist configuration after recovery has succeeded. Preserve an
     # existing resume config, including its recorded slope calibration.
-    config_path = os.path.join(save_dir, "config_used.yaml")
     if not os.path.exists(latest_p) or not os.path.exists(config_path):
         with open(config_path, "w") as f:
             yaml .dump ({'cli':{'model':cfg.model_name ,'epochs':cfg.epochs ,
@@ -409,6 +580,7 @@ def train_and_eval(cfg: ExperimentConfig):
             'use_macro_lattice':cfg.use_macro_lattice ,
             'tv_w':cfg.tv_w ,'grad_w':cfg.grad_w ,'peak_w':cfg.peak_w ,
             'edos_slope_ratio':cfg.edos_slope_ratio ,
+            'pair_aux_arm':cfg.pair_aux_arm ,'pair_ratio':cfg.pair_ratio ,
             'tail_w':cfg.tail_w ,'tail_start':cfg.tail_start ,
             'augment':cfg.augment ,'disp_sigma':cfg.disp_sigma ,
             'norm':cfg.norm ,'use_mask':cfg.use_mask ,'use_amp':cfg.use_amp ,'use_bucket_batch':cfg .use_bucket_batch ,'skip_test_eval':cfg.skip_test_eval ,'dropout':cfg.dropout ,
@@ -433,6 +605,15 @@ def train_and_eval(cfg: ExperimentConfig):
             'config':yaml_cfg },f ,indent =2 ,sort_keys =False ,
             default_flow_style =False )
 
+    if getattr(model, "pair_aux_calibration", None) is not None:
+        write_pair_aux_calibration(
+            config_path,
+            model.pair_aux_calibration,
+            pair_sampler.frozen_plan_hash(),
+            pair_sampler.plan_hash(0),
+        )
+        model.pair_aux_calibration = None
+
 
     for epoch in range (start_epoch ,cfg.epochs ):
     # Advance the distributed sampler so each epoch receives a new order.
@@ -441,6 +622,12 @@ def train_and_eval(cfg: ExperimentConfig):
             sampler =getattr (train_loader ,"batch_sampler",sampler )
         if sampler is not None and hasattr (sampler ,"set_epoch"):
             sampler .set_epoch (epoch )
+        pair_schedule ={}
+        pair_iterator =None
+        if pair_sampler is not None:
+            pair_sampler .set_epoch (epoch )
+            pair_schedule =dict (schedule_auxiliary_batches (len (train_loader ),len (pair_loader )))
+            pair_iterator =iter (pair_loader )
         model .model ['transformer'].train ()
         train_loss =0.0 
         sub_loss_accum ={}
@@ -449,13 +636,22 @@ def train_and_eval(cfg: ExperimentConfig):
         t_start =time .time ()
 
         for step ,batch in enumerate (train_loader ):
-            loss_dict =model .train_one_step (batch ,step =step )
+            pair_batch =next (pair_iterator )if step in pair_schedule else None
+            loss_dict =model .train_one_step (batch ,step =step ,pair_batch =pair_batch )
             if model.edos_slope_calibration is not None:
                 write_edos_slope_calibration(
                     os.path.join(save_dir, "config_used.yaml"),
                     model.edos_slope_calibration,
                 )
                 model.edos_slope_calibration = None
+            if getattr(model, "pair_aux_calibration", None) is not None:
+                write_pair_aux_calibration(
+                    os.path.join(save_dir, "config_used.yaml"),
+                    model.pair_aux_calibration,
+                    pair_sampler.frozen_plan_hash(),
+                    pair_sampler.plan_hash(epoch),
+                )
+                model.pair_aux_calibration = None
             train_loss +=loss_dict ['loss']
             for k ,v in loss_dict .items ():
                 sub_loss_accum [k ]=sub_loss_accum .get (k ,0.0 )+v 
@@ -531,7 +727,11 @@ def train_and_eval(cfg: ExperimentConfig):
                 epoch_,cfg .model_name,cfg .seed,cfg .use_amp,
                 model .model ['transformer'],optimizer,best_,model .gscaler,
                 edos_slope_ratio=(model.edos_slope_ratio if model.edos_slope_ratio > 0.0 else None),
-                edos_slope_lambda=(model.edos_slope_lambda if model.edos_slope_ratio > 0.0 else None))
+                edos_slope_lambda=(model.edos_slope_lambda if model.edos_slope_ratio > 0.0 else None),
+                pair_aux_arm=(cfg.pair_aux_arm if pair_sampler is not None else None),
+                pair_ratio=(model.pair_ratio if pair_sampler is not None else None),
+                pair_lambda=(model.pair_lambda if pair_sampler is not None else None),
+                pair_plan_hash=(pair_sampler.frozen_plan_hash() if pair_sampler is not None else None))
 
         if balanced <best_val_score :
             best_val_score =balanced 
@@ -784,6 +984,11 @@ def build_arg_parser():
     parser.add_argument('--tv_w', type=float, default=0.0, help='Total-variation loss weight')
     parser.add_argument('--grad_w', type=float, default=0.0, help='Gradient-matching loss weight')
     parser.add_argument('--edos_slope_ratio', type=float, default=0.0, help='Calibrated eDOS slope-loss gradient ratio; zero disables it')
+    parser.add_argument('--pair_aux_arm', type=str, default='none',
+                        choices=['none', 'control', 'candidate'],
+                        help='Opt-in same-composition eDOS pair auxiliary arm')
+    parser.add_argument('--pair_ratio', type=float, default=0.0,
+                        help='Frozen pair-loss gradient ratio; zero disables pair planning')
     parser.add_argument('--peak_w', type=float, default=1.0, help='Weight for high-density eDOS bins')
     parser.add_argument('--tail_w', type=float, default=1.0, help='Weight for high-frequency phDOS bins')
     parser.add_argument('--tail_start', type=int, default=-1, help='First high-frequency phDOS bin; -1 disables the region')

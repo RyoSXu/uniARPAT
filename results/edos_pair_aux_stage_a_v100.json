@@ -1,0 +1,56 @@
+{
+  "arms": {
+    "candidate": {
+      "auxiliary_steps": [
+        7,
+        15
+      ],
+      "mean_step_ms": 362.43801941600395,
+      "peak_vram_mb": 7141.7412109375,
+      "time_ratio_vs_baseline": 1.0991470670264873,
+      "timed_steps": 16,
+      "vram_ratio_vs_baseline": 0.9990208066296636
+    },
+    "control": {
+      "auxiliary_steps": [
+        7,
+        15
+      ],
+      "mean_step_ms": 362.0882539980812,
+      "peak_vram_mb": 7141.7412109375,
+      "time_ratio_vs_baseline": 1.0980863515036605,
+      "timed_steps": 16,
+      "vram_ratio_vs_baseline": 0.9990208066296636
+    },
+    "none": {
+      "auxiliary_steps": [],
+      "mean_step_ms": 329.7447905642912,
+      "peak_vram_mb": 7148.7412109375,
+      "timed_steps": 16
+    }
+  },
+  "calibration": {
+    "calibration": {
+      "base_gradient_norm": 0.8361804485321045,
+      "lambda": 0.25936880707740784,
+      "pair_gradient_norm": 0.32239052653312683,
+      "target_gradient_ratio": 0.1
+    },
+    "candidate_pair_gradient_norm": 0.14876052737236023,
+    "control_pair_gradient_norm": 0.0,
+    "epoch_plan_hash": "0f5a390ac0cc5c9fbb65f6bb57ac76641995bcac13c76f30a8ce866a5baebf81",
+    "main_output_max_abs": 0.0,
+    "optimizer_state_entries": 0,
+    "parameters_unchanged": true,
+    "plan_hash": "f668e9d938d91081626c69d070faaa40df2cfe0c9de3d3aae6cf93befefef730"
+  },
+  "checkpoint_sha256": "cbbf94f227c9a3b4802c09bad7c1058ea015283b0acbd868831a829368d9ad40",
+  "device": "Tesla V100-SXM2-32GB",
+  "passed": true,
+  "scope": "Q1 train-only calibration and resource gate; no accuracy result",
+  "stage": "A",
+  "thresholds": {
+    "time_ratio_max": 1.25,
+    "vram_ratio_max": 1.1
+  }
+}

@@ -1,7 +1,8 @@
 # 设计：完整谱锚定的 eDOS 同组成谱差辅助 Pilot
 
-状态：**待评审；未授权实现或训练。**关联证据见
-`../logs/log-2026-09-28-next-step-gate-review.md`。本设计只定义一个可证伪候选，不把外部方法名、
+状态：**Stage A 已完成并通过；Stage B 未授权。**路线证据见
+`../logs/log-2026-09-28-next-step-gate-review.md`，实现与资源证据见
+`../logs/log-2026-09-28-edos-pair-aux-stage-a.md`。本设计只定义一个可证伪候选，不把外部方法名、
 训练内响应或子集改善当作采用理由。
 
 ## 项目决策
@@ -30,8 +31,10 @@
 
 - 只用 Q1 train 的 `elements_train.npy` 和 `train_index.npy` 建组，不访问 valid/test 标签。
 - pair 两端必须具有相同**绝对元素计数**；不同绝对计数组不直接配对。统计与轮换按约化组成组等权。
-- 现有 2,591 个合法 pair、1,198 个约化组成组作为冻结宇宙。每个 epoch 每组确定性选择一个 pair，
-  组内按 `sha256(seed, epoch, reduced_group, mpid_a, mpid_b)` 轮换；不按目标 TV 筛选。
+- 现有 2,591 个合法 pair、1,198 个约化组成组作为冻结宇宙。每个 epoch 每组确定性选择一个 pair；
+  组内候选按 `sha256(seed, reduced_group, mpid_a, mpid_b)` 固定排序，再按 `epoch % 候选数` 循环，
+  从而保证多候选组逐轮轮换；epoch 计划哈希另含 epoch。全宇宙和选择策略有独立冻结哈希；不按目标
+  TV 筛选。
 - 每个辅助 batch 为 16 pair／32 个材料实例，共 75 个 batch；均匀插入约 585 个主 batch，单个主 step
   最多附加一个辅助 batch。两个臂使用逐项相同计划和计划 SHA-256。
 - 辅助 batch 只产生 pair loss；所有材料的完整主损失仍由原主 loader 每 epoch 恰好暴露一次，数据权重
@@ -76,6 +79,10 @@
 ## 分阶段门禁
 
 ### A. 实现与前置，不训练
+
+2026-09-28 已通过。校准 `lambda_pair=0.2593688071`，control/candidate 校准前主输出最大绝对差为 0；
+16 个代表性主 step 中插入 2 个辅助 batch，时间比最大 `1.0992x`，峰值显存比最大 `0.9991x`。
+详细证据及首次显存失败后的同一步顺序反传修复见对应日志。这里没有精度或泛化结论。
 
 - CPU 合同：绝对计数组、约化组、确定性轮换、每组每 epoch 一 pair、无标签选样、计划哈希、两臂计划
   相同、pair loss 符号／置换性质、ratio=0 兼容、校准失败、checkpoint 恢复与 test 隔离。

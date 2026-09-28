@@ -65,6 +65,24 @@ def edos_slope_matching_loss(pred_logits, target):
     return F.mse_loss(predicted_slope, target_slope)
 
 
+def edos_pair_contrast_loss(logits_a, logits_b, target_a, target_b):
+    """Match the signed eDOS difference for paired, sum-normalized spectra."""
+    tensors = (logits_a, logits_b, target_a, target_b)
+    if any(tensor.ndim != 2 for tensor in tensors):
+        raise ValueError("pair logits and targets must be [pairs, bins] tensors")
+    if any(tensor.shape != logits_a.shape for tensor in tensors[1:]):
+        raise ValueError("pair logits and targets must have matching shapes")
+    if logits_a.shape[0] == 0 or logits_a.shape[1] == 0:
+        raise ValueError("pair loss requires at least one pair and one bin")
+    if not torch.isfinite(target_a).all() or not torch.isfinite(target_b).all():
+        raise ValueError("pair targets must be finite")
+    predicted_difference = (
+        F.softmax(logits_a.float(), dim=-1) - F.softmax(logits_b.float(), dim=-1)
+    )
+    target_difference = target_a.float() - target_b.float()
+    return 0.5 * (predicted_difference - target_difference).abs().sum(dim=-1).mean()
+
+
 def calibrate_additive_loss_weight(base_loss, added_loss, parameters, target_ratio, eps=1e-12):
     """Scale an added loss to a fixed fraction of the base gradient norm."""
     if target_ratio <= 0 or not torch.isfinite(torch.tensor(target_ratio)):
