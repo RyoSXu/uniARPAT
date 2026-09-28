@@ -102,12 +102,13 @@
 
 ## 待办顺序
 
-1. **当前关卡：D3a 已按预注册规则关闭，先定位 B7 的逐层响应收缩，再选择模型干预。**联合边内容
-   已平局，当前本地 eDOS-only 扩数路线也没有覆盖 valid Q4 缺口；没有获批的 seed 复现、M1×35、
-   谱监督、角信息或数据扩充训练。下一小单元应只读冻结 B7，在既有 Q1 valid 同组成材料对上比较
-   encoder memory、decoder hidden state 和最终输出的差异保留率，寻找稳定的首次收缩位置。该诊断
-   只负责选择 encoder／decoder／输出目标中的一个后续干预模块，不能宣称因果或准确率收益；实施前
-   须写明独立 valid 检验与停止条件。
+1. **当前关卡：下一步复核已撤回逐层响应诊断，等待评审完整谱锚定的同组成谱差辅助设计。**联合
+   边内容已平局，当前本地 eDOS-only 扩数路线也没有覆盖 valid Q4 缺口。逐层隐藏距离不能因果定位
+   精度瓶颈，且会重新打开连续拆层诊断，因此不执行。train 现有 1,198 个可配对约化组成组；独立
+   valid 117 组中 94.87% 的目标谱差中位数落在 train 5–95% 范围，准入一个直接的两臂设计：保留
+   完整 B7 主损失与 H1，只让实验臂增加带符号谱差 TV 辅助梯度。设计见
+   `design/design-edos-pair-auxiliary-pilot.md`，路线复核见
+   `logs/log-2026-09-28-next-step-gate-review.md`；当前未授权实现、资源门禁或训练。
    - **首轮交付与复核完成：**R1代码审计可用于后续设计；R2实际由OpenCode MiMo-V2.6-Pro完成，历史数字抽查相符，但划分口径与四类机制推断须按审查收窄；R3由Antigravity交付，其公式归属、角特征位置、复杂度和Mat2Spec解释有实质错误，原推荐不通过。额度暂停后的两项独立审查与协调者Mat2Spec核验已于9月27日完成，原报告保留，纠正结论见 `logs/log-2026-09-27-research-report-review.md`，不再全量重复派发。
    - **候选设计、实现与 pilot 均完成：**9月27日通过本机OpenCode CLI、Go MiMo-V2.6-Pro/Build完成P8及唯一一轮定向修正，Codex完成关键公式、调用链、成本口径和比较条件收口；实现与工程前置通过。9月28日阶段B正式平局并 park，谱监督不会因主案失败自动转入训练。派发记录见 `logs/log-2026-09-27-model-upgrade-design-dispatch.md`，实验结论见 `logs/log-2026-09-28-joint-content-pilot.md`。
    - **执行平台偏好更新：**依用户要求，后续边界明确的调查、文档、获准实现和实验整理优先交OpenCode，Codex保留协调与关键证据/改动复核；本轮结果不构成模型能力排名。具体分工、P8提示词与验收见 `design/design-model-research-agent-orchestration.md`。本机已能尝试CLI直接派发，是否成功以任务交付记录为准；未建立自动重试/切换平台的调度服务。

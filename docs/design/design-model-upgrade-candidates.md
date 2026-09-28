@@ -14,6 +14,10 @@
 > **执行结果更新（2026-09-28）：**候选1已完成 Q1 valid-only 三臂 M1×10，正式裁决为平局并
 > park；候选2未自动启动。详见 `design-joint-content-pilot.md` 与
 > `../logs/log-2026-09-28-joint-content-pilot.md`。
+> **后续关卡更新（2026-09-28）：**D3a 当前本地扩数路线也已 closed。复核后没有自动实施本文的
+> Mat2Spec 风格 InfoNCE 候选；它的新增投影头、负例语义和公共 forward 契约均比已测缺口更间接。
+> 当前只进入评审的是不新增模型头、直接优化同组成带符号谱差且保留完整主损失的设计
+> `design-edos-pair-auxiliary-pilot.md`。本文候选2保留为历史备选，不是当前执行指令。
 
 ## 2026-09-27实施授权与冻结范围
 
