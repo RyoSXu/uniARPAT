@@ -50,8 +50,9 @@ eDOS 的尺度监督目标为 `γ_true = S_win_e / N_val`，其中 `S_win_e` 是
 
 以下 D1–D4 是 `data/quarantine_q1.json` 的依据。
 
-1. **D1：判据。** 截断率为 `trunc = C_win / C_full`；`C_win` 是 E0 窗口内电子数，
-   `C_full` 是完整电子谱的电子数。`trunc < 0.5` 表示电子谱截断。
+1. **D1：判据。** 截断率为 `trunc = C_full / N_val`；`C_full` 是完整原始电子谱积分，
+   `N_val` 是与该谱晶胞对应的核定价电子数。`trunc < 0.5` 表示电子谱截断。该定义与
+   `data/quarantine_q1.json` 的冻结 `criterion` 及 `index/z0_trunc.parquet` 数值一致。
 2. **D2：名单。** 1,668 条满足 D1；另有 14 条 Delta 数据不可读且 `γ_label < 0.1`，表现出
    同样的截断特征。因此共隔离 1,682 条（训练 1,334、验证 164、测试 184）。另有 2 条不可读
    但尺度标签正常的记录保留。

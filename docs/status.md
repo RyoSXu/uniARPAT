@@ -94,20 +94,29 @@
 - **eDOS 高粗糙度组梯度归因完成（只读）。**在冻结 B7 epoch 33 的 Q1 train 全集上，高粗糙度组占 10.0%，但其每样本 eDOS 梯度范数为其他组的 2.06–4.94 倍；按样本比例加权后，在 encoder/decoder/eDOS head 探针中的梯度范数占比为 35.4%/20.6%/18.6%，两组梯度方向余弦均为正。样本比例稀释假设不获支持，不做高粗糙度样本加权 pilot。未访问 valid/test；详见 `logs/log-2026-09-25-eDOS-gradient-group-attribution.md`。
 - **eDOS 高粗糙度 train–valid 冻结诊断完成（只读）。**B7 epoch 33、Q1 oracle、固定 train p90=`0.351600`：高组 train/valid 中位 R² 为 `0.5053/0.3478`，失败率为 `0.32%/11.71%`；其他组为 `0.6138/0.5290`、`0.87%/5.74%`。高组在 train 已有中位准确率差距，valid 又出现更大的额外下降与失败率增幅；不能据此判定根因。未读取 test，未改训练或评估口径。详见 `logs/log-2026-09-26-edos-train-valid-roughness.md`。
 - **eDOS 全体谱形支持与同组成材料对诊断完成（只读）。**Q1 train/valid、B7 epoch 33 oracle：按 train 目标谱最近邻总变差分四组，最近至最远组的 valid 中位 R² 为 `0.6336→0.3695`、失败率为 `2.30%→11.76%`；对应 train 中位 R² 为 `0.6828→0.5257`，train–valid 差距随组增大。valid 的 320 个同组成材料对中，目标／预测谱差中位 TV 为 `0.2697/0.0160`。这些是谱形稀有度与结构条件响应的线索，不构成根因判定或新训练方案；未读取 test。逐样本与成对证据见 `results/edos_spectral_support_q1_train_valid_samples.csv`、`results/edos_spectral_support_q1_valid_pairs.csv`；方法与限制见 `logs/log-2026-09-26-edos-spectral-support.md`。
+- **D3a eDOS-only 候选支持面裁决完成并 closed。**121,420 个本地候选中冻结抽取 1,000 条；
+  概率臂严格可用 265/500，Wilson 95% 下限 48.62%，未过 50% 门槛。合并 507 条严格可用谱只让
+  valid Q4 的 5/595 条样本获得更近目标谱，中位下降与 bootstrap 区间均为零；纳入全部 693 条
+  可读谱的保守敏感性也仅改善 9/595，中位仍为零。因此不进入 10–20k 扩数 pilot、不改 Q1 契约、
+  不采集或训练；未读取 test。详见 `logs/log-2026-09-28-d3a-edos-support-adjudication.md`。
 
 ## 待办顺序
 
-1. **当前关卡：候选1已按预注册规则关闭，等待重新选择可检验的模型缺陷。**联合内容三臂 pilot
-   正式平局并 park；没有获批的 seed 复现、M1×35、谱监督、角信息或数据扩充训练。下一项模型工作
-   必须基于现有证据提出一个不同于径向消息已平局的具体机制，并提前连接到独立 valid 检验与停止
-   条件；不得由本结果自动转入候选2。设计与结论见 `design/design-joint-content-pilot.md` 和
-   `logs/log-2026-09-28-joint-content-pilot.md`。
+1. **当前关卡：D3a 已按预注册规则关闭，先定位 B7 的逐层响应收缩，再选择模型干预。**联合边内容
+   已平局，当前本地 eDOS-only 扩数路线也没有覆盖 valid Q4 缺口；没有获批的 seed 复现、M1×35、
+   谱监督、角信息或数据扩充训练。下一小单元应只读冻结 B7，在既有 Q1 valid 同组成材料对上比较
+   encoder memory、decoder hidden state 和最终输出的差异保留率，寻找稳定的首次收缩位置。该诊断
+   只负责选择 encoder／decoder／输出目标中的一个后续干预模块，不能宣称因果或准确率收益；实施前
+   须写明独立 valid 检验与停止条件。
    - **首轮交付与复核完成：**R1代码审计可用于后续设计；R2实际由OpenCode MiMo-V2.6-Pro完成，历史数字抽查相符，但划分口径与四类机制推断须按审查收窄；R3由Antigravity交付，其公式归属、角特征位置、复杂度和Mat2Spec解释有实质错误，原推荐不通过。额度暂停后的两项独立审查与协调者Mat2Spec核验已于9月27日完成，原报告保留，纠正结论见 `logs/log-2026-09-27-research-report-review.md`，不再全量重复派发。
    - **候选设计、实现与 pilot 均完成：**9月27日通过本机OpenCode CLI、Go MiMo-V2.6-Pro/Build完成P8及唯一一轮定向修正，Codex完成关键公式、调用链、成本口径和比较条件收口；实现与工程前置通过。9月28日阶段B正式平局并 park，谱监督不会因主案失败自动转入训练。派发记录见 `logs/log-2026-09-27-model-upgrade-design-dispatch.md`，实验结论见 `logs/log-2026-09-28-joint-content-pilot.md`。
    - **执行平台偏好更新：**依用户要求，后续边界明确的调查、文档、获准实现和实验整理优先交OpenCode，Codex保留协调与关键证据/改动复核；本轮结果不构成模型能力排名。具体分工、P8提示词与验收见 `design/design-model-research-agent-orchestration.md`。本机已能尝试CLI直接派发，是否成功以任务交付记录为准；未建立自动重试/切换平台的调度服务。
    - **历史路线保持结束：**连续小样本拆层建议已撤回，不因本轮调研自动恢复；先前辅助监督也未获实施确认。复盘见 `logs/log-2026-09-26-g2-probe-route-review.md`；此前读出／联合适配实验见提交 `7075fdc`。
    - **解释边界：**B7 的单元素几何盲点已确认，但单元素只占 valid 的 1.60%；G2a 已能传递几何相关内容却未获精度收益。新候选须说明超出径向残差的具体假设，不能仅凭结构响应非零或模块名称启动。
-   - **数据线仅保留候选证据：**opencode 的 A 线日志为 `logs/log-2026-09-26-data-support-feasibility.md`；本轮复核 121,420 为材料集合候选数量，不是已通过质量审计的可训练数量。7,965 条落实审计、数据契约变更及扩充训练均未由本轮启动或授权。
+   - **数据线已完成裁决并关闭当前路线：**opencode 的源接口核查与正式 D3a 结果分别见
+     `logs/log-2026-09-28-d3a-source-interface-audit.md` 和
+     `logs/log-2026-09-28-d3a-edos-support-adjudication.md`。121,420 仍只是候选集合；严格可用 507/1,000
+     且没有覆盖 valid Q4 支持缺口，因此 7,965 条双谱恢复、数据契约变更及扩充训练均不启动。
 2. C2.1b 已 park；除非出现区别于 L3 的有方向机制，不重开或做常规权重扫描。C3 PhysMoE、D3 eDOS
    辅助数据和 phDOS 尖峰/虚频路线仍不进入近期顺序。
 3. 网格、窗口与 bin 的数据表示实验保持搁置；只有新的可变 query 假设在固定 E0/P0 上技术通过后，

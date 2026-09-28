@@ -20,6 +20,9 @@
 | 联合边内容RNG前置与阶段A资源核查 | `logs/log-2026-09-27-joint-content-rng-resource-tools.md` | V100三臂冷启动单步通过；阶段B随后获批并完成 |
 | 联合边内容valid-only判决工具 | `logs/log-2026-09-27-joint-content-verdict-tool.md` | epoch10 latest、三臂同序与预注册阈值已锁定并正式执行 |
 | 联合边内容Q1 valid-only三臂pilot | `logs/log-2026-09-28-joint-content-pilot.md` | 正式平局并park；未读取test，不进入M1×35 |
+| D3a eDOS-only 候选支持面裁决设计 | `design/design-d3a-edos-support-adjudication.md` | 已执行；冻结1,000条，本地只读归属与支持面门槛 |
+| D3a 数据源与接口审计 | `logs/log-2026-09-28-d3a-source-interface-audit.md` | OpenCode DeepSeek V4.1 Flash只读核查；候选集合与本地归属边界 |
+| D3a eDOS-only 候选支持面裁决 | `logs/log-2026-09-28-d3a-edos-support-adjudication.md` | 已closed；严格与全可读敏感性均未覆盖valid Q4缺口 |
 | R2a 共享 decoder 深度缩减设计 | `design/design-r2a-decoder-depth.md` | 已完成设计 |
 | R2b 原子加性 phDOS 读出设计 | `design/design-r2b-atom-additive-phdos.md` | 已完成设计 |
 | C2.1b 验证集损失归因审计设计 | `design/design-c2-1b-loss-attribution.md` | 已完成诊断 |

@@ -1,0 +1,70 @@
+{
+  "all_readable_sensitivity": {
+    "definition": "matched readable GGA/GGA+U spectra with valid E0 shape, including records below the approximate truncation threshold",
+    "readable_n": 693,
+    "valid_q4_support": {
+      "baseline_median_nearest_tv": 0.29104757309,
+      "median_absolute_reduction": 0.0,
+      "median_reduction_bootstrap_ci95": [
+        0.0,
+        0.0
+      ],
+      "median_relative_reduction": 0.0,
+      "new_median_nearest_tv": 0.29104757309,
+      "q4_n": 595,
+      "strict_improvement_fraction": 0.015126050420168067
+    }
+  },
+  "candidate_count": 121420,
+  "candidate_novelty": {
+    "fraction_above_train_q3_threshold": 0.9664694280078896,
+    "median_nearest_train_target_tv": 0.4781598746776581,
+    "train_q3_threshold": 0.253176,
+    "usable_n": 507
+  },
+  "decision": "close_data_route_return_to_model_mechanism",
+  "gates": {
+    "probability_wilson_lower_ge_0_50": false,
+    "q4_bootstrap_lower_gt_0": false,
+    "q4_median_relative_reduction_ge_0_05": false,
+    "q4_strict_improvement_fraction_ge_0_25": false,
+    "sample_size_and_uniqueness": true,
+    "usable_run_types_compatible": true
+  },
+  "probability_usable_rate": 0.53,
+  "probability_usable_wilson_ci95": [
+    0.4861905914242533,
+    0.5733519481480536
+  ],
+  "sample_counts": {
+    "probability": 500,
+    "targeted": 500
+  },
+  "sample_manifest_sha256": "9538a1628f9dffc958735c7c189e5162d9b22dc44d7476bfb6cc4f3c6ffad874",
+  "status": "stop",
+  "status_counts": {
+    "incompatible_run_type": 6,
+    "truncated": 186,
+    "unresolved_no_match": 21,
+    "unresolved_no_task": 280,
+    "usable": 507
+  },
+  "test_labels_read": false,
+  "truncation_ratio_note": "full raw DOS integral divided by task-cell elemental-table N_val; classification is audited against frozen Z0 separately",
+  "usable_counts": {
+    "probability": 265,
+    "targeted": 242
+  },
+  "valid_q4_support": {
+    "baseline_median_nearest_tv": 0.29104757309,
+    "median_absolute_reduction": 0.0,
+    "median_reduction_bootstrap_ci95": [
+      0.0,
+      0.0
+    ],
+    "median_relative_reduction": 0.0,
+    "new_median_nearest_tv": 0.29104757309,
+    "q4_n": 595,
+    "strict_improvement_fraction": 0.008403361344537815
+  }
+}
