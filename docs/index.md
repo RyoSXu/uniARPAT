@@ -17,6 +17,6 @@
 - eDOS 误差与收益上界：[`logs/log-2026-09-28-model-accuracy-upper-bound.md`](logs/log-2026-09-28-model-accuracy-upper-bound.md)
 - 结构条件谱形支持与同组成材料对：[`logs/log-2026-09-26-edos-spectral-support.md`](logs/log-2026-09-26-edos-spectral-support.md)
 - eDOS-only 本地候选审计：[`logs/log-2026-09-28-d3a-edos-support-adjudication.md`](logs/log-2026-09-28-d3a-edos-support-adjudication.md)
-- gamma 校准与尺度头候选复核：`docs/logs/` 中对应的 `h1-` 记录
+- gamma 校准与尺度头候选复核：[`logs/log-2026-09-28-h1-gamma-calibration-gate.md`](logs/log-2026-09-28-h1-gamma-calibration-gate.md)、[`logs/log-2026-09-28-h1-next-candidate-review.md`](logs/log-2026-09-28-h1-next-candidate-review.md)
 
 历史实验按主题在 `docs/logs/` 中检索；只有 `status.md` 明确列为当前工作的设计才是活跃执行依据。
