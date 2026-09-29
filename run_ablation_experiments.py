@@ -84,6 +84,14 @@ def validate_g2_config(cfg: ExperimentConfig) -> None:
     if cfg.use_g1 and cfg.use_g2:
         raise ValueError(
             "G2 is a single-factor module on B7; --use_g1 and --use_g2 are mutually exclusive")
+    if cfg.use_periodic_manybody and (cfg.use_g1 or cfg.use_g2):
+        raise ValueError("periodic many-body encoder cannot be combined with G1 or G2")
+    if cfg.use_periodic_manybody and (
+        cfg.model_name != "M1" or cfg.epochs != 35 or cfg.norm != "sumnorm"
+        or cfg.batch_size != 32 or cfg.seed != 42 or not cfg.skip_test_eval
+        or cfg.init_ckpt or cfg.use_amp
+    ):
+        raise ValueError("periodic many-body candidate requires approved Q1 M1x35 FP32 valid-only recipe")
 
 
 def validate_reset_rng_config(cfg: ExperimentConfig) -> None:
@@ -401,6 +409,7 @@ def train_and_eval(cfg: ExperimentConfig):
     # Candidate-1 edge content function; joint requires use_g2 (validated above)
     # and reaches the model through the same transformer params channel.
     yaml_cfg ['model']['params']['sub_model']['transformer']['g2_content_mode']=str (cfg.g2_content_mode )
+    yaml_cfg ['model']['params']['sub_model']['transformer']['use_periodic_manybody']=bool (cfg.use_periodic_manybody )
     # Optional coordinate-conditioned output trunks.
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_coord']=bool (cfg.q1_coord )
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_hidden']=int (cfg.q1_hidden )
@@ -595,6 +604,7 @@ def train_and_eval(cfg: ExperimentConfig):
             'g1_max_neighbors':cfg.g1_max_neighbors ,
             'use_g2':cfg.use_g2 ,'g2_r_cut':5.5 ,
             'g2_content_mode':cfg.g2_content_mode ,
+            'use_periodic_manybody':cfg.use_periodic_manybody ,
             'q1_coord':cfg.q1_coord ,'q1_hidden':cfg.q1_hidden ,
             'q2_fourier':cfg.q2_fourier ,
             'c5_moe':cfg.c5_moe ,'c5_moe_balance_w':cfg.c5_moe_balance_w ,
@@ -1018,6 +1028,8 @@ def build_arg_parser():
     parser.add_argument('--use_g2', action='store_true', help='Enable G2a periodic multi-image Value residual (fixed R=5.5)')
     parser.add_argument('--g2_content_mode', type=str, default='radial', choices=['radial', 'joint'],
                         help='G2a edge content function; joint requires --use_g2 (candidate 1)')
+    parser.add_argument('--use_periodic_manybody', action='store_true',
+                        help='Fixed periodic many-body local/global encoder candidate')
     parser.add_argument('--q1_coord', action='store_true', help='Enable coordinate-conditioned output trunks')
     parser.add_argument('--q1_hidden', type=int, default=128, help='Hidden size of coordinate trunks')
     parser.add_argument('--q2_fourier', action='store_true', help='Use Fourier features in coordinate trunks')

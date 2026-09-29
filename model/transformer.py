@@ -10,6 +10,7 @@ from model.heads import (
     MultiScaleResidualHead, PointwiseMLPHead, PostDecoderGatedCrossAttention,
     ScaleHead, global_masked_pool
 )
+from model.periodic_manybody import PeriodicManyBodyEncoder
 from utils.atom_feature import AtomFeatureEncoder
 from utils.macro_lattice import macro_lattice_features, raw_atomic_mass_table
 from utils.relative_features import compute_relative_features
@@ -148,7 +149,7 @@ class Transformer(nn.Module):
                   use_atom_additive_phdos=False,
                   macro_lattice_mean=(2.96373232, 1.22763338),
                   macro_lattice_std=(0.41023959, 0.51526549),
-                  g2_content_mode="radial"):
+                  g2_content_mode="radial", use_periodic_manybody=False):
         super().__init__()
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
@@ -201,6 +202,7 @@ class Transformer(nn.Module):
         # Single-factor discipline: G2a sits on B7 dense attention, never on G1.
         self.use_g2 = bool(use_g2)
         self.g2_r_cut = float(g2_r_cut)
+        self.use_periodic_manybody = bool(use_periodic_manybody)
         # Candidate-1 edge content function. joint is never silent: it requires
         # use_g2 and stays subject to the G1/G2 single-factor exclusion below.
         self.g2_content_mode = str(g2_content_mode)
@@ -210,6 +212,8 @@ class Transformer(nn.Module):
             raise ValueError("g2_content_mode='joint' requires use_g2=True; silent fallback to radial is forbidden")
         if self.use_g1 and self.use_g2:
             raise ValueError("G2a is a single-factor module on B7; use_g1 and use_g2 are mutually exclusive")
+        if self.use_periodic_manybody and (self.use_g1 or self.use_g2):
+            raise ValueError("periodic many-body encoder cannot be combined with G1 or G2")
         if self.use_g1:
             self.g1_global = nn.Parameter(torch.zeros(1, 1, d_model))
         # Optional coordinate-conditioned output trunks.
@@ -262,12 +266,18 @@ class Transformer(nn.Module):
         # Fusion projection
         self.fuse_proj = nn.Linear(d_model * 2, d_model)
 
-        encoder_layer = TransformerEncoderLayer(
-            d_model, nhead, dim_feedforward,
-            dropout, activation, normalize_before
-        )
-        encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
-        self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
+        if self.use_periodic_manybody:
+            self.encoder = PeriodicManyBodyEncoder(
+                d_model=d_model, nhead=nhead,
+                dim_feedforward=dim_feedforward, dropout=dropout,
+                num_global_layers=num_encoder_layers)
+        else:
+            encoder_layer = TransformerEncoderLayer(
+                d_model, nhead, dim_feedforward,
+                dropout, activation, normalize_before
+            )
+            encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
+            self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
         if self.use_g2:
             # Independent per-layer residuals (D512: radial ~0.559M, joint ~1.346M).
             # Off-path creates no attribute, keeping legacy state dicts intact.
@@ -426,7 +436,9 @@ class Transformer(nn.Module):
             atom_src = atom_src + self.macro_lattice_alpha * self.macro_lattice_mlp(macro).unsqueeze(1)
 
         # Compute relative geometry features
-        if self.use_g1:
+        if self.use_periodic_manybody:
+            memory = self.encoder(atom_src, mask_atom, pos)
+        elif self.use_g1:
             # Sparse periodic graph and one global hub token.
             # Decoder/memory contract unchanged: hub is stripped before return.
             from utils.g1_graph import build_g1_graph

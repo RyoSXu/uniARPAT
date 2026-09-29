@@ -101,6 +101,8 @@ class ExperimentConfig:
     # Candidate-1 edge content function: "radial" keeps G2a; "joint" is only
     # valid together with use_g2=True and is never silently ignored.
     g2_content_mode: str = "radial"
+    # Approved periodic many-body local/global encoder candidate (fixed design).
+    use_periodic_manybody: bool = False
     
     # --- Optional coordinate-conditioned output trunks ---
     q1_coord: bool = False

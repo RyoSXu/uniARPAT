@@ -28,6 +28,7 @@ fi
     tests.test_g2_small_fit_probe \
     tests.test_g2_value_fit_probe \
     tests.test_g2_joint_content \
+    tests.test_periodic_manybody \
     tests.test_joint_content_pilot \
     tests.test_q2_fourier \
     tests.test_c5_token_moe \

@@ -13,6 +13,7 @@
 
 ## 当前路线相关证据
 
+- 周期多体 encoder 单候选 Q1 valid 判决：[`logs/log-2026-09-29-periodic-manybody-encoder.md`](logs/log-2026-09-29-periodic-manybody-encoder.md)
 - eDOS 误差与收益上界：[`logs/log-2026-09-28-model-accuracy-upper-bound.md`](logs/log-2026-09-28-model-accuracy-upper-bound.md)
 - 结构条件谱形支持与同组成材料对：[`logs/log-2026-09-26-edos-spectral-support.md`](logs/log-2026-09-26-edos-spectral-support.md)
 - eDOS-only 本地候选审计：[`logs/log-2026-09-28-d3a-edos-support-adjudication.md`](logs/log-2026-09-28-d3a-edos-support-adjudication.md)

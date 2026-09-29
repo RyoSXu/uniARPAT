@@ -1,0 +1,87 @@
+{
+  "split": "Q1 valid",
+  "n": 2313,
+  "model": "M1",
+  "seed": 42,
+  "b7_epoch": 33,
+  "candidate_epoch": 29,
+  "comparisons": {
+    "r2_edos_oracle": {
+      "b7_median": 0.5149828195571899,
+      "candidate_median": 0.5033411979675293,
+      "delta_median": -0.011641621589660645,
+      "delta_median_ci95": [
+        -0.020663851499557497,
+        -0.0039826065301895195
+      ],
+      "b7_fail_percent": 6.268914829226113,
+      "candidate_fail_percent": 7.17682663207955,
+      "delta_fail_pp": 0.9079118028534366,
+      "delta_fail_pp_ci95": [
+        0.04323389537397304,
+        1.7293558149589279
+      ]
+    },
+    "r2_edos_blind": {
+      "b7_median": 0.47313863039016724,
+      "candidate_median": 0.46038180589675903,
+      "delta_median": -0.012756824493408203,
+      "delta_median_ci95": [
+        -0.020967771112918854,
+        -0.0025029703974723916
+      ],
+      "b7_fail_percent": 9.122351923908344,
+      "candidate_fail_percent": 10.54907047124946,
+      "delta_fail_pp": 1.426718547341116,
+      "delta_fail_pp_ci95": [
+        0.47557284911370484,
+        2.4210981409424988
+      ]
+    },
+    "r2_phdos_oracle": {
+      "b7_median": 0.7437993288040161,
+      "candidate_median": 0.726637601852417,
+      "delta_median": -0.01716172695159912,
+      "delta_median_ci95": [
+        -0.026983900368213652,
+        -0.010624289512634277
+      ],
+      "b7_fail_percent": 3.804582792909641,
+      "candidate_fail_percent": 3.9342844790315605,
+      "delta_fail_pp": 0.12970168612191982,
+      "delta_fail_pp_ci95": [
+        -0.5188067444876786,
+        0.8214440121054909
+      ]
+    },
+    "r2_phdos_blind": {
+      "b7_median": 0.7378688454627991,
+      "candidate_median": 0.7160497903823853,
+      "delta_median": -0.02181905508041382,
+      "delta_median_ci95": [
+        -0.030251455307006837,
+        -0.012976963818073287
+      ],
+      "b7_fail_percent": 4.366623432771292,
+      "candidate_fail_percent": 4.755728491137051,
+      "delta_fail_pp": 0.38910505836575876,
+      "delta_fail_pp_ci95": [
+        -0.30371811500216195,
+        1.1240812797233033
+      ]
+    }
+  },
+  "composition_pairs": 320,
+  "pair_medians": {
+    "target_tv": 0.26974599063396454,
+    "b7_predicted_tv": 0.016038671135902405,
+    "candidate_predicted_tv": 0.0003313528432045132,
+    "b7_contrast_error_tv": 0.26684774458408356,
+    "candidate_contrast_error_tv": 0.26978887617588043
+  },
+  "science_pass": false,
+  "deployment_pass": false,
+  "phdos_protected": false,
+  "adoptable_after_reproduction": false,
+  "test_used": false
+}
