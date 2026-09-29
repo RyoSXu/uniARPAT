@@ -1,0 +1,89 @@
+{
+  "experiment": "h1_gamma_two_scalar_calibration_gate",
+  "data_contract": {
+    "fit_split": "Q1 train only",
+    "verdict_split": "Q1 valid only",
+    "test_accessed": false,
+    "counts": {
+      "train": 18706,
+      "valid": 2313
+    }
+  },
+  "identity": {
+    "model_name": "M1",
+    "epoch": 33,
+    "seed": 42,
+    "checkpoint_sha256": "cbbf94f227c9a3b4802c09bad7c1058ea015283b0acbd868831a829368d9ad40",
+    "config_path": "output/ablation_m1_e9ctl/config_used.yaml"
+  },
+  "calibration": {
+    "mapping": "sigmoid(a * logit(clamp(gamma_control, 1e-6, 1-1e-6)) + b)",
+    "a": 1.011357609267388,
+    "b": -9.452808989391081e-05,
+    "identity_soft_bce": 0.6095053571573014,
+    "fitted_soft_bce": 0.6094981342008513,
+    "iterations": 7,
+    "function_evaluations": 8,
+    "optimizer_success": true,
+    "optimizer_message": "CONVERGENCE: NORM OF PROJECTED GRADIENT <= PGTOL"
+  },
+  "train": {
+    "n": 18706,
+    "gamma_control_median_abs_log_error": 0.07765258848667145,
+    "gamma_candidate_median_abs_log_error": 0.07758133210389917
+  },
+  "valid": {
+    "n": 2313,
+    "edos_oracle": {
+      "median": 0.5149828195571899,
+      "failure_pct": 6.268914829226113
+    },
+    "edos_blind_control": {
+      "median": 0.47313863039016724,
+      "failure_pct": 9.122351923908344
+    },
+    "edos_blind_candidate": {
+      "median": 0.47264230251312256,
+      "failure_pct": 8.992650237786425
+    },
+    "gamma_control_median_abs_log_error": 0.08975458145141602,
+    "gamma_candidate_median_abs_log_error": 0.08922358886900394
+  },
+  "invariants": {
+    "checkpoint_state_unchanged": true,
+    "edos_shape_shared_exactly": true,
+    "edos_oracle_unchanged_by_construction": true,
+    "phdos_outputs_untouched": true,
+    "model_state_sha256_before": "766636c906663ad9b256d18d59f19c4c5fc6b7a4668f11f919f1b8756aaac6b8",
+    "model_state_sha256_after": "766636c906663ad9b256d18d59f19c4c5fc6b7a4668f11f919f1b8756aaac6b8"
+  },
+  "bootstrap": {
+    "replicates": 2000,
+    "seed": 20260928,
+    "paired": true
+  },
+  "gate": {
+    "verdict": "park",
+    "main_effect_met": false,
+    "failure_guard_met": true,
+    "mechanism_met": false,
+    "invariants_met": true,
+    "r2_delta_median": -0.0004963278770446777,
+    "r2_delta_median_ci95": [
+      -0.0020929783582687377,
+      0.0013775229454040527
+    ],
+    "fail_delta_pp": -0.12970168612191912,
+    "gamma_abs_log_error_delta_median": -0.0005309925824120709,
+    "gamma_abs_log_error_delta_median_ci95": [
+      -0.0011082725564351247,
+      0.0009659178592294527
+    ],
+    "rules": {
+      "r2_delta_median_min": 0.02,
+      "fail_delta_pp_strict_max": 1.0,
+      "mechanism": "median abs-log-error delta < 0 and paired-bootstrap CI95 upper < 0",
+      "all_invariants_required": true
+    }
+  }
+}
