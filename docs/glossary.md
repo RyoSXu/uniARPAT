@@ -19,9 +19,12 @@
 
 | 术语 | 含义 |
 |---|---|
-| **B7 `_e9ctl`** | 当前参考实验：Q1 上训练 35 epoch 的 M1，选用 epoch 33。 |
+| **ZP / ZP100** | 当前选定的纯原子序号入口：Embedding → LayerNorm → Linear；ZP100 为 seed 42、100 轮的已训练研究基线，best epoch 89。 |
+| **A100 / B100 / Z100** | 元素入口历史对照：A 输入三项性质；B 保留同架构、性质输入恒定；Z 删除数值分支及融合投影。均为 seed 42、100 轮。 |
+| **B7 `_e9ctl`** | 用户指定的目前最优指标参考：Q1 上训练 35 epoch 的 M1，选用 epoch 33；各任务指标分别比较。 |
 | **epoch / pilot** | epoch 是训练集完整遍历一次；pilot 是用于初步判断的实验，其预算按问题决定。 |
 | **encoder / decoder / head** | encoder 将结构输入编码为内部表示；decoder 将表示映射到任务输出；head 产生最终任务量。 |
+| **元素初始化 / 原子表示更新** | 初始化由元素身份生成每个原子的起始特征；Encoder 在前向中结合当前环境逐层更新这些特征。训练中修改共享 Embedding 参数是另一个过程。 |
 | **H1 eta/gamma** | 从结构预测有界尺度量的辅助头；eta 对应 phDOS，gamma 对应 eDOS。 |
 | **SumNorm** | 总和归一化；把谱形和总量分开处理。 |
 | **KL / W1 / Huber** | 分别为分布散度、一维 Wasserstein 距离和稳健逐点误差；当前默认目标组合。 |

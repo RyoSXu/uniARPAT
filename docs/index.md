@@ -4,8 +4,9 @@
 
 | 目的 | 文档 |
 |---|---|
-| 当前基线、方向和下一步 | [`status.md`](status.md) |
+| 当前基线、最优指标参考和下一步 | [`status.md`](status.md) |
 | 大方向路线图 | [`design/design-structural-refinement.md`](design/design-structural-refinement.md) |
+| 当前 ZP 元素初始化、代码职责与使用限制 | [`design/design-element-initialization.md`](design/design-element-initialization.md) |
 | 协作与实验流程 | [`workflow.md`](workflow.md) |
 | 长期决策和评估约定 | [`decisions.md`](decisions.md) |
 | 数据、缓存及标签口径 | [`data.md`](data.md)；[`index/z0_REPORT.md`](../index/z0_REPORT.md) |
@@ -13,6 +14,10 @@
 
 ## 当前路线相关证据
 
+- 元素入口实验： [A100/B100](logs/log-2026-09-30-element-identity-control.md)、
+  [Z100](logs/log-2026-10-01-eid-zonly-baseline.md)、[ZP100](logs/log-2026-10-02-eid-zonlyproj.md)
+- 纯 Z 训练差距诊断：[协议与完成状态](design/design-element-identity-diagnosis.md)、
+  [原始报告](../results/eid_diagnosis_s42/20261002T095909Z/report.md)；解释边界见当前元素初始化文档
 - 周期多体 encoder 单候选 Q1 valid 判决：[`logs/log-2026-09-29-periodic-manybody-encoder.md`](logs/log-2026-09-29-periodic-manybody-encoder.md)
 - eDOS 误差与收益上界：[`logs/log-2026-09-28-model-accuracy-upper-bound.md`](logs/log-2026-09-28-model-accuracy-upper-bound.md)
 - 结构条件谱形支持与同组成材料对：[`logs/log-2026-09-26-edos-spectral-support.md`](logs/log-2026-09-26-edos-spectral-support.md)
