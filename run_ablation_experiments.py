@@ -105,6 +105,38 @@ def validate_reset_rng_config(cfg: ExperimentConfig) -> None:
         raise ValueError("--reset_rng_after_init requires --init_ckpt")
 
 
+def validate_zproj_config(cfg: ExperimentConfig) -> None:
+    """Keep the historical ZP100 runner on its aligned-init, valid-only contract.
+
+    The arm copies its shared parameters from the untrained Z100 reference and
+    restores the Z100 training RNG state, so any trained-weights initialization,
+    RNG reset shim, backbone freezing, pair auxiliary, AMP or test evaluation
+    would silently break the comparison. Rejected here before any directory or
+    data access, like the other frozen candidate contracts.
+
+    These are historical experiment restrictions, not requirements of the ZP
+    element representation. The alignment helper also checks a fixed seed-42
+    fingerprint; a new encoder or seed needs its own initialization protocol.
+    See docs/design/design-element-initialization.md.
+    """
+    if cfg.atom_feat != "z_only_proj":
+        return
+    if cfg.init_ckpt:
+        raise ValueError("z_only_proj initializes from the untrained Z100 reference; "
+                         "--init_ckpt is not allowed")
+    if cfg.reset_rng_after_init:
+        raise ValueError("z_only_proj restores the Z100 training RNG state itself; "
+                         "--reset_rng_after_init conflicts with the alignment")
+    if cfg.freeze_backbone:
+        raise ValueError("z_only_proj trains the full model; --freeze_backbone is not allowed")
+    if cfg.pair_aux_arm != "none":
+        raise ValueError("z_only_proj keeps the frozen recipe; pair auxiliary must stay off")
+    if cfg.use_amp:
+        raise ValueError("z_only_proj follows the FP32 frozen recipe; AMP is not allowed")
+    if not cfg.skip_test_eval:
+        raise ValueError("z_only_proj runs valid-only; --skip_test_eval is required")
+
+
 def validate_pair_aux_config(cfg: ExperimentConfig) -> None:
     """Keep the pair auxiliary path opt-in and isolated to its frozen recipe."""
     if cfg.pair_aux_arm not in {"none", "control", "candidate"}:
@@ -346,6 +378,8 @@ def train_and_eval(cfg: ExperimentConfig):
     validate_g2_config(cfg)
     # Same early boundary: an RNG reset without an init checkpoint is meaningless.
     validate_reset_rng_config(cfg)
+    # z_only_proj aligned-init contract: valid-only, no trained-weights init.
+    validate_zproj_config(cfg)
     validate_pair_aux_config(cfg)
     validate_pair_aux_init_checkpoint(cfg)
 
@@ -458,12 +492,40 @@ def train_and_eval(cfg: ExperimentConfig):
     val_loader =builder .get_dataloader (split ='valid',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn )
     test_loader =maybe_get_test_loader(builder, cfg, _sn)
 
+    # z_only_proj 对齐初始化（步骤 1/3）：候选模型构造前，以 z_only 模式按同一构造
+    # 路径重建 Z100 未训练参考模型，并保存 Z100 训练开始时的随机状态。参考模型随后
+    # 丢弃；流程与随机数口径见 utils/zproj_alignment.py。
+    zproj_ref = None
+    if cfg.atom_feat == "z_only_proj":
+        from utils.zproj_alignment import prepare_reference
+        latest_abs =os .path .abspath (os .path .join (save_dir ,'checkpoint_latest.pth'))
+        if os .path .exists (latest_abs ):
+            raise RuntimeError (f"[{cfg.model_name}] z_only_proj refuses to auto-resume: "
+            f"{latest_abs} exists; use a free tag and train from scratch")
+        zproj_ref =prepare_reference (builder )
+        logger .info (f"[{cfg.model_name}] z_only_proj reference rebuilt: "
+        f"init state {zproj_ref ['ref_state_sha256'][:16]}…, "
+        f"training-start RNG {zproj_ref ['ref_rng_sha256'][:16]}…")
+
     model =builder .get_model ()
     device =torch .device ('cuda'if torch .cuda .is_available ()else 'cpu')
     model .to (device )
 
     total_params =sum (p .numel ()for p in model .model ['transformer'].parameters ()if p .requires_grad )
     logger .info (f"[{cfg.model_name }] Verified Trainable Parameters: {total_params :,} ({total_params /1e6 :.3f}M)")
+
+    # z_only_proj 对齐初始化（步骤 2/3）：共享参数复制自 Z100 未训练参考模型，
+    # atom_proj 置单位矩阵/零偏置，随后核对共享参数逐值一致、投影初始化正确、
+    # 前向与梯度有限。这些额外检查消耗的随机数在步骤 3/3 恢复。
+    zproj_align =None
+    if zproj_ref is not None:
+        from utils.zproj_alignment import apply_alignment, valid_batch
+        zproj_align =apply_alignment (model .model ['transformer'] ,zproj_ref ,device ,
+        batch =valid_batch (cfg.data_dir ) ,loader =train_loader )
+        logger .info (f"[{cfg.model_name}] z_only_proj alignment: {zproj_align ['summary']}")
+        for _chk in zproj_align ['checks']:
+            logger .info (f"[{cfg.model_name}] align check [{ 'PASS' if _chk ['pass'] else 'FAIL' }] "
+            f"{_chk ['name']} | {_chk ['detail']}")
 
     # Optionally initialize from a backbone checkpoint and train only new heads.
     if cfg.init_ckpt :
@@ -624,6 +686,45 @@ def train_and_eval(cfg: ExperimentConfig):
         )
         model.pair_aux_calibration = None
 
+    # z_only_proj 对齐初始化（步骤 3/3）：额外检查结束后恢复 Z100 训练开始时的随机
+    # 状态（dropout 流与 DataLoader base seed 对齐），复核状态摘要后写入对齐记录。
+    # 从这里到训练循环开始不允许再有随机抽样；若有，下面的复核会直接失败。
+    if zproj_ref is not None:
+        from utils.zproj_alignment import (
+            RNG_METHOD_NOTE, Z100_INIT_STATE_SHA256, restore_training_rng,
+            rng_digest, rng_snapshot, write_alignment_record)
+        _restored =restore_training_rng (zproj_ref )
+        _verified =rng_digest (rng_snapshot ())
+        if _verified !=_restored :
+            raise RuntimeError (f"[{cfg.model_name}] training RNG state changed between "
+            f"alignment restore and loop start ({_verified[:16]}… != {_restored[:16]}…)")
+        write_alignment_record (os .path .join (save_dir ,'zproj_align.json'),{
+            'arm':'ZP100','atom_feat_mode':'z_only_proj','tag':cfg.tag ,
+            'atom_src_formula':'atom_src = atom_proj(atom_norm(tok_emb(atom_idx)))',
+            'atom_proj_init':'weight = I(512), bias = 0',
+            'reference':{
+                'mode':'z_only',
+                'atom_src_formula':'atom_src = atom_norm(tok_emb(atom_idx))',
+                'init_state_sha256':zproj_ref ['ref_state_sha256'],
+                'z100_manifest_init_sha256':Z100_INIT_STATE_SHA256 ,
+                'fingerprint_match':zproj_ref ['ref_state_sha256'] ==Z100_INIT_STATE_SHA256 ,
+                'training_start_rng_sha256':zproj_ref ['ref_rng_sha256']},
+            'candidate_init':{
+                'state_sha256':zproj_align ['candidate_state_sha256'],
+                'n_shared_params':zproj_align ['n_shared_params']},
+            'checks':zproj_align ['checks'],
+            'numeric':zproj_align ['numeric'],
+            'sample_order':zproj_align ['sample_order'],
+            'rng':{'method':RNG_METHOD_NOTE ,
+                   'restored_training_start_sha256':_restored ,
+                   'verified_before_loop_sha256':_verified},
+            'cli':{'model':cfg.model_name ,'epochs':cfg.epochs ,'seed':cfg.seed ,
+                   'batch_size':cfg.batch_size ,'lr':cfg.lr ,'norm':cfg.norm ,
+                   'scale_mode':cfg.scale_mode ,'atom_feat':cfg.atom_feat ,
+                   'tag':cfg.tag ,'dropout':cfg.dropout ,'use_amp':cfg.use_amp ,
+                   'skip_test_eval':cfg.skip_test_eval ,'init_ckpt':cfg.init_ckpt}})
+        logger .info (f"[{cfg.model_name}] z_only_proj training RNG restored to the Z100 "
+        f"training-start state ({_restored [:16]}…) and verified before the loop")
 
     for epoch in range (start_epoch ,cfg.epochs ):
     # Advance the distributed sampler so each epoch receives a new order.
@@ -987,7 +1088,12 @@ def build_arg_parser():
                         help='Shared Transformer decoder depth; 6 is the B7 default')
     parser.add_argument('--use_atom_additive_phdos', action='store_true',
                         help='R2b: sum nonnegative fixed-grid phDOS contributions from atom tokens')
-    parser.add_argument('--atom_feat', type=str, default='legacy3', choices=['legacy3', 'mendeleev24'], help='Atomic feature table')
+    parser.add_argument('--atom_feat', type=str, default='legacy3',
+                        choices=['legacy3', 'legacy3_const', 'z_only', 'z_only_proj', 'mendeleev24'],
+                        help='Atomic feature table; legacy3_const is the element-identity '
+                             'control arm; z_only is the learnable atomic-number-only arm; '
+                             'z_only_proj adds a learnable Linear(512->512) projection after '
+                             'atom_norm with the Z100-aligned initialization')
     parser.add_argument('--energy_code', type=str, default='none', choices=['none', 'edos'], help='Add an eDOS bin-energy encoding')
     parser.add_argument('--edos_grid', type=str, default='', help='Named eDOS grid or path to bin centers')
     parser.add_argument('--use_macro_lattice', action='store_true', help='Enable E10 CIF-only macro lattice residual')

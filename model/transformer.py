@@ -254,17 +254,39 @@ class Transformer(nn.Module):
         else:
             self.edos_energy = None
 
-        # Atom type embedding
+        # Element initialization supplies h_i^0; geometry-dependent atom updates
+        # belong to the encoder. Current research uses z_only_proj (ZP).
+        # See docs/design/design-element-initialization.md for the contract.
         self.tok_emb = nn.Embedding(token_num, d_model)
-        # Numeric atomic-feature embedding.
-        _feat_dim = 24 if atom_feat_mode == "mendeleev24" else 3
-        self.num_emb_encoder = AtomFeatureEncoder(input_dim=_feat_dim, out_dim=d_model,
-                                                  feat=atom_feat_mode)
-        # LayerNorms for matching distributions
-        self.atom_norm = nn.LayerNorm(d_model)
-        self.num_norm  = nn.LayerNorm(d_model)
-        # Fusion projection
-        self.fuse_proj = nn.Linear(d_model * 2, d_model)
+        if atom_feat_mode in ("z_only", "z_only_proj"):
+            # Z100 纯原子序号表示：atom_src = atom_norm(tok_emb(atom_idx))。
+            # 不实例化数值性质编码器、num_norm 与 fuse_proj；输入索引、
+            # padding/mask 契约、几何路径及其余模块保持原样。删除模块会改变
+            # 初始化随机数消耗，同 seed 不保证与 legacy3 共享参数初值。
+            #
+            # z_only_proj 在 LayerNorm 后新增一个可学习投影
+            # atom_proj = Linear(d_model -> d_model，含偏置)，即
+            # atom_src = atom_proj(atom_norm(tok_emb(atom_idx)))。它仍是纯原子
+            # 序号表示：不读元素性质表、不保留常数分支。对齐初始化由
+            # utils/zproj_alignment.py 负责：共享参数复制自同配置、同 seed 的
+            # z_only 未训练参考模型，atom_proj 置单位矩阵/零偏置，使初始前向
+            # 与 z_only 一致；这里的默认初始化随后被覆盖，不是实验初值。
+            self.atom_norm = nn.LayerNorm(d_model)
+            self.atom_proj = (nn.Linear(d_model, d_model, bias=True)
+                              if atom_feat_mode == "z_only_proj" else None)
+            self.num_emb_encoder = None
+            self.num_norm = None
+            self.fuse_proj = None
+        else:
+            # Numeric atomic-feature embedding.
+            _feat_dim = 24 if atom_feat_mode == "mendeleev24" else 3
+            self.num_emb_encoder = AtomFeatureEncoder(input_dim=_feat_dim, out_dim=d_model,
+                                                      feat=atom_feat_mode)
+            # LayerNorms for matching distributions
+            self.atom_norm = nn.LayerNorm(d_model)
+            self.num_norm  = nn.LayerNorm(d_model)
+            # Fusion projection
+            self.fuse_proj = nn.Linear(d_model * 2, d_model)
 
         if self.use_periodic_manybody:
             self.encoder = PeriodicManyBodyEncoder(
@@ -408,6 +430,34 @@ class Transformer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_normal_(p)
 
+    def _encode_atoms(self, atom_idx):
+        """Map sentinel-free atomic indices [B, L] to initial states [B, L, D].
+
+        ZP uses only Embedding -> LayerNorm -> Linear. This method contains no
+        geometry, mask handling or neighbor aggregation; those happen in
+        forward and the encoder. Modules retain their existing top-level names
+        so checkpoint keys and parameter construction order stay unchanged.
+        """
+        atom_emb = self.tok_emb(atom_idx)         # [B, L, d_model]
+        if self.atom_feat_mode == "z_only":
+            # 纯原子序号表示：只走 tok_emb + atom_norm。
+            atom_src = self.atom_norm(atom_emb)   # [B, L, d_model]
+        elif self.atom_feat_mode == "z_only_proj":
+            # 纯原子序号表示 + 可学习投影：tok_emb + atom_norm + atom_proj。
+            atom_src = self.atom_proj(self.atom_norm(atom_emb))  # [B, L, d_model]
+        else:
+            num_emb  = self.num_emb_encoder(atom_idx) # [B, L, d_model]
+
+            # Normalize each stream
+            atom_emb = self.atom_norm(atom_emb)
+            num_emb  = self.num_norm(num_emb)
+
+            # Fuse into unified embedding
+            fused = torch.cat([atom_emb, num_emb], dim=-1)  # [B, L, 2*d_model]
+            atom_src = self.fuse_proj(fused)                # [B, L, d_model]
+
+        return atom_src
+
     def forward(self, src, mask, pos, edos_x=None, phdos_x=None):
         # src: [B, L] atom indices; pos carries lattice+coords
         # edos_x/phdos_x: [E] or [B,E] bin centers in task units, supplied by
@@ -416,18 +466,8 @@ class Transformer(nn.Module):
         atom_len = Lp - 2
         mask_atom = mask[:, 2:2 + atom_len]  # 严格对齐 src[:, 2:] 剥离哨兵后的原子区间
 
-        # Extract atom indices and numeric features
-        atom_idx = src[:, 2:]  # [B, L]
-        atom_emb = self.tok_emb(atom_idx)         # [B, L, d_model]
-        num_emb  = self.num_emb_encoder(atom_idx) # [B, L, d_model]
-
-        # Normalize each stream
-        atom_emb = self.atom_norm(atom_emb)
-        num_emb  = self.num_norm(num_emb)
-
-        # Fuse into unified embedding
-        fused = torch.cat([atom_emb, num_emb], dim=-1)  # [B, L, 2*d_model]
-        atom_src = self.fuse_proj(fused)                # [B, L, d_model]
+        atom_idx = src[:, 2:]  # [B, L]; lattice sentinel slots are not elements.
+        atom_src = self._encode_atoms(atom_idx)
 
         if self.use_macro_lattice:
             macro = macro_lattice_features(
@@ -773,6 +813,9 @@ class TransformerEncoderLayer(nn.Module):
 
         B, L, _ = src.size()
         
+        # Each layer updates atom states, but geometry enters the scores only.
+        # Values contain the current atom states, without an explicit edge
+        # geometry message. This is the baseline path, before optional G2.
         q, k, v = src, src, src
 
         if rp_base is None:
@@ -812,7 +855,9 @@ class TransformerEncoderLayer(nn.Module):
         # 计算新的注意力权重并输出
         attn_weights_new = F.softmax(total_scores, dim=-1)
         
-        # 重新计算注意力输出：将新的权重作用于 v（同样需要拆分成头）
+        # Geometry changes the weights of this average. For identical valid
+        # values, sum_j softmax(score_ij) * v_j = v; score changes alone cannot
+        # create different states. Shared FFNs preserve that equality in eval.
         v_heads = v.view(B, L, self.nhead, d_model_head).permute(0, 2, 1, 3).reshape(B * self.nhead, L, d_model_head)
         attn_output_new = torch.bmm(attn_weights_new, v_heads)
         attn_output_new = attn_output_new.view(B, self.nhead, L, d_model_head).permute(0, 2, 1, 3).reshape(B, L, self.dim)

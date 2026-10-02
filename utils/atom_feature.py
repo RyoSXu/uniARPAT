@@ -103,13 +103,37 @@ class Mendeleev24():
         return self.feature
 
 
+def legacy3_const_vector() -> torch.Tensor:
+    """元素身份对照（B 臂）预注册常数向量 c。
+
+    c = F[1:119].mean(dim=0)，F 为当前 legacy3 路径完成缺失填补和全表
+    min-max 归一化后的 float32 性质表；118 行逐元素等权均值，排除 padding。
+    """
+    return PeriodicTable().atom_feature_map()[1:119].mean(dim=0)
+
+
 class AtomFeatureEncoder(nn.Module):
     def __init__(self, input_dim,  out_dim, feat='legacy3'):
         super(AtomFeatureEncoder, self).__init__()
         self.feat = feat
+        if feat in ('z_only', 'z_only_proj'):
+            # z_only / z_only_proj 没有数值性质分支；防止误入性质表读取路径。
+            raise ValueError(f"{feat} has no numeric property encoder; "
+                             f"Transformer must not instantiate AtomFeatureEncoder "
+                             f"in {feat} mode")
         if feat == 'mendeleev24':
             assert input_dim == 24
             self.feature_map = Mendeleev24().atom_feature_map()
+        elif feat == 'legacy3_const':
+            # 元素身份对照（B 臂）：沿 legacy3 路径取得 F，复制后把第 1..118 行
+            # 全部替换为常数 c，保留 F[0]；分支形状、可训练层创建顺序与 legacy3
+            # 完全一致，不引入任何随机抽样。
+            assert input_dim == 3
+            self.pt = PeriodicTable()
+            self.feature_map = self.pt.atom_feature_map()
+            const_vec = self.feature_map[1:119].mean(dim=0)
+            self.feature_map = self.feature_map.clone()
+            self.feature_map[1:] = const_vec
         else:
             self.pt = PeriodicTable()
             self.feature_map = self.pt.atom_feature_map()
