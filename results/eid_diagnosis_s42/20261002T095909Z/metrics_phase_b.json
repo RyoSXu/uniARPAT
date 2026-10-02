@@ -1,0 +1,2060 @@
+{
+  "phase": "B",
+  "init_fingerprints": {
+    "B100": {
+      "computed": "efca7088573a371fefe589a144ea66694273192498c9e7c15f2d111b717e06e0",
+      "recorded": "efca7088573a371fefe589a144ea66694273192498c9e7c15f2d111b717e06e0",
+      "match": true
+    },
+    "Z100": {
+      "computed": "4eda5029e186d2f3ef60adeb0616b0a170ee3ca8fad80bad6e3e46cd9735ca32",
+      "recorded": "4eda5029e186d2f3ef60adeb0616b0a170ee3ca8fad80bad6e3e46cd9735ca32",
+      "match": true
+    },
+    "ZP100": {
+      "computed": "4d7ae7aa41e283b1c95acd55682ed0551dbc5820031b90f99dd339a33b38e1d2",
+      "recorded": "4d7ae7aa41e283b1c95acd55682ed0551dbc5820031b90f99dd339a33b38e1d2",
+      "match": true
+    }
+  },
+  "parameter_change_group_summary": {
+    "B100": {
+      "tok_emb": {
+        "n_params": 1,
+        "numel": 60416,
+        "abs_change_rms_best": 0.0059340950101614,
+        "abs_change_rms_latest": 0.005944941192865372,
+        "init_rms": 0.05644021555781365
+      },
+      "atom_norm": {
+        "n_params": 2,
+        "numel": 1024,
+        "abs_change_rms_best": 0.004727101386915294,
+        "abs_change_rms_latest": 0.004731498142351384,
+        "init_rms": 0.7071067811865476
+      },
+      "atom_proj": {
+        "n_params": 0,
+        "numel": 0,
+        "note": "module absent (N/A, not zero)"
+      },
+      "num_emb_encoder": {
+        "n_params": 2,
+        "numel": 2048,
+        "abs_change_rms_best": 0.007484923164584281,
+        "abs_change_rms_latest": 0.007488283182795014,
+        "init_rms": 0.1792657346492858
+      },
+      "num_norm": {
+        "n_params": 2,
+        "numel": 1024,
+        "abs_change_rms_best": 0.02404460772130226,
+        "abs_change_rms_latest": 0.02407635825111397,
+        "init_rms": 0.7071067811865476
+      },
+      "fuse_proj": {
+        "n_params": 2,
+        "numel": 524800,
+        "abs_change_rms_best": 0.00484500143075858,
+        "abs_change_rms_latest": 0.004852323688191902,
+        "init_rms": 0.036042010240825824
+      },
+      "encoder.layer0.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.013735569987297634,
+        "abs_change_rms_latest": 0.013771546516975727,
+        "init_rms": 0.04289026499982367
+      },
+      "encoder.layer0.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.005623316234422452,
+        "abs_change_rms_latest": 0.0056298863158337,
+        "init_rms": 0.03561119185492905
+      },
+      "encoder.layer1.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.013691467161210407,
+        "abs_change_rms_latest": 0.013728344439792995,
+        "init_rms": 0.04285225448807949
+      },
+      "encoder.layer1.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.0062043934040458505,
+        "abs_change_rms_latest": 0.006214618023570647,
+        "init_rms": 0.035593034813959146
+      },
+      "encoder.layer2.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.013854963789219679,
+        "abs_change_rms_latest": 0.013895853452496023,
+        "init_rms": 0.042835900485001674
+      },
+      "encoder.layer2.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.006513556434036074,
+        "abs_change_rms_latest": 0.006526360663573015,
+        "init_rms": 0.03559123616390104
+      },
+      "encoder.layer3.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.014217571848261458,
+        "abs_change_rms_latest": 0.014261512661864947,
+        "init_rms": 0.042909197702082326
+      },
+      "encoder.layer3.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.006729858534993242,
+        "abs_change_rms_latest": 0.006744780043738589,
+        "init_rms": 0.035586471347150386
+      },
+      "encoder.layer4.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.014745376249775288,
+        "abs_change_rms_latest": 0.014790818915442821,
+        "init_rms": 0.042797744878771006
+      },
+      "encoder.layer4.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.006942785106340984,
+        "abs_change_rms_latest": 0.006959765825839142,
+        "init_rms": 0.03560279281621699
+      },
+      "encoder.layer5.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.015337948831168883,
+        "abs_change_rms_latest": 0.015386536637032506,
+        "init_rms": 0.04275762458025538
+      },
+      "encoder.layer5.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.007146261813335615,
+        "abs_change_rms_latest": 0.007163696651173367,
+        "init_rms": 0.03558619095732028
+      },
+      "decoder": {
+        "n_params": 110,
+        "numel": 25225216,
+        "abs_change_rms_best": 0.008271741622340144,
+        "abs_change_rms_latest": 0.008301708468118296,
+        "init_rms": 0.037209422173907165
+      },
+      "spectrum_heads": {
+        "n_params": 14,
+        "numel": 30684674,
+        "abs_change_rms_best": 0.0073601494262118304,
+        "abs_change_rms_latest": 0.007389646570079183,
+        "init_rms": 0.009138327148161247
+      },
+      "scale_head": {
+        "n_params": 6,
+        "numel": 74050,
+        "abs_change_rms_best": 0.014083253419947279,
+        "abs_change_rms_latest": 0.014152515110222037,
+        "init_rms": 0.0629383930771452
+      },
+      "other": {
+        "n_params": 4,
+        "numel": 196608,
+        "abs_change_rms_best": 0.014513967708939736,
+        "abs_change_rms_latest": 0.014576785397392858,
+        "init_rms": 0.056989969606007794
+      },
+      "embedding_rows": {
+        "categories": {
+          "real_z_train": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            89,
+            90,
+            91,
+            92,
+            93
+          ],
+          "sentinel_rows": [],
+          "padding_rows": [
+            0
+          ],
+          "unseen_rows": [
+            10,
+            63,
+            64,
+            84,
+            85,
+            86,
+            87,
+            88,
+            94,
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110,
+            111,
+            112,
+            113,
+            114,
+            115,
+            116,
+            117
+          ],
+          "sentinel_tokens_by_slot": [
+            126,
+            127
+          ],
+          "note": "token_num=118; 哨兵 token 值 [126, 127] 超出 embedding 行范围，从不进入 tok_emb（哨兵仅占 src 前两行晶格槽位）"
+        },
+        "n_rows_total": 118,
+        "stats": {
+          "best": {
+            "real_z_train": {
+              "n_rows": 85,
+              "init_row_norm_rms": 0.05647265166044235,
+              "final_row_norm_rms": 0.05607176199555397,
+              "change_rms": 0.006971857976168394,
+              "rel_change": 0.12345555424690247,
+              "note": ""
+            },
+            "sentinel_rows": {
+              "n_rows": 0,
+              "init_row_norm_rms": null,
+              "final_row_norm_rms": null,
+              "change_rms": null,
+              "rel_change": null,
+              "note": "empty category"
+            },
+            "padding_rows": {
+              "n_rows": 1,
+              "init_row_norm_rms": 0.0526815801858902,
+              "final_row_norm_rms": 0.05189262330532074,
+              "change_rms": 0.0007891336572356522,
+              "rel_change": 0.014979308471083641,
+              "note": ""
+            },
+            "unseen_rows": {
+              "n_rows": 32,
+              "init_row_norm_rms": 0.05646757408976555,
+              "final_row_norm_rms": 0.055620186030864716,
+              "change_rms": 0.0008476021466776729,
+              "rel_change": 0.015010406263172626,
+              "note": ""
+            }
+          },
+          "latest": {
+            "real_z_train": {
+              "n_rows": 85,
+              "init_row_norm_rms": 0.05647265166044235,
+              "final_row_norm_rms": 0.05606925114989281,
+              "change_rms": 0.006984542589634657,
+              "rel_change": 0.12368010729551315,
+              "note": ""
+            },
+            "sentinel_rows": {
+              "n_rows": 0,
+              "init_row_norm_rms": null,
+              "final_row_norm_rms": null,
+              "change_rms": null,
+              "rel_change": null,
+              "note": "empty category"
+            },
+            "padding_rows": {
+              "n_rows": 1,
+              "init_row_norm_rms": 0.0526815801858902,
+              "final_row_norm_rms": 0.0518900528550148,
+              "change_rms": 0.0007917016628198326,
+              "rel_change": 0.015028053894639015,
+              "note": ""
+            },
+            "unseen_rows": {
+              "n_rows": 32,
+              "init_row_norm_rms": 0.05646757408976555,
+              "final_row_norm_rms": 0.055617377161979675,
+              "change_rms": 0.0008504109573550522,
+              "rel_change": 0.015060157515108585,
+              "note": ""
+            }
+          }
+        }
+      }
+    },
+    "Z100": {
+      "tok_emb": {
+        "n_params": 1,
+        "numel": 60416,
+        "abs_change_rms_best": 0.0054789939895272255,
+        "abs_change_rms_latest": 0.00551737891510129,
+        "init_rms": 0.056068047881126404
+      },
+      "atom_norm": {
+        "n_params": 2,
+        "numel": 1024,
+        "abs_change_rms_best": 0.013469905987421356,
+        "abs_change_rms_latest": 0.013599453968920176,
+        "init_rms": 0.7071067811865476
+      },
+      "atom_proj": {
+        "n_params": 0,
+        "numel": 0,
+        "note": "module absent (N/A, not zero)"
+      },
+      "num_emb_encoder": {
+        "n_params": 0,
+        "numel": 0,
+        "note": "module absent (N/A, not zero)"
+      },
+      "num_norm": {
+        "n_params": 0,
+        "numel": 0,
+        "note": "module absent (N/A, not zero)"
+      },
+      "fuse_proj": {
+        "n_params": 0,
+        "numel": 0,
+        "note": "module absent (N/A, not zero)"
+      },
+      "encoder.layer0.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.014574463571085213,
+        "abs_change_rms_latest": 0.01464764421919772,
+        "init_rms": 0.042868766369557186
+      },
+      "encoder.layer0.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.0052242308719993,
+        "abs_change_rms_latest": 0.005236866058704038,
+        "init_rms": 0.03561473012516884
+      },
+      "encoder.layer1.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.013555710884170962,
+        "abs_change_rms_latest": 0.013642129053343575,
+        "init_rms": 0.04281864780287252
+      },
+      "encoder.layer1.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.0057582333351302506,
+        "abs_change_rms_latest": 0.005775755683190376,
+        "init_rms": 0.035597464417285896
+      },
+      "encoder.layer2.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.01377919646693523,
+        "abs_change_rms_latest": 0.01386616083790545,
+        "init_rms": 0.042898129040320684
+      },
+      "encoder.layer2.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.006202274297756865,
+        "abs_change_rms_latest": 0.006223620310267754,
+        "init_rms": 0.035585132454137955
+      },
+      "encoder.layer3.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.014033834648013737,
+        "abs_change_rms_latest": 0.014125289688392365,
+        "init_rms": 0.04289972164272747
+      },
+      "encoder.layer3.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.006548113266148955,
+        "abs_change_rms_latest": 0.0065736679583445114,
+        "init_rms": 0.03558455550866109
+      },
+      "encoder.layer4.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.014469605609696389,
+        "abs_change_rms_latest": 0.014570427200056683,
+        "init_rms": 0.042906337640925635
+      },
+      "encoder.layer4.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.006869006202418008,
+        "abs_change_rms_latest": 0.006898438630995788,
+        "init_rms": 0.03559519906568638
+      },
+      "encoder.layer5.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.015408338943503705,
+        "abs_change_rms_latest": 0.0155129458555641,
+        "init_rms": 0.04287282229477746
+      },
+      "encoder.layer5.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.007045600674086203,
+        "abs_change_rms_latest": 0.007075139593727817,
+        "init_rms": 0.035579218064195554
+      },
+      "decoder": {
+        "n_params": 110,
+        "numel": 25225216,
+        "abs_change_rms_best": 0.008182525731026668,
+        "abs_change_rms_latest": 0.008237399285005975,
+        "init_rms": 0.03721214468143744
+      },
+      "spectrum_heads": {
+        "n_params": 14,
+        "numel": 30684674,
+        "abs_change_rms_best": 0.0072101237546079505,
+        "abs_change_rms_latest": 0.0072663916626995355,
+        "init_rms": 0.009137962833571418
+      },
+      "scale_head": {
+        "n_params": 6,
+        "numel": 74050,
+        "abs_change_rms_best": 0.013487773978385461,
+        "abs_change_rms_latest": 0.013627391472667248,
+        "init_rms": 0.06281002821525186
+      },
+      "other": {
+        "n_params": 4,
+        "numel": 196608,
+        "abs_change_rms_best": 0.014329194584324762,
+        "abs_change_rms_latest": 0.014448778457272575,
+        "init_rms": 0.05695859873933747
+      },
+      "embedding_rows": {
+        "categories": {
+          "real_z_train": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            89,
+            90,
+            91,
+            92,
+            93
+          ],
+          "sentinel_rows": [],
+          "padding_rows": [
+            0
+          ],
+          "unseen_rows": [
+            10,
+            63,
+            64,
+            84,
+            85,
+            86,
+            87,
+            88,
+            94,
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110,
+            111,
+            112,
+            113,
+            114,
+            115,
+            116,
+            117
+          ],
+          "sentinel_tokens_by_slot": [
+            126,
+            127
+          ],
+          "note": "token_num=118; 哨兵 token 值 [126, 127] 超出 embedding 行范围，从不进入 tok_emb（哨兵仅占 src 前两行晶格槽位）"
+        },
+        "n_rows_total": 118,
+        "stats": {
+          "best": {
+            "real_z_train": {
+              "n_rows": 85,
+              "init_row_norm_rms": 0.05613766238093376,
+              "final_row_norm_rms": 0.055677738040685654,
+              "change_rms": 0.006435045972466469,
+              "rel_change": 0.11462979018688202,
+              "note": ""
+            },
+            "sentinel_rows": {
+              "n_rows": 0,
+              "init_row_norm_rms": null,
+              "final_row_norm_rms": null,
+              "change_rms": null,
+              "rel_change": null,
+              "note": "empty category"
+            },
+            "padding_rows": {
+              "n_rows": 1,
+              "init_row_norm_rms": 0.05375310033559799,
+              "final_row_norm_rms": 0.052959855645895004,
+              "change_rms": 0.0007934431196190417,
+              "rel_change": 0.014760881662368774,
+              "note": ""
+            },
+            "unseen_rows": {
+              "n_rows": 32,
+              "init_row_norm_rms": 0.0559537410736084,
+              "final_row_norm_rms": 0.05512814596295357,
+              "change_rms": 0.0008258054149337113,
+              "rel_change": 0.014758714474737644,
+              "note": ""
+            }
+          },
+          "latest": {
+            "real_z_train": {
+              "n_rows": 85,
+              "init_row_norm_rms": 0.05613766238093376,
+              "final_row_norm_rms": 0.055659033358097076,
+              "change_rms": 0.006479586008936167,
+              "rel_change": 0.11542318761348724,
+              "note": ""
+            },
+            "sentinel_rows": {
+              "n_rows": 0,
+              "init_row_norm_rms": null,
+              "final_row_norm_rms": null,
+              "change_rms": null,
+              "rel_change": null,
+              "note": "empty category"
+            },
+            "padding_rows": {
+              "n_rows": 1,
+              "init_row_norm_rms": 0.05375310033559799,
+              "final_row_norm_rms": 0.052943985909223557,
+              "change_rms": 0.0008093309006653726,
+              "rel_change": 0.015056448988616467,
+              "note": ""
+            },
+            "unseen_rows": {
+              "n_rows": 32,
+              "init_row_norm_rms": 0.0559537410736084,
+              "final_row_norm_rms": 0.05511151999235153,
+              "change_rms": 0.0008424430270679295,
+              "rel_change": 0.015056055970489979,
+              "note": ""
+            }
+          }
+        }
+      }
+    },
+    "ZP100": {
+      "tok_emb": {
+        "n_params": 1,
+        "numel": 60416,
+        "abs_change_rms_best": 0.004919964820146561,
+        "abs_change_rms_latest": 0.004931090399622917,
+        "init_rms": 0.056068047881126404
+      },
+      "atom_norm": {
+        "n_params": 2,
+        "numel": 1024,
+        "abs_change_rms_best": 0.013497517224870586,
+        "abs_change_rms_latest": 0.01350806593521525,
+        "init_rms": 0.7071067811865476
+      },
+      "atom_proj": {
+        "n_params": 2,
+        "numel": 262656,
+        "abs_change_rms_best": 0.005342564856829701,
+        "abs_change_rms_latest": 0.005353123574125077,
+        "init_rms": 0.04415107781322127
+      },
+      "num_emb_encoder": {
+        "n_params": 0,
+        "numel": 0,
+        "note": "module absent (N/A, not zero)"
+      },
+      "num_norm": {
+        "n_params": 0,
+        "numel": 0,
+        "note": "module absent (N/A, not zero)"
+      },
+      "fuse_proj": {
+        "n_params": 0,
+        "numel": 0,
+        "note": "module absent (N/A, not zero)"
+      },
+      "encoder.layer0.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.01427198897694798,
+        "abs_change_rms_latest": 0.014301015450318493,
+        "init_rms": 0.042868766369557186
+      },
+      "encoder.layer0.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.005269222703361404,
+        "abs_change_rms_latest": 0.005272487284667934,
+        "init_rms": 0.03561473012516884
+      },
+      "encoder.layer1.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.013665069184632273,
+        "abs_change_rms_latest": 0.013697943332416028,
+        "init_rms": 0.04281864780287252
+      },
+      "encoder.layer1.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.0058348024375528725,
+        "abs_change_rms_latest": 0.005840645098386039,
+        "init_rms": 0.035597464417285896
+      },
+      "encoder.layer2.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.013795117909557328,
+        "abs_change_rms_latest": 0.013827805025386164,
+        "init_rms": 0.042898129040320684
+      },
+      "encoder.layer2.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.0062582137954878105,
+        "abs_change_rms_latest": 0.006266212093775859,
+        "init_rms": 0.035585132454137955
+      },
+      "encoder.layer3.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.014288749745960894,
+        "abs_change_rms_latest": 0.014323776174130125,
+        "init_rms": 0.04289972164272747
+      },
+      "encoder.layer3.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.006584313960697322,
+        "abs_change_rms_latest": 0.006594047835019033,
+        "init_rms": 0.03558455550866109
+      },
+      "encoder.layer4.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.014574611217539417,
+        "abs_change_rms_latest": 0.014612895384296097,
+        "init_rms": 0.042906337640925635
+      },
+      "encoder.layer4.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.006894853512334907,
+        "abs_change_rms_latest": 0.006906149378054533,
+        "init_rms": 0.03559519906568638
+      },
+      "encoder.layer5.rp_proj": {
+        "n_params": 2,
+        "numel": 295424,
+        "abs_change_rms_best": 0.015450229908976312,
+        "abs_change_rms_latest": 0.01548856338829074,
+        "init_rms": 0.04287282229477746
+      },
+      "encoder.layer5.other": {
+        "n_params": 8,
+        "numel": 2101760,
+        "abs_change_rms_best": 0.007069119455838655,
+        "abs_change_rms_latest": 0.007080623228652199,
+        "init_rms": 0.035579218064195554
+      },
+      "decoder": {
+        "n_params": 110,
+        "numel": 25225216,
+        "abs_change_rms_best": 0.008205287187357125,
+        "abs_change_rms_latest": 0.008226897917050877,
+        "init_rms": 0.03721214468143744
+      },
+      "spectrum_heads": {
+        "n_params": 14,
+        "numel": 30684674,
+        "abs_change_rms_best": 0.007330023877420507,
+        "abs_change_rms_latest": 0.007351994012344729,
+        "init_rms": 0.009137962833571418
+      },
+      "scale_head": {
+        "n_params": 6,
+        "numel": 74050,
+        "abs_change_rms_best": 0.013475954819986424,
+        "abs_change_rms_latest": 0.013530140611237695,
+        "init_rms": 0.06281002821525186
+      },
+      "other": {
+        "n_params": 4,
+        "numel": 196608,
+        "abs_change_rms_best": 0.014348088153311006,
+        "abs_change_rms_latest": 0.014395282948649892,
+        "init_rms": 0.05695859873933747
+      },
+      "embedding_rows": {
+        "categories": {
+          "real_z_train": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            89,
+            90,
+            91,
+            92,
+            93
+          ],
+          "sentinel_rows": [],
+          "padding_rows": [
+            0
+          ],
+          "unseen_rows": [
+            10,
+            63,
+            64,
+            84,
+            85,
+            86,
+            87,
+            88,
+            94,
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110,
+            111,
+            112,
+            113,
+            114,
+            115,
+            116,
+            117
+          ],
+          "sentinel_tokens_by_slot": [
+            126,
+            127
+          ],
+          "note": "token_num=118; 哨兵 token 值 [126, 127] 超出 embedding 行范围，从不进入 tok_emb（哨兵仅占 src 前两行晶格槽位）"
+        },
+        "n_rows_total": 118,
+        "stats": {
+          "best": {
+            "real_z_train": {
+              "n_rows": 85,
+              "init_row_norm_rms": 0.05613766238093376,
+              "final_row_norm_rms": 0.05565982684493065,
+              "change_rms": 0.005773110315203667,
+              "rel_change": 0.10283850133419037,
+              "note": ""
+            },
+            "sentinel_rows": {
+              "n_rows": 0,
+              "init_row_norm_rms": null,
+              "final_row_norm_rms": null,
+              "change_rms": null,
+              "rel_change": null,
+              "note": "empty category"
+            },
+            "padding_rows": {
+              "n_rows": 1,
+              "init_row_norm_rms": 0.05375310033559799,
+              "final_row_norm_rms": 0.052943985909223557,
+              "change_rms": 0.0008093309006653726,
+              "rel_change": 0.015056448988616467,
+              "note": ""
+            },
+            "unseen_rows": {
+              "n_rows": 32,
+              "init_row_norm_rms": 0.0559537410736084,
+              "final_row_norm_rms": 0.05511151999235153,
+              "change_rms": 0.0008424430270679295,
+              "rel_change": 0.015056055970489979,
+              "note": ""
+            }
+          },
+          "latest": {
+            "real_z_train": {
+              "n_rows": 85,
+              "init_row_norm_rms": 0.05613766238093376,
+              "final_row_norm_rms": 0.055660098791122437,
+              "change_rms": 0.005786273628473282,
+              "rel_change": 0.10307297855615616,
+              "note": ""
+            },
+            "sentinel_rows": {
+              "n_rows": 0,
+              "init_row_norm_rms": null,
+              "final_row_norm_rms": null,
+              "change_rms": null,
+              "rel_change": null,
+              "note": "empty category"
+            },
+            "padding_rows": {
+              "n_rows": 1,
+              "init_row_norm_rms": 0.05375310033559799,
+              "final_row_norm_rms": 0.052943985909223557,
+              "change_rms": 0.0008093309006653726,
+              "rel_change": 0.015056448988616467,
+              "note": ""
+            },
+            "unseen_rows": {
+              "n_rows": 32,
+              "init_row_norm_rms": 0.0559537410736084,
+              "final_row_norm_rms": 0.05511151999235153,
+              "change_rms": 0.0008424430270679295,
+              "rel_change": 0.015056055970489979,
+              "note": ""
+            }
+          }
+        }
+      }
+    }
+  },
+  "optimizer_state": {
+    "B100": {
+      "best": {
+        "param_group_count": 1,
+        "param_group_config": {
+          "lr": 3.2293398912955244e-06,
+          "betas": [
+            0.9,
+            0.99
+          ],
+          "eps": 1e-08,
+          "weight_decay": 0.01,
+          "amsgrad": false,
+          "maximize": false,
+          "foreach": null,
+          "capturable": false,
+          "differentiable": false,
+          "fused": null,
+          "initial_lr": 5e-05
+        },
+        "state_entries": 203,
+        "named_params": 203,
+        "distinct_steps": [
+          50895.0
+        ],
+        "mapping_method": "checkpoint optimizer param_groups[0]['params'] positional order vs model.named_parameters() original order; shapes verified per entry"
+      },
+      "latest": {
+        "param_group_count": 1,
+        "param_group_config": {
+          "lr": 1e-06,
+          "betas": [
+            0.9,
+            0.99
+          ],
+          "eps": 1e-08,
+          "weight_decay": 0.01,
+          "amsgrad": false,
+          "maximize": false,
+          "foreach": null,
+          "capturable": false,
+          "differentiable": false,
+          "fused": null,
+          "initial_lr": 5e-05
+        },
+        "state_entries": 203,
+        "named_params": 203,
+        "distinct_steps": [
+          58500.0
+        ],
+        "mapping_method": "checkpoint optimizer param_groups[0]['params'] positional order vs model.named_parameters() original order; shapes verified per entry"
+      }
+    },
+    "Z100": {
+      "best": {
+        "param_group_count": 1,
+        "param_group_config": {
+          "lr": 5.21378363687351e-06,
+          "betas": [
+            0.9,
+            0.99
+          ],
+          "eps": 1e-08,
+          "weight_decay": 0.01,
+          "amsgrad": false,
+          "maximize": false,
+          "foreach": null,
+          "capturable": false,
+          "differentiable": false,
+          "fused": null,
+          "initial_lr": 5e-05
+        },
+        "state_entries": 197,
+        "named_params": 197,
+        "distinct_steps": [
+          47970.0
+        ],
+        "mapping_method": "checkpoint optimizer param_groups[0]['params'] positional order vs model.named_parameters() original order; shapes verified per entry"
+      },
+      "latest": {
+        "param_group_count": 1,
+        "param_group_config": {
+          "lr": 1e-06,
+          "betas": [
+            0.9,
+            0.99
+          ],
+          "eps": 1e-08,
+          "weight_decay": 0.01,
+          "amsgrad": false,
+          "maximize": false,
+          "foreach": null,
+          "capturable": false,
+          "differentiable": false,
+          "fused": null,
+          "initial_lr": 5e-05
+        },
+        "state_entries": 197,
+        "named_params": 197,
+        "distinct_steps": [
+          58500.0
+        ],
+        "mapping_method": "checkpoint optimizer param_groups[0]['params'] positional order vs model.named_parameters() original order; shapes verified per entry"
+      }
+    },
+    "ZP100": {
+      "best": {
+        "param_group_count": 1,
+        "param_group_config": {
+          "lr": 2.603170617313207e-06,
+          "betas": [
+            0.9,
+            0.99
+          ],
+          "eps": 1e-08,
+          "weight_decay": 0.01,
+          "amsgrad": false,
+          "maximize": false,
+          "foreach": null,
+          "capturable": false,
+          "differentiable": false,
+          "fused": null,
+          "initial_lr": 5e-05
+        },
+        "state_entries": 199,
+        "named_params": 199,
+        "distinct_steps": [
+          52065.0
+        ],
+        "mapping_method": "checkpoint optimizer param_groups[0]['params'] positional order vs model.named_parameters() original order; shapes verified per entry"
+      },
+      "latest": {
+        "param_group_count": 1,
+        "param_group_config": {
+          "lr": 1e-06,
+          "betas": [
+            0.9,
+            0.99
+          ],
+          "eps": 1e-08,
+          "weight_decay": 0.01,
+          "amsgrad": false,
+          "maximize": false,
+          "foreach": null,
+          "capturable": false,
+          "differentiable": false,
+          "fused": null,
+          "initial_lr": 5e-05
+        },
+        "state_entries": 199,
+        "named_params": 199,
+        "distinct_steps": [
+          58500.0
+        ],
+        "mapping_method": "checkpoint optimizer param_groups[0]['params'] positional order vs model.named_parameters() original order; shapes verified per entry"
+      }
+    }
+  },
+  "gradient_negative_cosine": {
+    "B100": {
+      "init": {
+        "tok_emb": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "atom_norm": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "num_emb_encoder": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "num_norm": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "fuse_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer0.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer0.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer1.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer1.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer2.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer2.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer3.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer3.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer4.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "encoder.layer4.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer5.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer5.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "decoder": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 13,
+          "negative_cosine_fraction": 0.8125,
+          "note": ""
+        },
+        "atom_proj": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "spectrum_heads": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "scale_head": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "other": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        }
+      },
+      "latest": {
+        "tok_emb": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "atom_norm": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "num_emb_encoder": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "num_norm": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "fuse_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer0.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer0.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer1.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer1.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer2.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "encoder.layer2.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer3.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer3.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer4.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer4.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer5.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer5.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "decoder": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 5,
+          "negative_cosine_fraction": 0.3125,
+          "note": ""
+        },
+        "atom_proj": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "spectrum_heads": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "scale_head": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "other": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        }
+      }
+    },
+    "Z100": {
+      "init": {
+        "tok_emb": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 4,
+          "negative_cosine_fraction": 0.25,
+          "note": ""
+        },
+        "atom_norm": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer0.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer0.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "encoder.layer1.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer1.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 3,
+          "negative_cosine_fraction": 0.1875,
+          "note": ""
+        },
+        "encoder.layer2.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "encoder.layer2.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 2,
+          "negative_cosine_fraction": 0.125,
+          "note": ""
+        },
+        "encoder.layer3.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer3.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 2,
+          "negative_cosine_fraction": 0.125,
+          "note": ""
+        },
+        "encoder.layer4.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer4.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 2,
+          "negative_cosine_fraction": 0.125,
+          "note": ""
+        },
+        "encoder.layer5.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "encoder.layer5.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 2,
+          "negative_cosine_fraction": 0.125,
+          "note": ""
+        },
+        "decoder": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "atom_proj": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "num_emb_encoder": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "num_norm": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "fuse_proj": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "spectrum_heads": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "scale_head": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "other": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        }
+      },
+      "latest": {
+        "tok_emb": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "atom_norm": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer0.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer0.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer1.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "encoder.layer1.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer2.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer2.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer3.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer3.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer4.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer4.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer5.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "encoder.layer5.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "decoder": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "atom_proj": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "num_emb_encoder": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "num_norm": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "fuse_proj": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "spectrum_heads": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "scale_head": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "other": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        }
+      }
+    },
+    "ZP100": {
+      "init": {
+        "tok_emb": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 4,
+          "negative_cosine_fraction": 0.25,
+          "note": ""
+        },
+        "atom_norm": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "atom_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 3,
+          "negative_cosine_fraction": 0.1875,
+          "note": ""
+        },
+        "encoder.layer0.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer0.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "encoder.layer1.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer1.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 3,
+          "negative_cosine_fraction": 0.1875,
+          "note": ""
+        },
+        "encoder.layer2.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "encoder.layer2.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 2,
+          "negative_cosine_fraction": 0.125,
+          "note": ""
+        },
+        "encoder.layer3.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer3.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 2,
+          "negative_cosine_fraction": 0.125,
+          "note": ""
+        },
+        "encoder.layer4.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 11,
+          "negative_cosine_fraction": 0.6875,
+          "note": ""
+        },
+        "encoder.layer4.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 2,
+          "negative_cosine_fraction": 0.125,
+          "note": ""
+        },
+        "encoder.layer5.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "encoder.layer5.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 2,
+          "negative_cosine_fraction": 0.125,
+          "note": ""
+        },
+        "decoder": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "num_emb_encoder": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "num_norm": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "fuse_proj": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "spectrum_heads": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "scale_head": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "other": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        }
+      },
+      "latest": {
+        "tok_emb": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "atom_norm": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "atom_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer0.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer0.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 10,
+          "negative_cosine_fraction": 0.625,
+          "note": ""
+        },
+        "encoder.layer1.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 13,
+          "negative_cosine_fraction": 0.8125,
+          "note": ""
+        },
+        "encoder.layer1.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer2.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 8,
+          "negative_cosine_fraction": 0.5,
+          "note": ""
+        },
+        "encoder.layer2.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 9,
+          "negative_cosine_fraction": 0.5625,
+          "note": ""
+        },
+        "encoder.layer3.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "encoder.layer3.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer4.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "encoder.layer4.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "encoder.layer5.rp_proj": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 7,
+          "negative_cosine_fraction": 0.4375,
+          "note": ""
+        },
+        "encoder.layer5.other": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 5,
+          "negative_cosine_fraction": 0.3125,
+          "note": ""
+        },
+        "decoder": {
+          "n_batches_with_cosine": 16,
+          "negative_cosine_batches": 6,
+          "negative_cosine_fraction": 0.375,
+          "note": ""
+        },
+        "num_emb_encoder": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "num_norm": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "fuse_proj": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "spectrum_heads": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "scale_head": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        },
+        "other": {
+          "n_batches_with_cosine": 0,
+          "negative_cosine_batches": 0,
+          "negative_cosine_fraction": null,
+          "note": "no defined cosine (zero norms or absent module)"
+        }
+      }
+    }
+  },
+  "gradient_note": "eval() 模式、固定 128 条 train 探针上的当前梯度；不代表历史训练梯度（历史训练含 dropout、参数逐批变化）。"
+}

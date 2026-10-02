@@ -1,0 +1,279 @@
+{
+  "arm": "Z100",
+  "atom_feat_mode": "z_only",
+  "atom_src_formula": "atom_src = atom_norm(tok_emb(atom_idx))",
+  "checkpoints": {
+    "checkpoint_best.pth": {
+      "best_val_score": 0.6368910763412714,
+      "epoch": 82,
+      "sha256": "0646d5b8e8cba3aaaaeae68f1f7e5a4c5f6a30cc342dc835bf92aaa6c7691a07"
+    },
+    "checkpoint_latest.pth": {
+      "best_val_score": 0.6368910763412714,
+      "epoch": 100,
+      "sha256": "094e0b814fbb6769282372dcedfbd44fa507cec044125b798da3b04faaa0c7a7"
+    }
+  },
+  "checks": [
+    {
+      "detail": "types=NoneType,NoneType,NoneType",
+      "name": "z_only does not instantiate num_emb_encoder/num_norm/fuse_proj",
+      "pass": true
+    },
+    {
+      "detail": "[]",
+      "name": "z_only state_dict free of numeric-branch/fusion keys",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "z_only keeps tok_emb/atom_norm and geometry encoder",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "legacy3 path still instantiates numeric branch and fusion",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "encoder input equals atom_norm(tok_emb(atom_idx)) bit-for-bit",
+      "pass": true
+    },
+    {
+      "detail": "shapes={'edos': (4, 128), 'phdos': (4, 64), 'eta': (4, 2)}",
+      "name": "z_only forward shapes edos[4,128]/phdos[4,64]/eta[4,2]",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "z_only construction and forward never read the property tables",
+      "pass": true
+    },
+    {
+      "detail": "z_only has no numeric property encoder; Transformer must not instantiate AtomFeatureEncoder in z_only mode",
+      "name": "AtomFeatureEncoder explicitly rejects z_only",
+      "pass": true
+    },
+    {
+      "detail": "71,152,964",
+      "name": "A100-mode trainable params match the recorded 71,152,964",
+      "pass": true
+    },
+    {
+      "detail": "70,625,092",
+      "name": "Z100 trainable params equal 71,152,964 - 527,872",
+      "pass": true
+    },
+    {
+      "detail": "delta=527,872",
+      "name": "trainable parameter reduction is exactly 527,872",
+      "pass": true
+    },
+    {
+      "detail": "differing=['tok_emb.weight', 'encoder.layers.0.linear1.weight']",
+      "name": "RNG fact: shared params (incl. tok_emb) differ between z_only and legacy3 under the same seed",
+      "pass": true
+    },
+    {
+      "detail": "keys, shapes and values identical",
+      "name": "same-mode (z_only) re-initialization reproducible",
+      "pass": true
+    },
+    {
+      "detail": "min|edos|=2.190e-03 max|edos|=1.323e+00",
+      "name": "forward outputs finite",
+      "pass": true
+    },
+    {
+      "detail": "197 grad tensors",
+      "name": "backward gradients finite and non-empty",
+      "pass": true
+    },
+    {
+      "detail": "now=efca7088573a371f… pre=efca7088573a371f…",
+      "name": "legacy3 seed-42 initial state_dict hash equals pre-change snapshot",
+      "pass": true
+    },
+    {
+      "detail": "now=efca7088573a371f… pre=efca7088573a371f…",
+      "name": "legacy3_const seed-42 initial state_dict hash equals pre-change snapshot",
+      "pass": true
+    },
+    {
+      "detail": "now=55a4776433a574b2… pre=55a4776433a574b2…",
+      "name": "mendeleev24 seed-42 initial state_dict hash equals pre-change snapshot",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "mendeleev24 tok_emb still zero-initialized",
+      "pass": true
+    },
+    {
+      "detail": "epoch=73",
+      "name": "A100 checkpoint strict-loads into legacy3 model",
+      "pass": true
+    },
+    {
+      "detail": "epoch=87",
+      "name": "B100 checkpoint strict-loads into legacy3_const model",
+      "pass": true
+    },
+    {
+      "detail": "RuntimeError",
+      "name": "z_only rejects legacy3 checkpoint weights (expected failure)",
+      "pass": true
+    },
+    {
+      "detail": "{\"table_sha256\": \"8cfba286b85f175c\\u2026\", \"split_sha256\": \"8880b49652f72d5b\\u2026\", \"data_manifest_sha256\": \"bb4501f256aa8b14\\u2026\"}",
+      "name": "periodic table / split / data manifest hashes equal the A100 manifest record",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "table/split hashes equal the design-document constants",
+      "pass": true
+    },
+    {
+      "detail": "train=18706 valid=2313",
+      "name": "Q1 train/valid counts are 18,706 / 2,313",
+      "pass": true
+    },
+    {
+      "detail": "edos=128 phdos=64 dropout=0.05",
+      "name": "A100 grid and dropout are 128/64 and 0.05",
+      "pass": true
+    },
+    {
+      "detail": "mismatch={}",
+      "name": "planned CLI equals the A100 frozen recipe except atom_feat/tag/dropout",
+      "pass": true
+    },
+    {
+      "detail": "A100 cli dropout=None",
+      "name": "planned dropout resolves to the 0.05 template value",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "planned run is FP32 with skip_test_eval, empty init_ckpt, pair_aux off",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "train sample index order identical to the legacy3 pipeline (epochs 0-1)",
+      "pass": true
+    },
+    {
+      "detail": "n=18706",
+      "name": "sampler covers all 18,706 Q1 train samples",
+      "pass": true
+    },
+    {
+      "detail": "output/ablation_m1_eidzonly100_s42: empty",
+      "name": "Z100 output tag free of checkpoints/config (no auto-resume)",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "Z100 artifact absent before launch: history_m1_eidzonly100_s42.csv",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "Z100 artifact absent before launch: test_m1_eidzonly100_s42_summary.csv",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "Z100 artifact absent before launch: train_m1_eidzonly100_s42.log",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "Z100 artifact absent before launch: eidzonly100_s42_manifest.json",
+      "pass": true
+    }
+  ],
+  "code_version": {
+    "dirty": true,
+    "git_commit": "3352732d70bbccbad944b908fe26252156206978"
+  },
+  "command": "python3 run_ablation_experiments.py --model M1 --epochs 100 --seed 42 --batch_size 32 --lr 5e-5 --norm sumnorm --scale_mode eta --atom_feat z_only --skip_test_eval --tag _eidzonly100_s42",
+  "config_used_sha256": "bf040c488c8c0afd77b7ca975b8b75baca3364566d8b8c8f08c29d08f4c71d7e",
+  "created_utc": "2026-09-30T14:47:20Z",
+  "data_order": {
+    "epochs_checked": [
+      0,
+      1
+    ],
+    "train_samples": 18706
+  },
+  "finalized_utc": "2026-09-30T20:29:31Z",
+  "fingerprint": {
+    "state_hash_z_only_init": "4eda5029e186d2f3ef60adeb0616b0a170ee3ca8fad80bad6e3e46cd9735ca32"
+  },
+  "hashes": {
+    "data_manifest_sha256": "bb4501f256aa8b1411c9b46337beddb118f39ee29826df68a20c436ec1d2cc6a",
+    "split_sha256": "8880b49652f72d5b5c5690afcc06ccaf643e3072c4789f58920256df42e43c41",
+    "table_sha256": "8cfba286b85f175c73431011a5c24bb8b110223ed60e81bae0357a02af9318fc"
+  },
+  "initialization": {
+    "a100_trainable_params": 71152964,
+    "delta_params": 527872,
+    "grad_abs_max": 916.9570922851562,
+    "grad_abs_min": 0.0,
+    "n_grad_tensors": 197,
+    "rng_note": "删除数值分支改变初始化随机数消耗；_reset_parameters 的 xavier 扫描按模块创建顺序赋值，抽签落点随之移动。同 seed 下 Z100 与 A100 不共享参数初值逐值相同（含 tok_emb 与 encoder）；同模式重初始化可复现（上一项检查已实测）。",
+    "z100_trainable_params": 70625092
+  },
+  "legacy_compat": {
+    "reference_arms": {
+      "A100": {
+        "checkpoint_sha256": "ba412bf68557a0b4bc80546689d1fe630a08db56ebda71901c7351c9511a29d9",
+        "config_used_sha256": "a72ab1e96a94d0c8cd6c37896cbb8698097e3384a7326d26ee1e65111cf4b6a7",
+        "epoch": 73
+      },
+      "B100": {
+        "checkpoint_sha256": "1a123f84b8ae62a7b525e74c910e2ba0ed0b2abbf22e6a3e9c50388e62fda14f",
+        "config_used_sha256": "1499767d683b583d701273607796188775642c7419f359b6370c3cb8e8d54fbb",
+        "epoch": 87
+      }
+    }
+  },
+  "notes": "z_only 不实例化数值分支；state_dict 不含 num_emb_encoder/num_norm/fuse_proj，但删除模块改变随机数消耗，同 seed 与 A100 不共享参数初值逐值相同。判读前必须核对本 manifest 的模式、指纹、配置哈希与 checkpoint 哈希。",
+  "planned_cli": {
+    "atom_feat": "z_only",
+    "batch_size": 32,
+    "data_dir": "./data/train4ARPAT",
+    "decoder_layers": 6,
+    "dropout": 0.05,
+    "edos_num": 128,
+    "epochs": 100,
+    "init_ckpt": "",
+    "lr": 5e-05,
+    "model": "M1",
+    "norm": "sumnorm",
+    "pair_aux_arm": "none",
+    "pair_ratio": 0.0,
+    "phdos_num": 64,
+    "scale_mode": "eta",
+    "seed": 42,
+    "skip_test_eval": true,
+    "tag": "_eidzonly100_s42",
+    "use_amp": false
+  },
+  "planned_cli_sha256": "56049d8fa082c03c6210fb08096b18180ee588932aee12a19f34658c5de7e79d",
+  "tag": "_eidzonly100_s42",
+  "training_code_sha256": {
+    "datasets/dataset.py": "6740d3808a3a07a549a39ff0dd77743361870c260ac60135fec74102b3fca191",
+    "model/model.py": "f920b48f1ea6db8ddc3533654eb77e9ec2164abbc5b933bb4eacc67828f81869",
+    "model/transformer.py": "16bedc73f31cfc52fe1d9ebe8d1a21e952949f3fa012c653e2de8d438087af80",
+    "run_ablation_experiments.py": "52f4f5199a846176effc33f0297e06de52793b6fc1962b73713b755869bc5818",
+    "utils/atom_feature.py": "1b4b6a625b4409029f85414295a2ca58560b5bec490bae394febec7314bf3664",
+    "utils/builder.py": "6e808b7f3f68651ea081b1689bca63d1edf9c80e72e16667b368e0499027d8b7",
+    "utils/experiment_config.py": "97e13abc47d86017ff9c9ebde5dd624168c3754b7333b48da085b78efeb4619f"
+  },
+  "verified_utc": "2026-09-30T14:48:27Z"
+}

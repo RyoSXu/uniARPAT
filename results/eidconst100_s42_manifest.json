@@ -1,0 +1,214 @@
+{
+  "arm": "B100",
+  "atom_feat_mode": "legacy3_const",
+  "checkpoints": {
+    "checkpoint_best.pth": {
+      "best_val_score": 0.6244708506856114,
+      "epoch": 87,
+      "sha256": "1a123f84b8ae62a7b525e74c910e2ba0ed0b2abbf22e6a3e9c50388e62fda14f"
+    },
+    "checkpoint_latest.pth": {
+      "best_val_score": 0.6244708506856114,
+      "epoch": 100,
+      "sha256": "01b934d8d505eb205ba19a8f21d2071f87c3d5efe36a3ef42bf398f316917e5b"
+    }
+  },
+  "checks": [
+    {
+      "detail": "A=(119, 3) B=(119, 3)",
+      "name": "feature_map shapes are [119,3]",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "A feature_map equals current legacy3 table bit-for-bit",
+      "pass": true
+    },
+    {
+      "detail": "c=[0.49465635418891907, 0.39238882064819336, 0.4033089280128479]",
+      "name": "c equals F[1:119].mean(dim=0) formula",
+      "pass": true
+    },
+    {
+      "detail": "documented=[0.49465635, 0.39238882, 0.40330893]",
+      "name": "c close to documented preregistered values",
+      "pass": true
+    },
+    {
+      "detail": "B[0]=[0.0, 0.0, 0.0]",
+      "name": "B row 0 preserved (zeros)",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "B rows 1..118 identical to c",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "A rows keep element-to-element variation",
+      "pass": true
+    },
+    {
+      "detail": "keys, shapes and values identical",
+      "name": "same-seed initial state_dict identical across arms",
+      "pass": true
+    },
+    {
+      "detail": "71,152,964",
+      "name": "trainable parameter totals identical",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "tok_emb not zero-initialized under new modes",
+      "pass": true
+    },
+    {
+      "detail": "A mode=legacy3, B mode=legacy3_const",
+      "name": "mendeleev24 zero-init branch not triggered",
+      "pass": true
+    },
+    {
+      "detail": "A: keys, shapes and values identical; B: keys, shapes and values identical",
+      "name": "same-arm re-initialization reproducible",
+      "pass": true
+    },
+    {
+      "detail": "shapes={'edos': (4, 128), 'phdos': (4, 64), 'eta': (4, 2)}",
+      "name": "A100 forward shapes edos[4,128]/phdos[4,64]/eta[4,2] and finite",
+      "pass": true
+    },
+    {
+      "detail": "203 gradient tensors",
+      "name": "A100 backward gradients finite",
+      "pass": true
+    },
+    {
+      "detail": "shapes={'edos': (4, 128), 'phdos': (4, 64), 'eta': (4, 2)}",
+      "name": "B100 forward shapes edos[4,128]/phdos[4,64]/eta[4,2] and finite",
+      "pass": true
+    },
+    {
+      "detail": "203 gradient tensors",
+      "name": "B100 backward gradients finite",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "train sample index order identical across arms (epochs 0-1)",
+      "pass": true
+    },
+    {
+      "detail": "train n=18706",
+      "name": "sampler indices map to Q1 train IDs consistently",
+      "pass": true
+    },
+    {
+      "detail": "output/ablation_m1_eidprop100_s42: empty",
+      "name": "A100 output tag free of checkpoints/config",
+      "pass": true
+    },
+    {
+      "detail": "history_m1_eidprop100_s42.csv",
+      "name": "A100 history file absent",
+      "pass": true
+    },
+    {
+      "detail": "test_m1_eidprop100_s42_summary.csv",
+      "name": "A100 test summary absent",
+      "pass": true
+    },
+    {
+      "detail": "output/ablation_m1_eidconst100_s42: empty",
+      "name": "B100 output tag free of checkpoints/config",
+      "pass": true
+    },
+    {
+      "detail": "history_m1_eidconst100_s42.csv",
+      "name": "B100 history file absent",
+      "pass": true
+    },
+    {
+      "detail": "test_m1_eidconst100_s42_summary.csv",
+      "name": "B100 test summary absent",
+      "pass": true
+    },
+    {
+      "detail": "8cfba286b85f175c73431011a5c24bb8b110223ed60e81bae0357a02af9318fc",
+      "name": "periodic_table_v2.csv SHA-256 matches design document",
+      "pass": true
+    },
+    {
+      "detail": "8880b49652f72d5b5c5690afcc06ccaf643e3072c4789f58920256df42e43c41",
+      "name": "split_v2.yaml SHA-256 matches design document",
+      "pass": true
+    }
+  ],
+  "code_version": {
+    "dirty": true,
+    "git_commit": "3352732d70bbccbad944b908fe26252156206978"
+  },
+  "command": "python3 run_ablation_experiments.py --model M1 --epochs 100 --seed 42 --batch_size 32 --lr 5e-5 --norm sumnorm --scale_mode eta --atom_feat legacy3_const --skip_test_eval --tag _eidconst100_s42",
+  "config_used_sha256": "1499767d683b583d701273607796188775642c7419f359b6370c3cb8e8d54fbb",
+  "created_utc": "2026-09-29T18:59:54Z",
+  "data_order": {
+    "epochs_checked": [
+      0,
+      1
+    ],
+    "train_samples": 18706
+  },
+  "finalized_utc": "2026-09-30T06:34:50Z",
+  "fingerprint": {
+    "const_vector_documented": [
+      0.49465635,
+      0.39238882,
+      0.40330893
+    ],
+    "const_vector_float32": [
+      0.49465635418891907,
+      0.39238882064819336,
+      0.4033089280128479
+    ],
+    "const_vector_formula": "c = F[1:119].mean(dim=0), F = PeriodicTable().atom_feature_map()",
+    "feature_map_sha256": {
+      "legacy3": "285df50e0707fdbfa510a1c6b4ae630c18a543a525683e4bf293c9b8c98447c1",
+      "legacy3_const": "bed0975990aef443b57fac8f77d6de4dfb1202ab31955f4f04a00f6d03f3019d"
+    },
+    "table_sha256": "8cfba286b85f175c73431011a5c24bb8b110223ed60e81bae0357a02af9318fc"
+  },
+  "hashes": {
+    "data_manifest_sha256": "bb4501f256aa8b1411c9b46337beddb118f39ee29826df68a20c436ec1d2cc6a",
+    "split_sha256": "8880b49652f72d5b5c5690afcc06ccaf643e3072c4789f58920256df42e43c41",
+    "table_sha256": "8cfba286b85f175c73431011a5c24bb8b110223ed60e81bae0357a02af9318fc"
+  },
+  "initialization": {
+    "trainable_params": 71152964
+  },
+  "notes": "feature_map 不进入 state_dict；相同键和 strict=True 加载不能证明臂身份，判读前必须核对本 manifest 的模式、表指纹与 checkpoint 哈希。",
+  "planned_cli": {
+    "atom_feat": "legacy3_const",
+    "batch_size": 32,
+    "data_dir": "./data/train4ARPAT",
+    "decoder_layers": 6,
+    "dropout": 0.05,
+    "edos_num": 128,
+    "epochs": 100,
+    "init_ckpt": "",
+    "lr": 5e-05,
+    "model": "M1",
+    "norm": "sumnorm",
+    "pair_aux_arm": "none",
+    "pair_ratio": 0.0,
+    "phdos_num": 64,
+    "scale_mode": "eta",
+    "seed": 42,
+    "skip_test_eval": true,
+    "tag": "_eidconst100_s42",
+    "use_amp": false
+  },
+  "planned_cli_sha256": "786c4ac4bf8d4ecc4741e73be94e7c078e2b29c46d13bfcbcff01f9f8b3392f8",
+  "tag": "_eidconst100_s42",
+  "verified_utc": "2026-09-30T00:52:53Z"
+}

@@ -1,0 +1,500 @@
+{
+  "align_record_sha256": null,
+  "alignment": {
+    "alignment": {
+      "candidate_state_sha256": "4d7ae7aa41e283b1c95acd55682ed0551dbc5820031b90f99dd339a33b38e1d2",
+      "checks": [
+        {
+          "detail": "now=4eda5029e186d2f3… record=4eda5029e186d2f3…",
+          "name": "reference init state fingerprint equals the Z100 record",
+          "pass": true
+        },
+        {
+          "detail": "n_shared=199",
+          "name": "all shared parameters copied bit-for-bit from the Z100 init model",
+          "pass": true
+        },
+        {
+          "detail": "weight_eye=True bias_zero=True",
+          "name": "atom_proj initialized to identity weight / zero bias",
+          "pass": true
+        },
+        {
+          "detail": "shapes={'edos': [4, 128], 'phdos': [4, 64], 'eta': [4, 2]}",
+          "name": "forward outputs finite",
+          "pass": true
+        },
+        {
+          "detail": "n_grad_tensors=199",
+          "name": "backward gradients finite and non-empty",
+          "pass": true
+        },
+        {
+          "detail": "n=18706",
+          "name": "train sampler order recorded for epochs 0-1",
+          "pass": true
+        }
+      ],
+      "n_shared_params": 199,
+      "numeric": {
+        "backward_finite": true,
+        "forward_finite": true,
+        "grad_abs_max": 875.3907470703125,
+        "loss_sum": -62.23533630371094,
+        "n_grad_tensors": 199,
+        "shapes": {
+          "edos": [
+            4,
+            128
+          ],
+          "eta": [
+            4,
+            2
+          ],
+          "phdos": [
+            4,
+            64
+          ]
+        }
+      },
+      "sample_order": [
+        {
+          "epoch": 0,
+          "n": 18706,
+          "sha256": "a46f188be91ab62b2791ecb7ef8da6954a3042052d484175d2bec06120b6ae5c"
+        },
+        {
+          "epoch": 1,
+          "n": 18706,
+          "sha256": "ecb0c8cfe6f8e19f96a667f442cf4df9c1c61da2a6e72769a7b751f1650dc8b4"
+        }
+      ],
+      "summary": "shared params=199 copied from Z100 init (4eda5029e186…), atom_proj=identity/zero, fwd/bwd finite, order epochs 0-1 recorded"
+    },
+    "forward_equivalence": {
+      "edos": {
+        "bit_equal": true,
+        "max_abs_diff": 0.0
+      },
+      "eta": {
+        "bit_equal": true,
+        "max_abs_diff": 0.0
+      },
+      "phdos": {
+        "bit_equal": true,
+        "max_abs_diff": 0.0
+      }
+    },
+    "reference": {
+      "direct_rebuild_rng_sha256": "298bdcd45778a4a7fe271f957898d5062c20974335fbb96a2ae7faf1ec2f0232",
+      "init_state_sha256": "4eda5029e186d2f3ef60adeb0616b0a170ee3ca8fad80bad6e3e46cd9735ca32",
+      "restored_rng_sha256": "298bdcd45778a4a7fe271f957898d5062c20974335fbb96a2ae7faf1ec2f0232",
+      "training_start_rng_sha256": "298bdcd45778a4a7fe271f957898d5062c20974335fbb96a2ae7faf1ec2f0232"
+    },
+    "rng_method": "参考模型以 z_only 模式按 runner 同一构造路径重建；构造结束时保存 python/numpy/torch CPU/torch CUDA 四路随机状态，候选模型构造与训练前检查之后整体恢复该状态，并在进入训练循环前复核状态摘要哈希未变。数据顺序由 DistributedSampler(seed=0)的 set_epoch 决定，与随机状态无关，另行核对 epoch 0/1 样本顺序。",
+    "sample_order_sha256": [
+      "a46f188be91ab62b2791ecb7ef8da6954a3042052d484175d2bec06120b6ae5c",
+      "ecb0c8cfe6f8e19f96a667f442cf4df9c1c61da2a6e72769a7b751f1650dc8b4"
+    ]
+  },
+  "architecture": {
+    "shapes": {
+      "edos": [
+        4,
+        128
+      ],
+      "eta": [
+        4,
+        2
+      ],
+      "phdos": [
+        4,
+        64
+      ]
+    },
+    "zp100_trainable_params": 70887748
+  },
+  "arm": "ZP100",
+  "atom_feat_mode": "z_only_proj",
+  "atom_proj_init": "weight = I(512), bias = 0",
+  "atom_src_formula": "atom_src = atom_proj(atom_norm(tok_emb(atom_idx)))",
+  "candidate_init_state_sha256": null,
+  "checkpoints": {
+    "checkpoint_best.pth": {
+      "best_val_score": null,
+      "epoch": null,
+      "sha256": null
+    },
+    "checkpoint_latest.pth": {
+      "best_val_score": null,
+      "epoch": null,
+      "sha256": null
+    }
+  },
+  "checks": [
+    {
+      "detail": "manifest=4eda5029e186d2f3… constant=4eda5029e186d2f3…",
+      "name": "Z100 manifest initial fingerprint equals the frozen constant",
+      "pass": true
+    },
+    {
+      "detail": "now=4eda5029e186d2f3… record=4eda5029e186d2f3…",
+      "name": "Z100 untrained model rebuilt from its recorded config and seed 42 matches the initial fingerprint",
+      "pass": true
+    },
+    {
+      "detail": "runner_path=4eda5029e186d2f3… record=4eda5029e186d2f3…",
+      "name": "runner-path reference rebuild reproduces the Z100 init fingerprint",
+      "pass": true
+    },
+    {
+      "detail": "n_keys=199",
+      "name": "reference model is the z_only architecture without atom_proj",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "Z100 config_used.yaml hash still matches its manifest",
+      "pass": true
+    },
+    {
+      "detail": "epoch=82",
+      "name": "Z100 checkpoint_best.pth hash still matches its manifest",
+      "pass": true
+    },
+    {
+      "detail": "epoch=100",
+      "name": "Z100 checkpoint_latest.pth hash still matches its manifest",
+      "pass": true
+    },
+    {
+      "detail": "extra=['atom_proj.bias', 'atom_proj.weight'] missing=[]",
+      "name": "z_only_proj adds exactly atom_proj.{weight,bias} to the z_only keys",
+      "pass": true
+    },
+    {
+      "detail": "atom_proj=Linear(in_features=512, out_features=512, bias=True)",
+      "name": "z_only_proj keeps the numeric branch and fusion projection absent",
+      "pass": true
+    },
+    {
+      "detail": "weight=(512, 512) bias=(512,)",
+      "name": "atom_proj is Linear(512 -> 512) with bias",
+      "pass": true
+    },
+    {
+      "detail": "70,887,748 (delta 262,656)",
+      "name": "z_only_proj trainable params equal 70,625,092 + 262,656",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "encoder input equals atom_proj(atom_norm(tok_emb(atom_idx))) bit-for-bit",
+      "pass": true
+    },
+    {
+      "detail": "shapes={'edos': (4, 128), 'phdos': (4, 64), 'eta': (4, 2)}",
+      "name": "z_only_proj forward shapes edos[4,128]/phdos[4,64]/eta[4,2]",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "z_only encoder input still equals atom_norm(tok_emb(atom_idx)) bit-for-bit",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "z_only_proj construction and forward never read the property tables",
+      "pass": true
+    },
+    {
+      "detail": "z_only_proj has no numeric property encoder; Transformer must not instantiate AtomFeatureEncoder in z_only_proj mode",
+      "name": "AtomFeatureEncoder explicitly rejects z_only_proj",
+      "pass": true
+    },
+    {
+      "detail": "now=efca7088573a371f… pre=efca7088573a371f…",
+      "name": "legacy3 seed-42 initial state_dict hash equals pre-change snapshot",
+      "pass": true
+    },
+    {
+      "detail": "now=efca7088573a371f… pre=efca7088573a371f…",
+      "name": "legacy3_const seed-42 initial state_dict hash equals pre-change snapshot",
+      "pass": true
+    },
+    {
+      "detail": "now=55a4776433a574b2… pre=55a4776433a574b2…",
+      "name": "mendeleev24 seed-42 initial state_dict hash equals pre-change snapshot",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "legacy3 path still instantiates numeric branch and fusion",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "mendeleev24 tok_emb still zero-initialized",
+      "pass": true
+    },
+    {
+      "detail": "epoch=73",
+      "name": "A100 checkpoint strict-loads into its own legacy3 model",
+      "pass": true
+    },
+    {
+      "detail": "RuntimeError",
+      "name": "z_only_proj rejects A100 trained weights (expected failure)",
+      "pass": true
+    },
+    {
+      "detail": "epoch=87",
+      "name": "B100 checkpoint strict-loads into its own legacy3_const model",
+      "pass": true
+    },
+    {
+      "detail": "RuntimeError",
+      "name": "z_only_proj rejects B100 trained weights (expected failure)",
+      "pass": true
+    },
+    {
+      "detail": "epoch=82",
+      "name": "Z100 checkpoint strict-loads into its own z_only model",
+      "pass": true
+    },
+    {
+      "detail": "RuntimeError",
+      "name": "z_only_proj rejects Z100 trained weights (expected failure)",
+      "pass": true
+    },
+    {
+      "detail": "now=4eda5029e186d2f3… record=4eda5029e186d2f3…",
+      "name": "alignment: reference init state fingerprint equals the Z100 record",
+      "pass": true
+    },
+    {
+      "detail": "n_shared=199",
+      "name": "alignment: all shared parameters copied bit-for-bit from the Z100 init model",
+      "pass": true
+    },
+    {
+      "detail": "weight_eye=True bias_zero=True",
+      "name": "alignment: atom_proj initialized to identity weight / zero bias",
+      "pass": true
+    },
+    {
+      "detail": "shapes={'edos': [4, 128], 'phdos': [4, 64], 'eta': [4, 2]}",
+      "name": "alignment: forward outputs finite",
+      "pass": true
+    },
+    {
+      "detail": "n_grad_tensors=199",
+      "name": "alignment: backward gradients finite and non-empty",
+      "pass": true
+    },
+    {
+      "detail": "n=18706",
+      "name": "alignment: train sampler order recorded for epochs 0-1",
+      "pass": true
+    },
+    {
+      "detail": "restored=298bdcd45778a4a7… ref=298bdcd45778a4a7…",
+      "name": "training RNG state restored to the Z100 training-start state",
+      "pass": true
+    },
+    {
+      "detail": "state=4eda5029e186d2f3… rng=298bdcd45778a4a7…",
+      "name": "loader-free reference rebuild yields the same init and training-start RNG state",
+      "pass": true
+    },
+    {
+      "detail": "n_shared=199",
+      "name": "independent re-check: every shared parameter equals the Z100 init value",
+      "pass": true
+    },
+    {
+      "detail": "weight_norm=22.6274 bias_norm=0.0000",
+      "name": "independent re-check: atom_proj is identity weight / zero bias",
+      "pass": true
+    },
+    {
+      "detail": "bit_equal=True max_abs_diff=0.000e+00",
+      "name": "aligned forward equals the z_only reference on edos",
+      "pass": true
+    },
+    {
+      "detail": "bit_equal=True max_abs_diff=0.000e+00",
+      "name": "aligned forward equals the z_only reference on phdos",
+      "pass": true
+    },
+    {
+      "detail": "bit_equal=True max_abs_diff=0.000e+00",
+      "name": "aligned forward equals the z_only reference on eta",
+      "pass": true
+    },
+    {
+      "detail": "epoch0=a46f188be91ab62b… epoch1=ecb0c8cfe6f8e19f…",
+      "name": "train sample index order identical to the z_only pipeline (epochs 0-1)",
+      "pass": true
+    },
+    {
+      "detail": "n=18706",
+      "name": "in-run recorded sample order matches the preflight order",
+      "pass": true
+    },
+    {
+      "detail": "n=18706",
+      "name": "sampler covers all 18,706 Q1 train samples",
+      "pass": true
+    },
+    {
+      "detail": "{\"table_sha256\": \"8cfba286b85f175c\\u2026\", \"split_sha256\": \"8880b49652f72d5b\\u2026\", \"data_manifest_sha256\": \"bb4501f256aa8b14\\u2026\"}",
+      "name": "periodic table / split / data manifest hashes equal the A100 manifest record",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "table/split hashes equal the design-document constants",
+      "pass": true
+    },
+    {
+      "detail": "train=18706 valid=2313",
+      "name": "Q1 train/valid counts are 18,706 / 2,313",
+      "pass": true
+    },
+    {
+      "detail": "edos=128 phdos=64 dropout=0.05",
+      "name": "Z100 recorded grid and dropout are 128/64 and 0.05",
+      "pass": true
+    },
+    {
+      "detail": "mismatch={}",
+      "name": "planned CLI equals the frozen recipe except atom_feat/tag/dropout",
+      "pass": true
+    },
+    {
+      "detail": "Z100 cli dropout=None",
+      "name": "planned dropout resolves to the 0.05 template value",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "planned run is FP32 with skip_test_eval, empty init_ckpt, pair_aux off",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "candidate config differs from Z100 only in atom_feat_mode",
+      "pass": true
+    },
+    {
+      "detail": "output/ablation_m1_eidzproj100_s42: absent",
+      "name": "ZP100 output tag free of checkpoints/config/align record (no auto-resume)",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "ZP100 artifact absent before launch: history_m1_eidzproj100_s42.csv",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "ZP100 artifact absent before launch: test_m1_eidzproj100_s42_summary.csv",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "ZP100 artifact absent before launch: train_m1_eidzproj100_s42.log",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "ZP100 artifact absent before launch: eidzproj100_s42_manifest.json",
+      "pass": true
+    }
+  ],
+  "code_version": {
+    "dirty": true,
+    "git_commit": "3352732d70bbccbad944b908fe26252156206978"
+  },
+  "command": "python3 run_ablation_experiments.py --model M1 --epochs 100 --seed 42 --batch_size 32 --lr 5e-5 --norm sumnorm --scale_mode eta --atom_feat z_only_proj --skip_test_eval --tag _eidzproj100_s42",
+  "config_used_sha256": null,
+  "created_utc": "2026-10-01T12:55:31Z",
+  "data_order": {
+    "epochs_checked": [
+      0,
+      1
+    ],
+    "note": "DistributedSampler(seed=0)+set_epoch 决定顺序，与随机状态无关；z_only_proj 与 z_only 管线逐值一致。",
+    "sample_order_sha256": [
+      "a46f188be91ab62b2791ecb7ef8da6954a3042052d484175d2bec06120b6ae5c",
+      "ecb0c8cfe6f8e19f96a667f442cf4df9c1c61da2a6e72769a7b751f1650dc8b4"
+    ],
+    "train_samples": 18706
+  },
+  "fingerprint": {
+    "candidate_init_state_sha256": "4d7ae7aa41e283b1c95acd55682ed0551dbc5820031b90f99dd339a33b38e1d2",
+    "z100_init_state_sha256": "4eda5029e186d2f3ef60adeb0616b0a170ee3ca8fad80bad6e3e46cd9735ca32",
+    "z100_manifest_init_state_sha256": "4eda5029e186d2f3ef60adeb0616b0a170ee3ca8fad80bad6e3e46cd9735ca32"
+  },
+  "hashes": {
+    "data_manifest_sha256": "bb4501f256aa8b1411c9b46337beddb118f39ee29826df68a20c436ec1d2cc6a",
+    "split_sha256": "8880b49652f72d5b5c5690afcc06ccaf643e3072c4789f58920256df42e43c41",
+    "table_sha256": "8cfba286b85f175c73431011a5c24bb8b110223ed60e81bae0357a02af9318fc"
+  },
+  "legacy_compat": {
+    "reference_arms": {
+      "A100": {
+        "checkpoint_sha256": "ba412bf68557a0b4bc80546689d1fe630a08db56ebda71901c7351c9511a29d9",
+        "config_used_sha256": "a72ab1e96a94d0c8cd6c37896cbb8698097e3384a7326d26ee1e65111cf4b6a7",
+        "epoch": 73
+      },
+      "B100": {
+        "checkpoint_sha256": "1a123f84b8ae62a7b525e74c910e2ba0ed0b2abbf22e6a3e9c50388e62fda14f",
+        "config_used_sha256": "1499767d683b583d701273607796188775642c7419f359b6370c3cb8e8d54fbb",
+        "epoch": 87
+      },
+      "Z100": {
+        "checkpoint_sha256": "0646d5b8e8cba3aaaaeae68f1f7e5a4c5f6a30cc342dc835bf92aaa6c7691a07",
+        "config_used_sha256": "bf040c488c8c0afd77b7ca975b8b75baca3364566d8b8c8f08c29d08f4c71d7e",
+        "epoch": 82
+      }
+    }
+  },
+  "log_path": "results/train_m1_eidzproj100_s42.log",
+  "notes": "z_only_proj 在纯原子序号表示上新增 Linear(512→512) 投影；共享参数复制自 Z100（z_only、seed 42）未训练参考模型，投影=单位矩阵/零偏置，训练随机状态恢复为 Z100 训练开始时状态。判读前必须核对本 manifest 的模式、指纹、配置哈希、对齐记录与 checkpoint 哈希。",
+  "planned_cli": {
+    "atom_feat": "z_only_proj",
+    "batch_size": 32,
+    "data_dir": "./data/train4ARPAT",
+    "decoder_layers": 6,
+    "dropout": 0.05,
+    "edos_num": 128,
+    "epochs": 100,
+    "init_ckpt": "",
+    "lr": 5e-05,
+    "model": "M1",
+    "norm": "sumnorm",
+    "pair_aux_arm": "none",
+    "pair_ratio": 0.0,
+    "phdos_num": 64,
+    "scale_mode": "eta",
+    "seed": 42,
+    "skip_test_eval": true,
+    "tag": "_eidzproj100_s42",
+    "use_amp": false
+  },
+  "planned_cli_sha256": "274b846c5b336eaa9068579425209bd2b10bcaa47c5ec16a55293cc61e6ddbe6",
+  "process_pids": [],
+  "tag": "_eidzproj100_s42",
+  "training_code_sha256": {
+    "datasets/dataset.py": "6740d3808a3a07a549a39ff0dd77743361870c260ac60135fec74102b3fca191",
+    "model/model.py": "f920b48f1ea6db8ddc3533654eb77e9ec2164abbc5b933bb4eacc67828f81869",
+    "model/transformer.py": "326573b5587dc98850c818f82668847c4117c774f4669eb4bc61aa6730d40f0b",
+    "run_ablation_experiments.py": "38052056550310324e0c62266f1ae342e6e7360dbf44eaa4e94c98de1b4bc61c",
+    "utils/atom_feature.py": "7d10c802bef408e6dbed8d05c29efa8d86844c3193de09fc4cb8d1ab269932db",
+    "utils/builder.py": "6e808b7f3f68651ea081b1689bca63d1edf9c80e72e16667b368e0499027d8b7",
+    "utils/experiment_config.py": "97e13abc47d86017ff9c9ebde5dd624168c3754b7333b48da085b78efeb4619f",
+    "utils/zproj_alignment.py": "db1b9472b7fdecdc913c5b5a97b344ed9a3cfca1e287ec71c39e84701e2b4a60"
+  }
+}

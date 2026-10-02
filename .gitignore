@@ -47,3 +47,6 @@ tools/data/*/raw/
 *.jsonl
 
 results/archive/
+
+# Interrupted element-identity diagnosis: keep locally, archive the formal run.
+/results/eid_diagnosis_s42/20261002T093859Z/
