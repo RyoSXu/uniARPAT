@@ -7,6 +7,7 @@
 | 当前基线、最优指标参考和下一步 | [`status.md`](status.md) |
 | 大方向路线图 | [`design/design-structural-refinement.md`](design/design-structural-refinement.md) |
 | 当前 ZP 元素初始化、代码职责与使用限制 | [`design/design-element-initialization.md`](design/design-element-initialization.md) |
+| 当前周期邻居记录规范与审查边界 | [`design/design-periodic-neighbor-records.md`](design/design-periodic-neighbor-records.md) |
 | 协作与实验流程 | [`workflow.md`](workflow.md) |
 | 长期决策和评估约定 | [`decisions.md`](decisions.md) |
 | 数据、缓存及标签口径 | [`data.md`](data.md)；[`index/z0_REPORT.md`](../index/z0_REPORT.md) |
