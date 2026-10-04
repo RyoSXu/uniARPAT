@@ -1453,7 +1453,11 @@ def phase_c(ctx: RunContext) -> None:
                                 raise ValueError(
                                     f"{arm}/{snapshot} layer{li} recomputation mismatch: {diff}")
                         attn_acc.add(f"layer{li}", attn, s_feature, s_geometry, cap["mask"])
-                del clean, hooked, layer_outs, captured
+                # Keep hook closure names bound while releasing captured tensors
+                # after hooks are removed and their statistics are consumed.
+                layer_outs.clear()
+                captured.clear()
+                del clean, hooked
 
             activation_rows.extend(act_acc.rows(arm, snapshot))
             attention_rows.extend(attn_acc.rows(arm, snapshot))
