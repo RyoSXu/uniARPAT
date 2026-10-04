@@ -1,0 +1,274 @@
+{
+  "status": "complete",
+  "created_utc": "2026-10-03T07:39:38.261199+00:00",
+  "code_version": {
+    "git_commit": "921f468b24093b3445f081fe02185a47cf382b03",
+    "dirty": true
+  },
+  "data_version": "Q1",
+  "splits": [
+    "train",
+    "valid"
+  ],
+  "labels_loaded": false,
+  "checkpoint_loaded": false,
+  "optimizer_created": false,
+  "parameter_updates": 0,
+  "production_model_executed": false,
+  "prototype_executed": true,
+  "device": "cpu",
+  "compute_threads": 1,
+  "rss_sampling_threads": 1,
+  "radius_A": 6.0,
+  "strict_cutoff": true,
+  "seed": 20261003,
+  "torch": "2.2.1",
+  "e3nn": "0.5.6",
+  "feature_tolerances": {
+    "torch.float32": {
+      "direct": [
+        2e-05,
+        2e-05
+      ],
+      "rebuilt": [
+        0.0001,
+        0.0001
+      ]
+    },
+    "torch.float64": {
+      "direct": [
+        2e-10,
+        2e-10
+      ],
+      "rebuilt": [
+        2e-06,
+        2e-06
+      ]
+    }
+  },
+  "budget_seconds": 840.0,
+  "memory_limit_MiB": 2048.0,
+  "memory_scope": "process RSS, not per-route allocator attribution; 20ms sampled plus ru_maxrss",
+  "resource_scope": "one warmed float32 forward/backward per real sample; no optimizer step",
+  "initialization": "shared untrained Embedding->LayerNorm->Linear ZP; float64 master weights cast to each dtype",
+  "pair_policy": "all unordered pairs, 4096-pair chunks; non-reentrant recomputation in backward",
+  "e3_scope": "direct Cartesian local frames; physical translations rebuilt for all real inputs, rotation/reflection also rebuilt for synthetic skew",
+  "guarantee_scope": "finite local prototype evidence; no full DOS-model guarantee or prediction gain",
+  "source_sha256": {
+    "tools/eval/periodic_message_precheck.py": "bb851e8e7ae908a8b432e6947cb3bc0d81ed2c051741cc581dafa669981b8dd8",
+    "tools/eval/periodic_message_prototypes.py": "b4b678a71812f0c1a15cb64b50aeef2e2a8764072ce326bf739e8073afc2ef38",
+    "tests/test_periodic_message_prototypes.py": "fb7f939c67e89ccd870e13ec18189e829946cd3cc8f41a5c7fbf6c1da2db98f2",
+    "tools/eval/periodic_geometry_acceptance.py": "4b14e923004cc6acae1bb4584a0e39aa1b88b6cd6807c045b2a9130b4b48db57",
+    "tools/eval/periodic_neighbor_radius_audit.py": "69123ed845914040365b224b61daa9785cda16e3aaf441afd3198548689ec66a",
+    "model/periodic_manybody.py": "821e087e60557febb65d7ffcbc8c6ee5545e0aba6e1e6038a33e831313dfa980",
+    "utils/g2_periodic_edges.py": "e6dba018b05b8804c5e9679d8c978180f1a7738cdcfb43009bd5aea6e4ec811e",
+    "utils/relative_features.py": "b7402c099c98284bd98d270e5b999bfded12cd2d894c75f8fe5cbf809d47cd52",
+    "tools/eval/element_identity_preflight.py": "62cd9afc92551dd9499be113399240a838f18d813cd1ff689b5a92d04d6b9c51",
+    "tools/eval/g2_edge_audit.py": "5cbde443d5ae0363386d96935df11a2eacbd0f932838e8d42f5c29e8c93c9397"
+  },
+  "input_sha256": {
+    "train/elements_train.npy": "c35d50cf9504cf78285b0e16197ebe2684d6b7513f2f26b07ba49f23459063fb",
+    "train/positions_train.npy": "5a7069e16aa7dd58c9241c8f3aaaa161af9c67846439168e55ec71deb6915579",
+    "train/train_index.npy": "f792232911a1c2c89479a4fa62d2e3ca90bc926c8327eba75a3c201f6f2d1a71",
+    "valid/elements_valid.npy": "5abd3351f456ad3b1f2b0cef593f1bc514b0ed039e8694e2066ef61b2aa04d14",
+    "valid/positions_valid.npy": "f15cd98b7e34808b7a43d98d7ba16cbfa87d3f1efd960edfc0ede66746bde36f",
+    "valid/valid_index.npy": "f043ccd29e52f2133195311ea011630a2daff9093677e3dd6560ac2f4f386cb5",
+    "manifest.json": "bb4501f256aa8b1411c9b46337beddb118f39ee29826df68a20c436ec1d2cc6a"
+  },
+  "prior_artifact_sha256": {
+    "results/periodic_neighbor_radius_q1_20261003/structures.csv.gz": "86eb1fd0678ba9590f6d902432ee41b13fa10d04d188a9256247ef88a02440bf"
+  },
+  "selected_samples": [
+    {
+      "split": "train",
+      "index": 10086,
+      "id": "mp-aaabofsw",
+      "reason": "max_pairs",
+      "n_atoms": 64,
+      "n_edges": 7704,
+      "max_degree": 124,
+      "potential_angle_pairs": 460180
+    },
+    {
+      "split": "train",
+      "index": 15488,
+      "id": "mp-aaacpjac",
+      "reason": "max_degree",
+      "n_atoms": 4,
+      "n_edges": 800,
+      "max_degree": 200,
+      "potential_angle_pairs": 79600
+    },
+    {
+      "split": "train",
+      "index": 15136,
+      "id": "mp-aaacpgnk",
+      "reason": "min_cell_singular_value",
+      "n_atoms": 1,
+      "n_edges": 108,
+      "max_degree": 108,
+      "potential_angle_pairs": 5778
+    },
+    {
+      "split": "train",
+      "index": 0,
+      "id": "mp-aaaaaaab",
+      "reason": "min_atoms",
+      "n_atoms": 1,
+      "n_edges": 8,
+      "max_degree": 8,
+      "potential_angle_pairs": 28
+    },
+    {
+      "split": "train",
+      "index": 1767,
+      "id": "mp-aaaaagxd",
+      "reason": "max_atoms",
+      "n_atoms": 80,
+      "n_edges": 7968,
+      "max_degree": 103,
+      "potential_angle_pairs": 393088
+    },
+    {
+      "split": "train",
+      "index": 17703,
+      "id": "mp-aaacrkql",
+      "reason": "pairs_quantile_0.1",
+      "n_atoms": 4,
+      "n_edges": 104,
+      "max_degree": 26,
+      "potential_angle_pairs": 1300
+    },
+    {
+      "split": "train",
+      "index": 13453,
+      "id": "mp-aaaciuwb",
+      "reason": "pairs_quantile_0.5",
+      "n_atoms": 5,
+      "n_edges": 276,
+      "max_degree": 59,
+      "potential_angle_pairs": 7509
+    },
+    {
+      "split": "train",
+      "index": 6712,
+      "id": "mp-aaaabqpu",
+      "reason": "pairs_quantile_0.9",
+      "n_atoms": 21,
+      "n_edges": 1446,
+      "max_degree": 74,
+      "potential_angle_pairs": 49470
+    },
+    {
+      "split": "valid",
+      "index": 1056,
+      "id": "mp-aaabfwpd",
+      "reason": "max_pairs",
+      "n_atoms": 80,
+      "n_edges": 8584,
+      "max_degree": 117,
+      "potential_angle_pairs": 456840
+    },
+    {
+      "split": "valid",
+      "index": 85,
+      "id": "mp-aaaaaclb",
+      "reason": "max_degree",
+      "n_atoms": 2,
+      "n_edges": 316,
+      "max_degree": 158,
+      "potential_angle_pairs": 24806
+    },
+    {
+      "split": "valid",
+      "index": 1655,
+      "id": "mp-aaaciccv",
+      "reason": "min_cell_singular_value",
+      "n_atoms": 1,
+      "n_edges": 104,
+      "max_degree": 104,
+      "potential_angle_pairs": 5356
+    },
+    {
+      "split": "valid",
+      "index": 0,
+      "id": "mp-aaaaaaau",
+      "reason": "min_atoms",
+      "n_atoms": 1,
+      "n_edges": 112,
+      "max_degree": 112,
+      "potential_angle_pairs": 6216
+    },
+    {
+      "split": "valid",
+      "index": 171,
+      "id": "mp-aaaaafae",
+      "reason": "max_atoms",
+      "n_atoms": 80,
+      "n_edges": 6976,
+      "max_degree": 92,
+      "potential_angle_pairs": 301016
+    },
+    {
+      "split": "valid",
+      "index": 1999,
+      "id": "mp-aaacpndw",
+      "reason": "pairs_quantile_0.1",
+      "n_atoms": 4,
+      "n_edges": 104,
+      "max_degree": 26,
+      "potential_angle_pairs": 1300
+    },
+    {
+      "split": "valid",
+      "index": 532,
+      "id": "mp-aaaaawnl",
+      "reason": "pairs_quantile_0.5",
+      "n_atoms": 16,
+      "n_edges": 496,
+      "max_degree": 34,
+      "potential_angle_pairs": 7454
+    },
+    {
+      "split": "valid",
+      "index": 1674,
+      "id": "mp-aaacixnk",
+      "reason": "pairs_quantile_0.9",
+      "n_atoms": 5,
+      "n_edges": 694,
+      "max_degree": 147,
+      "potential_angle_pairs": 47871
+    }
+  ],
+  "initial_state_sha256": {
+    "torch.float32/invariant": "1765fa074eda7ef40a4ffe459065634cab83a92566ed1f58eb96086413d0ec06",
+    "torch.float32/equivariant": "34dfb573fdc2c6771e97f62e2837e1ce78c8c7c18c0ea7cf42209fcf7b4083d4",
+    "torch.float32/zp": "5d72633ed6f612df95c7bac50c6fee1296023db9a1401f7ef1445485c335c5fc",
+    "torch.float64/invariant": "e4d9bc26e20a18d37f9680b92cb0eafa7da60e2323c99622fc2a0d71652f4ff2",
+    "torch.float64/equivariant": "f6607f738852d67125dab1afad2345db5a0ab05a2acca759c0cf4a789995c157",
+    "torch.float64/zp": "e518cad554b6dc3d83972f845f5a884cff7ac8ea2c7864ee74a6af540cff1989"
+  },
+  "parameter_counts": {
+    "invariant": 261568,
+    "equivariant": 180676
+  },
+  "construction_and_loading_seconds": 1.9027418980840594,
+  "final_state_sha256": {
+    "torch.float32/invariant": "1765fa074eda7ef40a4ffe459065634cab83a92566ed1f58eb96086413d0ec06",
+    "torch.float32/equivariant": "34dfb573fdc2c6771e97f62e2837e1ce78c8c7c18c0ea7cf42209fcf7b4083d4",
+    "torch.float64/invariant": "e4d9bc26e20a18d37f9680b92cb0eafa7da60e2323c99622fc2a0d71652f4ff2",
+    "torch.float64/equivariant": "f6607f738852d67125dab1afad2345db5a0ab05a2acca759c0cf4a789995c157",
+    "torch.float32/zp": "5d72633ed6f612df95c7bac50c6fee1296023db9a1401f7ef1445485c335c5fc",
+    "torch.float64/zp": "e518cad554b6dc3d83972f845f5a884cff7ac8ea2c7864ee74a6af540cff1989"
+  },
+  "verdict": "pass",
+  "elapsed_seconds": 562.6717185231391,
+  "peak_rss_MiB": 1183.87109375,
+  "artifacts_sha256": {
+    "cases.csv": "f55f47660204f90cd741e725fe3175a344159e7b78673bd91e14faddbcc808f8",
+    "cases.json": "4e612c316c72d3a7afd255e32c1ef82274008c95e12af4b9858ca96e4626b03a",
+    "cases.jsonl": "9bea0ce87b066e932d46f55340b79c42e4a776be72fc06dd0aee587d6296ee94",
+    "samples.json": "dea8e5c2fb483e64a9e2d18566de5ba494e92b4068a25457059b94c72fd1c651",
+    "summary.json": "8046c825ca0ec681424268834bf266c7fe443e415a8965f9d225341720da6336"
+  }
+}

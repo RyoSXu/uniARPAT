@@ -1,0 +1,285 @@
+{
+  "status": "complete",
+  "verdict": "pass",
+  "cases": 840,
+  "nonpassing_case_ids": [],
+  "groups": {
+    "synthetic_boundary/invariant/torch.float32": {
+      "cases": 6,
+      "pass": 6,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "synthetic_boundary/equivariant/torch.float32": {
+      "cases": 6,
+      "pass": 6,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "e3_direct/invariant/torch.float32": {
+      "cases": 100,
+      "pass": 100,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 9.5367431640625e-07,
+      "max_normalized_error": 0.02687847428023815
+    },
+    "e3_direct/equivariant/torch.float32": {
+      "cases": 100,
+      "pass": 100,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 7.152557373046875e-07,
+      "max_normalized_error": 0.017535917460918427
+    },
+    "e3_rebuilt/invariant/torch.float32": {
+      "cases": 21,
+      "pass": 21,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 2.115964889526367e-06,
+      "max_normalized_error": 0.018664158880710602
+    },
+    "e3_rebuilt/equivariant/torch.float32": {
+      "cases": 21,
+      "pass": 21,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 3.1739473342895508e-06,
+      "max_normalized_error": 0.025810252875089645
+    },
+    "representation/invariant/torch.float32": {
+      "cases": 68,
+      "pass": 68,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 2.384185791015625e-06,
+      "max_normalized_error": 0.018664155155420303
+    },
+    "representation/equivariant/torch.float32": {
+      "cases": 68,
+      "pass": 68,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 2.771615982055664e-06,
+      "max_normalized_error": 0.025243910029530525
+    },
+    "angle_response/invariant/torch.float32": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "angle_response/equivariant/torch.float32": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "structural_response/invariant/torch.float32": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "structural_response/equivariant/torch.float32": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "geometry_vjp/invariant/torch.float32": {
+      "cases": 1,
+      "pass": 1,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "geometry_vjp/equivariant/torch.float32": {
+      "cases": 1,
+      "pass": 1,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "synthetic_boundary/invariant/torch.float64": {
+      "cases": 6,
+      "pass": 6,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "synthetic_boundary/equivariant/torch.float64": {
+      "cases": 6,
+      "pass": 6,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "e3_direct/invariant/torch.float64": {
+      "cases": 100,
+      "pass": 100,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 1.3322676295501878e-15,
+      "max_normalized_error": 3.404820494964612e-06
+    },
+    "e3_direct/equivariant/torch.float64": {
+      "cases": 100,
+      "pass": 100,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 1.7763568394002505e-15,
+      "max_normalized_error": 5.662672430502414e-06
+    },
+    "e3_rebuilt/invariant/torch.float64": {
+      "cases": 21,
+      "pass": 21,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 1.9918642679694898e-08,
+      "max_normalized_error": 0.007873967402132614
+    },
+    "e3_rebuilt/equivariant/torch.float64": {
+      "cases": 21,
+      "pass": 21,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 3.2233261282321735e-08,
+      "max_normalized_error": 0.01309247900236792
+    },
+    "representation/invariant/torch.float64": {
+      "cases": 68,
+      "pass": 68,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 2.2524108633792395e-08,
+      "max_normalized_error": 0.010634315213389612
+    },
+    "representation/equivariant/torch.float64": {
+      "cases": 68,
+      "pass": 68,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 4.3876434929757124e-08,
+      "max_normalized_error": 0.016752987159896336
+    },
+    "angle_response/invariant/torch.float64": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "angle_response/equivariant/torch.float64": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "structural_response/invariant/torch.float64": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "structural_response/equivariant/torch.float64": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "geometry_vjp/invariant/torch.float64": {
+      "cases": 1,
+      "pass": 1,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "geometry_vjp/equivariant/torch.float64": {
+      "cases": 1,
+      "pass": 1,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "resources/invariant/torch.float32": {
+      "cases": 16,
+      "pass": 16,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "resources/equivariant/torch.float32": {
+      "cases": 16,
+      "pass": 16,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 0.0,
+      "max_normalized_error": 0.0
+    },
+    "supercell/invariant/torch.float32": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 1.5497207641601562e-06,
+      "max_normalized_error": 0.011211004108190536
+    },
+    "supercell/equivariant/torch.float32": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 2.115964889526367e-06,
+      "max_normalized_error": 0.01654679700732231
+    },
+    "supercell/invariant/torch.float64": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 2.9108659926890823e-15,
+      "max_normalized_error": 1.4419848416977114e-09
+    },
+    "supercell/equivariant/torch.float64": {
+      "cases": 2,
+      "pass": 2,
+      "fail": 0,
+      "boundary_limited": 0,
+      "max_abs_error": 3.3306690738754696e-15,
+      "max_normalized_error": 1.3022867991319243e-09
+    }
+  },
+  "elapsed_seconds": 562.6717185231391,
+  "peak_rss_MiB": 1183.87109375,
+  "sampled_peak_rss_MiB": 1183.87109375,
+  "error": null,
+  "scope": "local prototypes only; no spectral accuracy, full-model invariance, GPU, optimizer or parameter updates"
+}

@@ -1,0 +1,37 @@
+{
+  "status": "pass",
+  "cases": 840,
+  "control_cases": 10,
+  "isolated_resource_cases": 2,
+  "main_manifest_sha256": "1a41058687a001d9185b782970c6a1abc557ce62ef814b1c6572256fb034b501",
+  "main_case_categories": {
+    "synthetic_boundary": 24,
+    "e3_direct": 400,
+    "e3_rebuilt": 84,
+    "representation": 272,
+    "angle_response": 8,
+    "structural_response": 8,
+    "geometry_vjp": 4,
+    "resources": 32,
+    "supercell": 8
+  },
+  "control_artifact_sha256": {
+    "angles.json": "c4038032dd01f5604579c875334166df7dd0335ca623ecce8a8117ca81cd659f",
+    "invariant_resource.json": "dfe5079bfcdc4581bb003a45a6c3f8b4f6c5cd060098dcc0e73c46f2f36cb817",
+    "equivariant_resource.json": "ffda12204e0cc34f80719751bbab7234cb612664c4daa110e85bca3cebb57c26"
+  },
+  "main_and_control_seconds": 598.8947314380202,
+  "checks": [
+    "input/source/prior/output hashes",
+    "JSON/JSONL/CSV identity and counts",
+    "independent summary/group reconciliation",
+    "all 16 samples have expected transform coverage",
+    "parameter/buffer hashes unchanged",
+    "all real backward parameter tensors active and finite",
+    "angle identity controls, near-cutoff weakness, low-order blind spot",
+    "resource limits"
+  ],
+  "scope": "artifact and protocol consistency only; does not rerun neural forwards or prove DOS accuracy",
+  "verifier_source_sha256": "61b9e6c0a5ffca95d3e801ad5e9b735b77e87f1b23febfceac0eb3d78e72f77a",
+  "additional_test_source_sha256": "a6f8818f40d89955faa01d2d70f71beaa7f98d5e3641e7bc319661e82d1b86c4"
+}

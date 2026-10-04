@@ -1,0 +1,162 @@
+[
+  {
+    "split": "train",
+    "index": 10086,
+    "id": "mp-aaabofsw",
+    "reason": "max_pairs",
+    "n_atoms": 64,
+    "n_edges": 7704,
+    "max_degree": 124,
+    "potential_angle_pairs": 460180
+  },
+  {
+    "split": "train",
+    "index": 15488,
+    "id": "mp-aaacpjac",
+    "reason": "max_degree",
+    "n_atoms": 4,
+    "n_edges": 800,
+    "max_degree": 200,
+    "potential_angle_pairs": 79600
+  },
+  {
+    "split": "train",
+    "index": 15136,
+    "id": "mp-aaacpgnk",
+    "reason": "min_cell_singular_value",
+    "n_atoms": 1,
+    "n_edges": 108,
+    "max_degree": 108,
+    "potential_angle_pairs": 5778
+  },
+  {
+    "split": "train",
+    "index": 0,
+    "id": "mp-aaaaaaab",
+    "reason": "min_atoms",
+    "n_atoms": 1,
+    "n_edges": 8,
+    "max_degree": 8,
+    "potential_angle_pairs": 28
+  },
+  {
+    "split": "train",
+    "index": 1767,
+    "id": "mp-aaaaagxd",
+    "reason": "max_atoms",
+    "n_atoms": 80,
+    "n_edges": 7968,
+    "max_degree": 103,
+    "potential_angle_pairs": 393088
+  },
+  {
+    "split": "train",
+    "index": 17703,
+    "id": "mp-aaacrkql",
+    "reason": "pairs_quantile_0.1",
+    "n_atoms": 4,
+    "n_edges": 104,
+    "max_degree": 26,
+    "potential_angle_pairs": 1300
+  },
+  {
+    "split": "train",
+    "index": 13453,
+    "id": "mp-aaaciuwb",
+    "reason": "pairs_quantile_0.5",
+    "n_atoms": 5,
+    "n_edges": 276,
+    "max_degree": 59,
+    "potential_angle_pairs": 7509
+  },
+  {
+    "split": "train",
+    "index": 6712,
+    "id": "mp-aaaabqpu",
+    "reason": "pairs_quantile_0.9",
+    "n_atoms": 21,
+    "n_edges": 1446,
+    "max_degree": 74,
+    "potential_angle_pairs": 49470
+  },
+  {
+    "split": "valid",
+    "index": 1056,
+    "id": "mp-aaabfwpd",
+    "reason": "max_pairs",
+    "n_atoms": 80,
+    "n_edges": 8584,
+    "max_degree": 117,
+    "potential_angle_pairs": 456840
+  },
+  {
+    "split": "valid",
+    "index": 85,
+    "id": "mp-aaaaaclb",
+    "reason": "max_degree",
+    "n_atoms": 2,
+    "n_edges": 316,
+    "max_degree": 158,
+    "potential_angle_pairs": 24806
+  },
+  {
+    "split": "valid",
+    "index": 1655,
+    "id": "mp-aaaciccv",
+    "reason": "min_cell_singular_value",
+    "n_atoms": 1,
+    "n_edges": 104,
+    "max_degree": 104,
+    "potential_angle_pairs": 5356
+  },
+  {
+    "split": "valid",
+    "index": 0,
+    "id": "mp-aaaaaaau",
+    "reason": "min_atoms",
+    "n_atoms": 1,
+    "n_edges": 112,
+    "max_degree": 112,
+    "potential_angle_pairs": 6216
+  },
+  {
+    "split": "valid",
+    "index": 171,
+    "id": "mp-aaaaafae",
+    "reason": "max_atoms",
+    "n_atoms": 80,
+    "n_edges": 6976,
+    "max_degree": 92,
+    "potential_angle_pairs": 301016
+  },
+  {
+    "split": "valid",
+    "index": 1999,
+    "id": "mp-aaacpndw",
+    "reason": "pairs_quantile_0.1",
+    "n_atoms": 4,
+    "n_edges": 104,
+    "max_degree": 26,
+    "potential_angle_pairs": 1300
+  },
+  {
+    "split": "valid",
+    "index": 532,
+    "id": "mp-aaaaawnl",
+    "reason": "pairs_quantile_0.5",
+    "n_atoms": 16,
+    "n_edges": 496,
+    "max_degree": 34,
+    "potential_angle_pairs": 7454
+  },
+  {
+    "split": "valid",
+    "index": 1674,
+    "id": "mp-aaacixnk",
+    "reason": "pairs_quantile_0.9",
+    "n_atoms": 5,
+    "n_edges": 694,
+    "max_degree": 147,
+    "potential_angle_pairs": 47871
+  }
+]

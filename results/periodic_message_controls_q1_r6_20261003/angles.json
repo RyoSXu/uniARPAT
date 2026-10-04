@@ -1,0 +1,200 @@
+{
+  "mode": "angles",
+  "precheck_manifest_sha256": "1a41058687a001d9185b782970c6a1abc557ce62ef814b1c6572256fb034b501",
+  "source_sha256": {
+    "tools/eval/periodic_message_controls.py": "38e210d91ed4574bb499f696a11af40bb0a841c9cb64c4780572c0905d920cca"
+  },
+  "elapsed_seconds": 2.464315122924745,
+  "peak_rss_MiB": 497.546875,
+  "sampled_peak_rss_MiB": 497.546875,
+  "optimizer_created": false,
+  "parameter_updates": 0,
+  "result": [
+    {
+      "category": "fixed_radial_angle_response",
+      "route": "invariant",
+      "dtype": "torch.float32",
+      "distance_A": 5.0,
+      "raw_radial_distance_max_difference_A": 9.5367431640625e-07,
+      "radial_fields_bitwise_identical": true,
+      "degree_identical": true,
+      "max_scalar_output_change": 1.1920928955078125e-06,
+      "last_scalar_state_change": 1.519918441772461e-06,
+      "last_direction_state_change": null,
+      "identity_control_error": 0.0,
+      "parameters_unchanged": true,
+      "response_threshold": 1e-08,
+      "response_resolved": true,
+      "status": "pass"
+    },
+    {
+      "category": "fixed_radial_angle_response",
+      "route": "equivariant",
+      "dtype": "torch.float32",
+      "distance_A": 5.0,
+      "raw_radial_distance_max_difference_A": 9.5367431640625e-07,
+      "radial_fields_bitwise_identical": true,
+      "degree_identical": true,
+      "max_scalar_output_change": 1.2189149856567383e-05,
+      "last_scalar_state_change": 1.5676021575927734e-05,
+      "last_direction_state_change": 0.011538393795490265,
+      "identity_control_error": 0.0,
+      "parameters_unchanged": true,
+      "response_threshold": 1e-08,
+      "response_resolved": true,
+      "status": "pass"
+    },
+    {
+      "category": "fixed_radial_angle_response",
+      "route": "invariant",
+      "dtype": "torch.float32",
+      "distance_A": 5.9,
+      "raw_radial_distance_max_difference_A": 1.430511474609375e-06,
+      "radial_fields_bitwise_identical": true,
+      "degree_identical": true,
+      "max_scalar_output_change": 0.0,
+      "last_scalar_state_change": 0.0,
+      "last_direction_state_change": null,
+      "identity_control_error": 0.0,
+      "parameters_unchanged": true,
+      "response_threshold": 1e-08,
+      "response_resolved": false,
+      "status": "pass"
+    },
+    {
+      "category": "fixed_radial_angle_response",
+      "route": "equivariant",
+      "dtype": "torch.float32",
+      "distance_A": 5.9,
+      "raw_radial_distance_max_difference_A": 1.430511474609375e-06,
+      "radial_fields_bitwise_identical": true,
+      "degree_identical": true,
+      "max_scalar_output_change": 0.0,
+      "last_scalar_state_change": 0.0,
+      "last_direction_state_change": 1.4462405488302466e-05,
+      "identity_control_error": 0.0,
+      "parameters_unchanged": true,
+      "response_threshold": 1e-08,
+      "response_resolved": false,
+      "status": "pass"
+    },
+    {
+      "category": "fixed_radial_angle_response",
+      "route": "invariant",
+      "dtype": "torch.float64",
+      "distance_A": 5.0,
+      "raw_radial_distance_max_difference_A": 1.7763568394002505e-15,
+      "radial_fields_bitwise_identical": true,
+      "degree_identical": true,
+      "max_scalar_output_change": 1.0056792014712101e-06,
+      "last_scalar_state_change": 1.4504701540962728e-06,
+      "last_direction_state_change": null,
+      "identity_control_error": 0.0,
+      "parameters_unchanged": true,
+      "response_threshold": 1e-10,
+      "response_resolved": true,
+      "status": "pass"
+    },
+    {
+      "category": "fixed_radial_angle_response",
+      "route": "equivariant",
+      "dtype": "torch.float64",
+      "distance_A": 5.0,
+      "raw_radial_distance_max_difference_A": 1.7763568394002505e-15,
+      "radial_fields_bitwise_identical": true,
+      "degree_identical": true,
+      "max_scalar_output_change": 1.232194456524116e-05,
+      "last_scalar_state_change": 1.571516077480961e-05,
+      "last_direction_state_change": 0.011538268170965392,
+      "identity_control_error": 0.0,
+      "parameters_unchanged": true,
+      "response_threshold": 1e-10,
+      "response_resolved": true,
+      "status": "pass"
+    },
+    {
+      "category": "fixed_radial_angle_response",
+      "route": "invariant",
+      "dtype": "torch.float64",
+      "distance_A": 5.9,
+      "raw_radial_distance_max_difference_A": 1.7763568394002505e-15,
+      "radial_fields_bitwise_identical": true,
+      "degree_identical": true,
+      "max_scalar_output_change": 1.659339332604759e-12,
+      "last_scalar_state_change": 2.3492319201068312e-12,
+      "last_direction_state_change": null,
+      "identity_control_error": 0.0,
+      "parameters_unchanged": true,
+      "response_threshold": 1e-10,
+      "response_resolved": false,
+      "status": "pass"
+    },
+    {
+      "category": "fixed_radial_angle_response",
+      "route": "equivariant",
+      "dtype": "torch.float64",
+      "distance_A": 5.9,
+      "raw_radial_distance_max_difference_A": 1.7763568394002505e-15,
+      "radial_fields_bitwise_identical": true,
+      "degree_identical": true,
+      "max_scalar_output_change": 1.9448442856173642e-11,
+      "last_scalar_state_change": 2.4487079031132453e-11,
+      "last_direction_state_change": 1.4413582785671391e-05,
+      "identity_control_error": 0.0,
+      "parameters_unchanged": true,
+      "response_threshold": 1e-10,
+      "response_resolved": false,
+      "status": "pass"
+    },
+    {
+      "category": "equal_low_order_moments",
+      "route": "invariant",
+      "dtype": "torch.float64",
+      "distance_A": 5.85,
+      "cutoff_override": "one, controlled ablation only",
+      "center_degree": 12,
+      "low_order_moments": [
+        {
+          "vector_sum_norm": 6.661338147750939e-16,
+          "quadrupole_norm_sq": 1.7806116593336857e-30
+        },
+        {
+          "vector_sum_norm": 9.155133597044475e-16,
+          "quadrupole_norm_sq": 8.320149927133855e-31
+        }
+      ],
+      "angle_fourth_sums": [
+        8.440670844858374,
+        8.400000000000004
+      ],
+      "max_scalar_output_change": 2.561908640218158e-05,
+      "status": "pass",
+      "interpretation": "A resolves this constructed pair; this l<=2 B cannot resolve it in the pure-star setting"
+    },
+    {
+      "category": "equal_low_order_moments",
+      "route": "equivariant",
+      "dtype": "torch.float64",
+      "distance_A": 5.85,
+      "cutoff_override": "one, controlled ablation only",
+      "center_degree": 12,
+      "low_order_moments": [
+        {
+          "vector_sum_norm": 6.661338147750939e-16,
+          "quadrupole_norm_sq": 1.7806116593336857e-30
+        },
+        {
+          "vector_sum_norm": 9.155133597044475e-16,
+          "quadrupole_norm_sq": 8.320149927133855e-31
+        }
+      ],
+      "angle_fourth_sums": [
+        8.440670844858374,
+        8.400000000000004
+      ],
+      "max_scalar_output_change": 5.551115123125783e-16,
+      "status": "pass",
+      "interpretation": "A resolves this constructed pair; this l<=2 B cannot resolve it in the pure-star setting"
+    }
+  ]
+}
