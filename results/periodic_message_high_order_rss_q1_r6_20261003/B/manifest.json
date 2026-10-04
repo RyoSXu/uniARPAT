@@ -1,0 +1,18 @@
+{
+  "status": "complete",
+  "mode": "rss-B",
+  "prior_manifest_sha256": "1a41058687a001d9185b782970c6a1abc557ce62ef814b1c6572256fb034b501",
+  "labels_loaded": false,
+  "optimizer_created": false,
+  "parameter_updates": 0,
+  "source_sha256": {
+    "tools/eval/periodic_message_high_order_compare.py": "fa9b5edc6799df4babebdd1dcdbe8c6bb6063cc3cfcb52c7d7bc8a9ffcd5df73",
+    "tools/eval/periodic_message_high_order.py": "c264e525a51a5f31124b2575204bf12eaa37a569ba4e87967907110de47241cc"
+  },
+  "elapsed_seconds": 1.8043713171500713,
+  "peak_rss_MiB": 576.28125,
+  "sampled_peak_rss_MiB": 576.28125,
+  "artifacts_sha256": {
+    "summary.json": "fe7e312db9ab91b2aef1d7f2100b75f14c0a33dc5968aa7646149acfbad0dfcb"
+  }
+}

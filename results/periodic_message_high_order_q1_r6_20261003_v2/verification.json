@@ -1,0 +1,37 @@
+{
+  "status": "pass",
+  "cases": 994,
+  "categories": {
+    "fixed_radial_angle": 60,
+    "equal_low_order_moments": 60,
+    "high_order_ablation": 20,
+    "synthetic_boundary": 36,
+    "e3_direct": 280,
+    "e3_rebuilt": 62,
+    "representation": 152,
+    "supercell": 4,
+    "real_shared_e3": 96,
+    "high_order_invariant_e3": 32,
+    "real_shear_response": 48,
+    "resources": 144
+  },
+  "csv_cells_checked": 56658,
+  "main_and_rss_elapsed_seconds": 453.83148253918625,
+  "isolated": {
+    "A": {
+      "peak_rss_MiB": 974.1875,
+      "manifest_sha256": "f0654217def6668ee64a5aa8a0341e3e8c04e8f7c2f1678445e2abfbf6badb0f"
+    },
+    "B": {
+      "peak_rss_MiB": 576.28125,
+      "manifest_sha256": "79893ab232c0d51de0da83318865c432b3f2d547933bafb204fb819fd16a04da"
+    },
+    "B+": {
+      "peak_rss_MiB": 582.73828125,
+      "manifest_sha256": "ee9e20c9e1ebffa9c28ccf84ef32b6cd88f491c4515ca82797ddf48a5ae1217b"
+    }
+  },
+  "main_manifest_sha256": "d498b708e64ee0fba4dd8f4a1f7c39d47ed3514190164c5e5ea1675fe2da6587",
+  "verifier_source_sha256": "d59e4c43a97e01285aeeec8964754441c81914ac2b53fe6baa4eee5742bdcd71",
+  "scope": "saved evidence consistency; not a neural rerun, arbitrary-environment proof or DOS evaluation"
+}

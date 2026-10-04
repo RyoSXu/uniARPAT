@@ -1,0 +1,47 @@
+{
+  "main_manifest_sha256": "d498b708e64ee0fba4dd8f4a1f7c39d47ed3514190164c5e5ea1675fe2da6587",
+  "verification_sha256": "de5b197174390043602b1b07d20b4a8c875e90346269c6dff18c42ee1f9c1983",
+  "source_sha256": "8480eb244b0a9111eb7ce2ba9fc78d48cb07a2a605bddc83442db65f2118b38a",
+  "panels": [
+    {
+      "title": "Local parameters",
+      "ylabel": "thousand parameters",
+      "values": {
+        "A": 261.568,
+        "B": 180.676,
+        "B+": 184.772
+      }
+    },
+    {
+      "title": "Forward + backward (no update)",
+      "ylabel": "median milliseconds per structure",
+      "values": {
+        "A": 827.7891285251826,
+        "B": 27.542510302737355,
+        "B+": 30.671366956084967
+      }
+    },
+    {
+      "title": "Fresh-process peak memory",
+      "ylabel": "MiB (same largest-pair structure)",
+      "values": {
+        "A": 974.1875,
+        "B": 576.28125,
+        "B+": 582.73828125
+      }
+    },
+    {
+      "title": "Controlled angular counterexample",
+      "ylabel": "seeds with a resolved difference / 5",
+      "values": {
+        "A": 5,
+        "B": 0,
+        "B+": 5
+      }
+    }
+  ],
+  "artifacts_sha256": {
+    "comparison.png": "f2b9c88e8c3335c3c967e7135804e0d3b623bbe28511100d4b44fb36a4e70f53",
+    "comparison.svg": "ee354f766f4f1fef4594e217ae422ac591e3fcdde2e5a0794f95202afbfab317"
+  }
+}

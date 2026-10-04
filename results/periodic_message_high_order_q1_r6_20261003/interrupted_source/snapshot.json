@@ -1,0 +1,5 @@
+{
+  "source": "tools/eval/periodic_message_high_order_compare.py",
+  "sha256": "3c792a3f8d1bf062765ae460fc9471f37b626f878af2188040f9290440101771",
+  "reason": "wrong build_cell_from_lattice call signature; no failed numerical cases before interruption"
+}
