@@ -1,0 +1,158 @@
+{
+  "status": "complete",
+  "verdict": "pass",
+  "warmup": 3,
+  "repeats": 5,
+  "device": "cuda",
+  "dtype": "torch.float32",
+  "rows": [
+    {
+      "batch_label": "typical_b1",
+      "route": "A",
+      "pass": true,
+      "seconds": [
+        0.03858060413040221,
+        0.03835602314211428,
+        0.03839768306352198,
+        0.03861883981153369,
+        0.038781512062996626
+      ],
+      "median_seconds": 0.03858060413040221,
+      "min_seconds": 0.03835602314211428,
+      "max_seconds": 0.038781512062996626
+    },
+    {
+      "batch_label": "typical_b1",
+      "route": "B+",
+      "pass": true,
+      "seconds": [
+        0.024327593855559826,
+        0.023095511831343174,
+        0.02278006705455482,
+        0.023229201091453433,
+        0.023755779955536127
+      ],
+      "median_seconds": 0.023229201091453433,
+      "min_seconds": 0.02278006705455482,
+      "max_seconds": 0.024327593855559826
+    },
+    {
+      "batch_label": "typical_b4",
+      "route": "A",
+      "pass": true,
+      "seconds": [
+        0.38955557509325445,
+        0.39485387899912894,
+        0.39319339906796813,
+        0.3994166920892894,
+        0.4774683879222721
+      ],
+      "median_seconds": 0.39485387899912894,
+      "min_seconds": 0.38955557509325445,
+      "max_seconds": 0.4774683879222721
+    },
+    {
+      "batch_label": "typical_b4",
+      "route": "B+",
+      "pass": true,
+      "seconds": [
+        0.024592067813500762,
+        0.024072738830000162,
+        0.023546115029603243,
+        0.024294511880725622,
+        0.023373397067189217
+      ],
+      "median_seconds": 0.024072738830000162,
+      "min_seconds": 0.023373397067189217,
+      "max_seconds": 0.024592067813500762
+    },
+    {
+      "batch_label": "typical_b8",
+      "route": "A",
+      "pass": true,
+      "seconds": [
+        0.4676327451597899,
+        0.4659487400203943,
+        0.4671955588273704,
+        0.5452160970307887,
+        0.46086644916795194
+      ],
+      "median_seconds": 0.4671955588273704,
+      "min_seconds": 0.46086644916795194,
+      "max_seconds": 0.5452160970307887
+    },
+    {
+      "batch_label": "typical_b8",
+      "route": "B+",
+      "pass": true,
+      "seconds": [
+        0.023924591951072216,
+        0.023562974063679576,
+        0.023433771217241883,
+        0.024160697124898434,
+        0.02366599510423839
+      ],
+      "median_seconds": 0.02366599510423839,
+      "min_seconds": 0.023433771217241883,
+      "max_seconds": 0.024160697124898434
+    },
+    {
+      "batch_label": "dense_b1",
+      "route": "A",
+      "pass": true,
+      "seconds": [
+        1.0875372139271349,
+        1.1025024889968336,
+        1.1801143079064786,
+        1.0947020088788122,
+        1.0919325198046863
+      ],
+      "median_seconds": 1.0947020088788122,
+      "min_seconds": 1.0875372139271349,
+      "max_seconds": 1.1801143079064786
+    },
+    {
+      "batch_label": "dense_b1",
+      "route": "B+",
+      "pass": true,
+      "seconds": [
+        0.023503632051870227,
+        0.023252337938174605,
+        0.02301612007431686,
+        0.022957524983212352,
+        0.022780721075832844
+      ],
+      "median_seconds": 0.02301612007431686,
+      "min_seconds": 0.022780721075832844,
+      "max_seconds": 0.023503632051870227
+    }
+  ],
+  "elapsed_seconds": 22.938479016069323,
+  "peak_rss_MiB": 1112.23828125,
+  "gpu_peak_allocated_MiB": 106.7431640625,
+  "gpu_peak_reserved_MiB": 128.0,
+  "parameters_unchanged": true,
+  "optimizer_created": false,
+  "parameter_updates": 0,
+  "labels_loaded": false,
+  "environment": {
+    "torch": "2.2.1",
+    "cuda": "12.1",
+    "e3nn": "0.5.6",
+    "gpu": "Tesla V100-SXM2-32GB",
+    "gpu_total_GiB": 31.7393798828125,
+    "cpu_threads": 1,
+    "tf32": false,
+    "amp": false
+  },
+  "initial_state_sha256": {
+    "A": "1765fa074eda7ef40a4ffe459065634cab83a92566ed1f58eb96086413d0ec06",
+    "B+": "5013cbadda0c367c950aed0840580f9c4ebbe46757ff84e5c86657b86ddfe906"
+  },
+  "acceptance_manifest_sha256": "7e9bb2a22fd5db85edc1af952fcc5fd5c8c221cb3ab0267222debe9af8d388fc",
+  "source_sha256": {
+    "tools/eval/confirm_periodic_message_gpu_timing.py": "533cfa228f210efa3f06ef9a7cd32e62f97c8b03e22297ece0904f12c6395298"
+  },
+  "original_timings_retained": true,
+  "limits": "short warmed local backward confirmation only"
+}

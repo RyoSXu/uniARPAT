@@ -1,0 +1,23 @@
+{
+  "status": "pass",
+  "cases": 966,
+  "categories": {
+    "gpu_geometry": 44,
+    "cpu_gpu_features": 88,
+    "gpu_rebuilt_features": 88,
+    "gpu_orthogonal": 440,
+    "gpu_padding": 80,
+    "gpu_representation": 48,
+    "cpu_gpu_gradients": 12,
+    "gpu_translation": 64,
+    "gpu_zp_pipeline": 2,
+    "batch_preparation": 4,
+    "benchmark": 96
+  },
+  "csv_cells_checked": 46368,
+  "confirmation_profiles": 8,
+  "main_manifest_sha256": "7e9bb2a22fd5db85edc1af952fcc5fd5c8c221cb3ab0267222debe9af8d388fc",
+  "confirmation_summary_sha256": "94ced135998a1c16df04e07102903401c7bdb7c3929fec13a40ee71ea27b4a76",
+  "verifier_source_sha256": "252d42065516187d1c7ca32fd56dbe182a6c4bf5d04ad21a916f806b72be34c0",
+  "scope": "saved evidence consistency; no neural rerun or full-model/accuracy claim"
+}
