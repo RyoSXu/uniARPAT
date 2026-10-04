@@ -2,6 +2,10 @@ import os
 from torch.utils.data import Dataset
 import numpy as np
 import torch
+import json
+from pathlib import Path
+from utils.crystal import CRYSTAL_SCHEMA, CrystalGeometry
+from utils.crystal_cache import PackedCrystalStore
 from utils.paths import REFERENCE_ROOT, input_path
 
 
@@ -17,24 +21,35 @@ class Dos_Dataset(Dataset):
             dos_minmax = False
             dos_zscore = False
         # Coordinate displacement is applied only to training samples.
-        # Rotation is intentionally ABSENT: the 82-format carries no orientation
-        # (lattice scalars + frac coords; build_cell convention fixed), so any
-        # global rotation maps to bit-identical inputs => provably no-op.
-        # Corollary: the model is E(3)-invariant by representation blindness
-        # (translation/rotation/reflection all collapse), just not equivariant.
+        # No rotation augmentation is applied here. Explicit matrix inputs
+        # preserve Cartesian frames; model E(3) invariance is a separate claim.
         self.augment = bool(augment) and (split == 'train')
         self.disp_sigma = float(disp_sigma)
         self.disp_clip = float(disp_clip)
         self.smear = smear
         self.data_dir = str(input_path(data_dir))+"/"+split+"/"
 
-        self.elements  = self.get_elements()  #size (__len__, src_len)
-        self.positions = self.get_positions() #size (__len__, src_len*3)
+        manifest_path = Path(input_path(data_dir)) / "manifest.json"
+        manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
+        schema = manifest.get("schema")
+        if schema is not None and schema != CRYSTAL_SCHEMA:
+            raise ValueError(f"unsupported data schema: {schema}")
+        self.crystal_format = schema == CRYSTAL_SCHEMA
+        if self.crystal_format:
+            self.crystals = PackedCrystalStore(input_path(data_dir), split)
+            self.structure_indices = np.arange(len(self.crystals))
+            self.atom_counts = self.crystals.n_atoms.clone()
+            data_len = len(self.crystals)
+        else:
+            self.elements = self.get_elements()
+            self.positions = self.get_positions()
+            self.atom_counts = (self.elements[:, 2:] != 0).sum(-1)
+            data_len = len(self.elements)
+            self.structure_indices = np.arange(data_len)
         # Coverage masks are optional because older caches do not provide them.
         self.masks_available = (
             os.path.exists(os.path.join(self.data_dir, f"edos_mask_{split}.npy"))
             and os.path.exists(os.path.join(self.data_dir, f"phdos_mask_{split}.npy")))
-        data_len = self.positions.shape[0]
 
         if self.split == 'test_cif':
             self.edos_tgtdos = torch.zeros((data_len, 128), dtype=torch.float32)
@@ -47,6 +62,12 @@ class Dos_Dataset(Dataset):
         self.phdos_mask = self.get_mask_data(prefix="phdos_mask")
         # Valence counts are optional metadata for blind scale supervision.
         self.nvalence = self.get_nvalence()
+        for name in ("edos_tgtdos", "phdos_tgtdos", "edos_mask", "phdos_mask", "nvalence"):
+            value = getattr(self, name)
+            if value is not None and len(value) != data_len:
+                raise ValueError(f"{name} row count differs from structures")
+        if self.crystal_format and (not self.masks_available or self.nvalence is None):
+            raise ValueError("crystal cache requires coverage masks and valence counts")
         # Bin centers in physical units are metadata, not target labels.
         # Coordinates are grid constants, not labels: eDOS is relative to Fermi
         # energy and phDOS is relative to zero frequency. They are attached only
@@ -100,38 +121,59 @@ class Dos_Dataset(Dataset):
             self.phdos_mean = torch.ones_like(p_sum)
             self.phdos_std = torch.ones_like(p_sum)
 
+        if self.crystal_format and split == "train":
+            excluded = set(self.crystals.manifest.get("training_exclusions", []))
+            allowed = [i for i, material_id in enumerate(self.crystals.material_ids)
+                       if str(material_id) not in excluded]
+            self._select_rows(allowed)
         if len(choice) != 0:
-            cholist = torch.Tensor(choice).long()
-            self.elements = self.elements.index_select(dim=0, index=cholist)
-            self.positions = self.positions.index_select(dim=0, index=cholist)
-            self.edos_tgtdos = self.edos_tgtdos.index_select(dim=0, index=cholist)
-            self.phdos_tgtdos = self.phdos_tgtdos.index_select(dim=0, index=cholist)
+            self._select_rows(choice)
+
+    def _select_rows(self, choice):
+        cholist = torch.tensor(choice, dtype=torch.long)
+        self.structure_indices = self.structure_indices[np.asarray(choice)]
+        if not self.crystal_format:
+            self.elements = self.elements.index_select(0, cholist)
+            self.positions = self.positions.index_select(0, cholist)
+        for name in ("atom_counts", "edos_tgtdos", "phdos_tgtdos", "edos_mask",
+                     "phdos_mask", "nvalence", "edos_mean", "edos_std", "edos_min",
+                     "edos_max", "phdos_mean", "phdos_std", "phdos_min", "phdos_max"):
+            value = getattr(self, name)
+            if value is not None:
+                setattr(self, name, value.index_select(0, cholist))
+
+    @property
+    def material_ids(self):
+        if self.crystal_format:
+            return self.crystals.material_ids[self.structure_indices]
+        return np.load(os.path.join(self.data_dir, f"{self.split}_index.npy"), allow_pickle=False)[self.structure_indices]
 
     def __len__(self):
-        return len(self.elements)
+        return len(self.atom_counts)
 
     def __getitem__(self, index):
         index = min(index, self.__len__() - 1)
-        pos = self.positions[index].reshape(-1, 3).clone() \
-            if torch.is_tensor(self.positions[index]) else self.positions[index].reshape(-1, 3).copy()
+        if self.crystal_format:
+            elements, geometry = self.crystals[int(self.structure_indices[index])]
+            pos = CrystalGeometry(geometry.cell, geometry.frac_coords.clone())
+        else:
+            elements = self.elements[index]
+            pos = self.positions[index].reshape(-1, 3).clone()
         if self.augment:
             # Perturb fractional atom rows and wrap them into the unit cell.
             # The first two element slots are non-atom sentinel tokens.
-            el = self.elements[index]
-            n_atom = int(((el[2:] != 0).sum()).item()) if torch.is_tensor(el) \
-                else int((el[2:] != 0).sum())
-            n_atom = max(0, min(n_atom, pos.shape[0] - 2))
+            n_atom = int(self.atom_counts[index])
             noise = np.random.normal(0.0, self.disp_sigma, size=(n_atom, 3))
             noise = np.clip(noise, -self.disp_clip, self.disp_clip)
-            if torch.is_tensor(pos):
-                pos[2:2 + n_atom] = (pos[2:2 + n_atom] + torch.from_numpy(noise).to(pos.dtype)) % 1.0
+            if self.crystal_format:
+                pos = CrystalGeometry(pos.cell, (pos.frac_coords + torch.from_numpy(noise).float()) % 1.0)
             else:
-                pos[2:2 + n_atom] = (pos[2:2 + n_atom] + noise) % 1.0
+                pos[2:2 + n_atom] = (pos[2:2 + n_atom] + torch.from_numpy(noise).to(pos.dtype)) % 1.0
         # The base batch has 15 fields; bin centers are appended only for the
         # production grid. Missing masks are converted to all-ones downstream.
         items = [
-            self.elements[index],           # [0]
-            pos.reshape(-1, 3),             # [1] (82,3; 与原格式一致)
+            elements,                      # [0] atomic numbers (legacy: two sentinels)
+            pos,                           # [1] explicit geometry or legacy rows
             self.edos_tgtdos[index],        # [2]
             self.phdos_tgtdos[index],       # [3]
             self.edos_mean[index],          # [4]
@@ -163,19 +205,29 @@ class Dos_Dataset(Dataset):
 
     def get_dos_data(self, prefix):
         filename = os.path.join(self.data_dir, f"{prefix}_{self.split}.npy")
-        return torch.from_numpy(np.load(filename)).float()
+        array = np.load(filename, allow_pickle=False)
+        if self.crystal_format and array.dtype != np.float32:
+            raise ValueError("crystal DOS arrays must be stored in float32")
+        return torch.from_numpy(array).float()
 
     def get_mask_data(self, prefix):
         if not self.masks_available:
             return None
         filename = os.path.join(self.data_dir, f"{prefix}_{self.split}.npy")
-        return torch.from_numpy(np.load(filename)).bool()
+        array = np.load(filename, allow_pickle=False)
+        if self.crystal_format and array.dtype != np.bool_:
+            raise ValueError("crystal coverage masks must be stored as boolean")
+        return torch.from_numpy(array).bool()
 
     def get_nvalence(self):
         filename = os.path.join(self.data_dir, f"nvalence_{self.split}.npy")
         if not os.path.exists(filename):
             return None
-        return torch.from_numpy(np.load(filename)).float()
+        array = np.load(filename, allow_pickle=False)
+        if self.crystal_format and (array.dtype != np.float32 or not np.isfinite(array).all()
+                                    or (array <= 0).any()):
+            raise ValueError("crystal valence counts require positive finite float32 values")
+        return torch.from_numpy(array).float()
 
     @staticmethod
     def _production_edges():

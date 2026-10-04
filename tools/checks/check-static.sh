@@ -66,6 +66,7 @@ PY
     tests.pipeline.test_repository_paths \
     tests.pipeline.test_repository_policy \
     tests.data.test_periodic_neighbors \
+    tests.data.test_crystal_input \
     tests.model.test_periodic_messages \
     tests.model.test_periodic_messages_gpu
 

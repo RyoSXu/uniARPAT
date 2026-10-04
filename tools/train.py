@@ -23,6 +23,8 @@ from utils.paths import PROJECT_ROOT, input_path, repository_path
 from utils.ablation_checkpoint import (
     atomic_torch_save, build_ablation_checkpoint, restore_ablation_checkpoint,
 )
+from utils.crystal_cache import crystal_data_contract
+from utils.bucket_batch import iter_computation_batches
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger('ablation')
@@ -390,6 +392,14 @@ def train_and_eval(cfg: ExperimentConfig):
     validate_pair_aux_config(cfg)
     validate_pair_aux_init_checkpoint(cfg)
 
+    if cfg.pair_budget is not None and cfg.pair_budget <= 0:
+        raise ValueError("pair_budget must be positive")
+    data_contract = crystal_data_contract(input_path(cfg.data_dir, root=REPO_ROOT),
+        normalization=cfg.norm, pair_budget=cfg.pair_budget)
+    if data_contract is not None and (cfg.use_amp or cfg.pair_aux_arm != "none"
+            or cfg.scalar_mode != "none" or cfg.c5_moe or cfg.norm != "sumnorm"):
+        raise ValueError("complete crystal training currently supports FP32 SumNorm/H1 without batch auxiliary losses")
+
     setup_ablation_seed (cfg.seed )
     # A tag isolates artifacts from runs with a different configuration.
     suffix =cfg.model_name .lower ()+cfg.tag
@@ -540,6 +550,8 @@ def train_and_eval(cfg: ExperimentConfig):
     # Optionally initialize from a backbone checkpoint and train only new heads.
     if cfg.init_ckpt :
         _ck =torch .load (input_path(cfg.init_ckpt, root=REPO_ROOT) ,map_location ='cpu')
+        if data_contract is not None and _ck.get("data_contract") != data_contract:
+            raise ValueError("crystal initialization requires a matching data contract")
         _st =_ck ['model']if isinstance (_ck ,dict )and 'model'in _ck else _ck
         if cfg.g2_content_mode == 'joint':
             _miss, _unexp = load_joint_initial_state(model.model['transformer'], _st)
@@ -615,7 +627,7 @@ def train_and_eval(cfg: ExperimentConfig):
                 edos_slope_ratio=model.edos_slope_ratio,
                 pair_aux_arm=cfg.pair_aux_arm,pair_ratio=cfg.pair_ratio,
                 pair_lambda=expected_pair_lambda,
-                pair_plan_hash=expected_pair_plan_hash)
+                pair_plan_hash=expected_pair_plan_hash, data_contract=data_contract)
             if model.edos_slope_ratio > 0.0:
                 if resume_meta["edos_slope_lambda"] is None:
                     raise ValueError("slope-loss checkpoint is missing its calibrated lambda")
@@ -653,7 +665,7 @@ def train_and_eval(cfg: ExperimentConfig):
         with open(config_path, "w") as f:
             yaml .dump ({'cli':{'model':cfg.model_name ,'epochs':cfg.epochs ,
             'batch_size':cfg.batch_size ,'lr':cfg.lr ,'seed':cfg.seed ,
-            'data_dir':cfg.data_dir ,'edos_num':cfg.edos_num ,
+            'data_dir':cfg.data_dir ,'pair_budget':cfg.pair_budget ,'data_contract':data_contract ,'edos_num':cfg.edos_num ,
             'phdos_num':cfg.phdos_num ,'atom_feat':cfg.atom_feat ,
             'decoder_layers':cfg.decoder_layers ,
             'use_atom_additive_phdos':cfg.use_atom_additive_phdos ,
@@ -760,7 +772,8 @@ def train_and_eval(cfg: ExperimentConfig):
 
         for step ,batch in enumerate (train_loader ):
             pair_batch =next (pair_iterator )if step in pair_schedule else None
-            loss_dict =model .train_one_step (batch ,step =step ,pair_batch =pair_batch )
+            loss_dict =model .train_one_step (batch ,step =step ,pair_batch =pair_batch,
+                                             pair_budget=cfg.pair_budget)
             if model.edos_slope_calibration is not None:
                 write_edos_slope_calibration(
                     os.path.join(save_dir, "config_used.yaml"),
@@ -808,7 +821,7 @@ def train_and_eval(cfg: ExperimentConfig):
             alpha_p =model .model ['transformer'].gated_cross_attn .alpha_p .item ()
 
             # Validation reports blind metrics; older scale variants also report oracle metrics.
-        val_metrics =evaluate_split (model ,val_loader ,is_m5 =(cfg.model_name =='M5'),ph_grid =_ph_grid_centers (cfg.phdos_num ),sumnorm =(cfg.norm =='sumnorm'))
+        val_metrics =evaluate_split (model ,val_loader ,is_m5 =(cfg.model_name =='M5'),ph_grid =_ph_grid_centers (cfg.phdos_num ),sumnorm =(cfg.norm =='sumnorm'),pair_budget=cfg.pair_budget)
         balanced =0.5 *val_metrics ['mae_edos_median']+0.5 *val_metrics ['mae_phdos_median']
 
         log_str =(
@@ -854,7 +867,8 @@ def train_and_eval(cfg: ExperimentConfig):
                 pair_aux_arm=(cfg.pair_aux_arm if pair_sampler is not None else None),
                 pair_ratio=(model.pair_ratio if pair_sampler is not None else None),
                 pair_lambda=(model.pair_lambda if pair_sampler is not None else None),
-                pair_plan_hash=(pair_sampler.frozen_plan_hash() if pair_sampler is not None else None))
+                pair_plan_hash=(pair_sampler.frozen_plan_hash() if pair_sampler is not None else None),
+                data_contract=data_contract)
 
         if balanced <best_val_score :
             best_val_score =balanced
@@ -881,7 +895,7 @@ def train_and_eval(cfg: ExperimentConfig):
     model .model ['transformer'].load_state_dict (best_state )
 
     test_metrics =evaluate_split (model ,test_loader ,is_m5 =(cfg.model_name =='M5'),return_sample_level =True ,
-    ph_grid =_ph_grid_centers (cfg.phdos_num ),sumnorm =(cfg.norm =='sumnorm'))
+    ph_grid =_ph_grid_centers (cfg.phdos_num ),sumnorm =(cfg.norm =='sumnorm'),pair_budget=cfg.pair_budget)
     df_samples =test_metrics .pop ('sample_df')
     pred_p =test_metrics .pop ('pred_phdos')
     pred_e =test_metrics .pop ('pred_edos')
@@ -910,7 +924,7 @@ def train_and_eval(cfg: ExperimentConfig):
     logger .info ("="*70 )
     return test_metrics
 
-def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :bool =False ,ph_grid =None ,sumnorm :bool =False ):
+def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :bool =False ,ph_grid =None ,sumnorm :bool =False, pair_budget=None ):
     model .model ['transformer'].eval ()
     records =[]
     # Thermodynamic integration requires a uniform frequency grid. Skip it for
@@ -931,7 +945,7 @@ def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :
         all_p_e ,all_t_e =[],[]
 
     with torch .no_grad ():
-        for batch in dataloader :
+        for batch in iter_computation_batches(dataloader, pair_budget=pair_budget):
             inp ,pos ,mask ,edos_tgt ,phdos_tgt ,edos_m ,edos_s ,edos_min ,edos_max ,phdos_m ,phdos_s ,phdos_min ,phdos_max ,edos_cov ,phdos_cov ,_nvalence ,edos_x ,phdos_x =model .data_preprocess (batch )
 
             with model .amp_autocast ():
@@ -1093,7 +1107,8 @@ def build_arg_parser():
     parser.add_argument('--skip_existing', action='store_true', help='Skip variant if test summary already exists')
     parser.add_argument('--seed', type=int, default=42, help='Random seed recorded in the history CSV')
     parser.add_argument('--tag', type=str, default='', help='Unique suffix for output and result files')
-    parser.add_argument('--data_dir', type=str, default='./data/train4ARPAT', help='Dataset root')
+    parser.add_argument('--data_dir', type=str, default='./data/crystal_q1_v1', help='Dataset root (complete FP32 crystal cache)')
+    parser.add_argument('--pair_budget', type=int, default=None, help='Padded atom-pair budget; automatic default always fits one complete crystal')
     parser.add_argument('--edos_num', type=int, default=128, help='Number of eDOS output bins')
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
     parser.add_argument('--decoder_layers', type=int, default=6,

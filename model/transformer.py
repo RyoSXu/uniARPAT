@@ -12,6 +12,7 @@ from model.heads import (
 )
 from utils.atom_feature import AtomFeatureEncoder
 from utils.relative_features import compute_relative_features
+from utils.crystal import CrystalGeometry, atom_padding_mask, validate_crystal_geometry
 from utils.rp_encoding import RPEncoding
 
 
@@ -464,11 +465,18 @@ class Transformer(nn.Module):
         # src: [B, L] atom indices; pos carries lattice+coords
         # edos_x/phdos_x: [E] or [B,E] bin centers in task units, supplied by
         # the dataset whenever coordinate conditioning is enabled.
-        B, Lp, _ = pos.shape
-        atom_len = Lp - 2
-        mask_atom = mask[:, 2:2 + atom_len]  # 严格对齐 src[:, 2:] 剥离哨兵后的原子区间
-
-        atom_idx = src[:, 2:]  # [B, L]; lattice sentinel slots are not elements.
+        mask_atom = atom_padding_mask(pos, mask)
+        if isinstance(pos, CrystalGeometry):
+            validate_crystal_geometry(pos, mask_atom)
+            # Ignored padding may contain NaN; dense geometry must not read it.
+            pos = CrystalGeometry(pos.cell, pos.frac_coords.masked_fill(mask_atom[..., None], 0.0))
+            B = pos.frac_coords.shape[0]
+            atom_idx = src
+        else:
+            B = pos.shape[0]
+            atom_idx = src[:, 2:]
+        if atom_idx.shape != mask_atom.shape:
+            raise ValueError("atomic numbers and geometry slots differ")
         atom_src = self._encode_atoms(atom_idx)
 
         if self.use_macro_lattice:

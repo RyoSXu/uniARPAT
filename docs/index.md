@@ -19,6 +19,7 @@
 | 协作与实验流程 | [`workflow.md`](workflow.md) |
 | 长期决策和评估约定 | [`decisions.md`](decisions.md) |
 | 数据、缓存及标签口径 | [`data.md`](data.md)；[`data/reference/edos-label-audit.md`](../data/reference/edos-label-audit.md) |
+| 完整原子、FP32 存储与矩阵输入契约 | [`结构输入设计`](design/design-2026-10-04-crystal-structure-input.md)、[`实施日志`](logs/log-2026-10-04-crystal-structure-input.md) |
 | 术语与指标 | [`glossary.md`](glossary.md) |
 
 ## 当前路线相关证据

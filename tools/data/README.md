@@ -7,6 +7,7 @@
 
 | 脚本 | 用途 |
 |---|---|
+| `migrate_crystal_q1.py` | 保留原 Q1，建立无原子截断的 packed FP32 矩阵缓存，修复组成回退价电子数并登记质量视图。 |
 | `download_delta_tables.py` | 为已批准的新数据活动下载 Materials Project Delta 表。 |
 | `fetch_mp_raw.py` | 获取 Materials Project 结构和 DOS 记录；需要 `MP_API_KEY`。 |
 | `download_phonondb.py` | 为已批准的新数据活动下载 PhononDB 源归档。 |

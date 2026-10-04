@@ -3,7 +3,7 @@
 | 目录 | 验证内容 |
 |---|---|
 | `model/` | 当前模型、输出头、归一化、局部消息和回归 |
-| `data/` | 周期邻居枚举和独立物理记录 |
+| `data/` | 完整 FP32 结构缓存、变长 batch/梯度累积、周期邻居和独立物理记录 |
 | `pipeline/` | checkpoint 恢复、CIF 推理、支持库、路径和 Git 数据边界 |
 
 历史候选测试集中于 [archive/code/tests](../archive/code/tests/)，不混入当前分类。

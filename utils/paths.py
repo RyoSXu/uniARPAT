@@ -17,6 +17,7 @@ import subprocess
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_ROOT = PROJECT_ROOT / "data/reference"
 Q1_DATA_ROOT = PROJECT_ROOT / "data/train4ARPAT"
+CRYSTAL_Q1_DATA_ROOT = PROJECT_ROOT / "data/crystal_q1_v1"
 REPORTS_ROOT = PROJECT_ROOT / "results/reports"
 RUNS_ROOT = PROJECT_ROOT / "results/runs"
 FIGURES_ROOT = PROJECT_ROOT / "results/figures"
@@ -77,7 +78,7 @@ def input_path(value: str | Path, *, root: str | Path | None = None) -> Path:
     path = Path(value).expanduser()
     name = _relative_name(path, base)
     if name is not None and (
-        name == "data/train4ARPAT" or name in {
+        name in {"data/train4ARPAT", "data/crystal_q1_v1"} or name in {
             "configs/default.yaml", "default.yaml", "tools/training-defaults.yaml",
         }
         or any(name.startswith(prefix) for prefix in (

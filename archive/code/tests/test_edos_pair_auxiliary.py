@@ -170,6 +170,7 @@ class TestPairIntegrationBoundaries(unittest.TestCase):
     def test_active_recipe_requires_test_isolation_and_rejects_conflicts(self):
         valid = ExperimentConfig(
             epochs=10,
+            data_dir="./data/train4ARPAT",  # frozen historical pair recipe
             tag="_pcaux",
             pair_aux_arm="candidate",
             pair_ratio=0.10,

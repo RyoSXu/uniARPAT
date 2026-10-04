@@ -46,13 +46,13 @@ model:
 
 dataset:
   train:
-    data_dir: "./data/train4ARPAT"
+    data_dir: "./data/crystal_q1_v1"
 
   test:
-    data_dir: "./data/train4ARPAT"
+    data_dir: "./data/crystal_q1_v1"
 
   valid:
-    data_dir: "./data/train4ARPAT"
+    data_dir: "./data/crystal_q1_v1"
   smear: 0
 
 

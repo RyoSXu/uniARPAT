@@ -14,6 +14,7 @@ import torch
 
 from utils.periodic_neighbors import build_g2_edges
 from utils.relative_features import build_cell_from_lattice
+from utils.crystal import CrystalGeometry, validate_crystal_geometry
 
 
 def _validate_radius(radius: float) -> None:
@@ -21,8 +22,11 @@ def _validate_radius(radius: float) -> None:
         raise ValueError("radius must be positive and finite")
 
 
-def validate_periodic_inputs(pos: torch.Tensor, padding_mask: torch.Tensor) -> None:
-    """Validate the existing (a,b,1/c), angles, fractional-coordinate format."""
+def validate_periodic_inputs(pos: torch.Tensor | CrystalGeometry, padding_mask: torch.Tensor) -> None:
+    """Validate explicit geometry or the identified legacy six-parameter input."""
+    if isinstance(pos, CrystalGeometry):
+        validate_crystal_geometry(pos, padding_mask)
+        return
     if pos.ndim != 3 or pos.shape[1] < 2 or pos.shape[-1] != 3:
         raise ValueError("positions must have shape [B,L+2,3]")
     if pos.dtype not in (torch.float32, torch.float64):
@@ -44,7 +48,7 @@ def validate_periodic_inputs(pos: torch.Tensor, padding_mask: torch.Tensor) -> N
             raise ValueError("non-finite or degenerate reconstructed cell")
 
 
-def periodic_edge_vectors(pos: torch.Tensor, edges: dict) -> torch.Tensor:
+def periodic_edge_vectors(pos: torch.Tensor | CrystalGeometry, edges: dict) -> torch.Tensor:
     """Reconstruct r=(f_src-f_dst+T)A in the same order as the edge IDs.
 
     Extracted from the historical Encoder helper; its old definition remains
@@ -53,7 +57,7 @@ def periodic_edge_vectors(pos: torch.Tensor, edges: dict) -> torch.Tensor:
     cell, frac = build_cell_from_lattice(pos)
     batch, dst, src = edges["batch"], edges["dst"], edges["src"]
     if batch.numel() == 0:
-        return pos.new_empty((0, 3))
+        return frac.new_empty((0, 3))
     frac_delta = frac[batch, src] - frac[batch, dst]
     frac_delta = frac_delta + edges["shifts"].to(frac_delta.dtype)
     return torch.bmm(frac_delta.unsqueeze(1), cell[batch]).squeeze(1)
@@ -142,7 +146,7 @@ class PeriodicNeighborRecords:
         return replace(self, **values)
 
 
-def build_periodic_records(pos: torch.Tensor, padding_mask: torch.Tensor,
+def build_periodic_records(pos: torch.Tensor | CrystalGeometry, padding_mask: torch.Tensor,
                            radius: float) -> PeriodicNeighborRecords:
     """Validate inputs, reuse complete image enumeration, and reconstruct r.
 

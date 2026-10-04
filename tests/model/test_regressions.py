@@ -146,12 +146,9 @@ def test_mask_alignment():
         "当前仍为错位切片 mask[:, :atom_len]"
     )
 
-    # 3) 静态回归:model.py valid_atoms 必须同步改为 mask[:, 2:2+atom_len]
-    repo_root = Path(__file__).resolve().parents[2]
-    model_py = (repo_root / "model" / "model.py").read_text(encoding="utf-8")
-    assert re.search(
-        r"mask\s*\[\s*:\s*,\s*2\s*:\s*2\s*\+\s*atom_len\s*\]", model_py
-    ), "FIX-P0-01 未修复:model.py valid_atoms 仍误用 mask[:, :atom_len]"
+    # Counting shares the explicit atom-layout boundary with model.py.
+    from utils.crystal import atom_padding_mask
+    assert (~atom_padding_mask(pos, mask)).sum().item() == 5
 
 
 # ---------------------------------------------------------------------------

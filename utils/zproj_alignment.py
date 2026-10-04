@@ -164,7 +164,9 @@ def valid_batch(data_dir, batch_size: int = 4):
 
     dataset = Dos_Dataset(data_dir=str(data_dir), split="valid", dos_minmax=True,
                           dos_sumnorm=True)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    from utils.bucket_batch import crystal_collate
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+                        **({"collate_fn": crystal_collate} if dataset.crystal_format else {}))
     return next(iter(loader))
 
 

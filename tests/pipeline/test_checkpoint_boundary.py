@@ -271,8 +271,9 @@ class TestRunnerRecovery(unittest.TestCase):
         self.assertEqual(pd.read_csv(self.history_path).epoch.tolist(), [1])
         config = yaml.safe_load(self.config_path.read_text())
         self.assertEqual(config["cli"]["epochs"], 1)
-        self.assertEqual(config["cli"]["data_dir"], "./data/train4ARPAT")
-        self.assertEqual(self.cfg.data_dir, "./data/train4ARPAT")
+        self.assertEqual(config["cli"]["data_dir"], "./data/crystal_q1_v1")
+        self.assertEqual(self.cfg.data_dir, "./data/crystal_q1_v1")
+        self.assertIsNone(config["cli"]["data_contract"])  # isolated fixture has no cache manifest
         self.assertFalse(config["cli"]["use_amp"])
         self.assertTrue(self.latest_path.is_file() and self.best_path.is_file())
 

@@ -13,7 +13,7 @@ def build_ablation_checkpoint(epoch, model_name, seed, use_amp, transformer,
                               optimizer, best_val_score, scaler=None,
                               edos_slope_ratio=None, edos_slope_lambda=None,
                               pair_aux_arm=None, pair_ratio=None,
-                              pair_lambda=None, pair_plan_hash=None):
+                              pair_lambda=None, pair_plan_hash=None, data_contract=None):
     """Build the exact runner checkpoint payload for one completed epoch."""
     payload = {
         "epoch": int(epoch),
@@ -24,6 +24,8 @@ def build_ablation_checkpoint(epoch, model_name, seed, use_amp, transformer,
         "optimizer": optimizer.state_dict(),
         "best_val_score": float(best_val_score),
     }
+    if data_contract is not None:
+        payload["data_contract"] = data_contract
     if use_amp:
         if scaler is None:
             raise ValueError("AMP checkpoint needs a GradScaler")
@@ -67,13 +69,16 @@ def build_ablation_checkpoint(epoch, model_name, seed, use_amp, transformer,
 def restore_ablation_checkpoint(checkpoint, transformer, optimizer, use_amp,
                                 scaler=None, edos_slope_ratio=None,
                                 pair_aux_arm=None, pair_ratio=None,
-                                pair_lambda=None, pair_plan_hash=None):
+                                pair_lambda=None, pair_plan_hash=None, data_contract=None):
     """Restore model and best-effort optimizer state, returning metadata.
 
     Pre-AMP checkpoints have no ``use_amp`` and are FP32 by definition.
     Optimizer mismatch remains deliberately non-fatal, matching the original
     runner behavior for compatible model-only recovery.
     """
+    saved_contract = checkpoint.get("data_contract") if isinstance(checkpoint, dict) else None
+    if saved_contract != data_contract:
+        raise ValueError("cannot resume a checkpoint with a different data contract")
     state = checkpoint["model"] if isinstance(checkpoint, dict) and "model" in checkpoint else checkpoint
     saved_amp = bool(checkpoint.get("use_amp", False)) if isinstance(checkpoint, dict) else False
     if saved_amp != bool(use_amp):

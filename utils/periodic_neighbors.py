@@ -25,6 +25,7 @@ import itertools
 import math
 
 import torch
+from utils.crystal import CrystalGeometry, validate_crystal_geometry
 
 
 G2_R_CUT_DEFAULT = 5.5
@@ -70,12 +71,12 @@ def _cell_s_min(cell: torch.Tensor) -> torch.Tensor:
 
 
 @torch.no_grad()
-def build_g2_edges(pos: torch.Tensor, mask_atom: torch.Tensor,
+def build_g2_edges(pos: torch.Tensor | CrystalGeometry, mask_atom: torch.Tensor,
                    r_cut: float = G2_R_CUT_DEFAULT, chunk_shifts: int = 64):
     """Build exact periodic multi-image edges for a batch.
 
     Args:
-        pos: [B, Lp, 3] lattice + fractional rows (dataset 82-format).
+        pos: CrystalGeometry(cell,frac_coords), or legacy [B,L+2,3] rows.
         mask_atom: [B, L] bool, True = padding slot.
         r_cut: interaction cutoff in Angstrom (G2a fixed at 5.5).
         chunk_shifts: number of integer shifts evaluated per chunk.
@@ -87,10 +88,11 @@ def build_g2_edges(pos: torch.Tensor, mask_atom: torch.Tensor,
     """
     from utils.relative_features import build_cell_from_lattice
 
-    assert pos.dim() == 3 and pos.shape[-1] == 3
     assert mask_atom.dim() == 2
-    assert r_cut > 0, f"G2a r_cut must be positive, got {r_cut}"
+    if not math.isfinite(r_cut) or r_cut <= 0 or chunk_shifts <= 0:
+        raise ValueError("positive finite radius and positive chunk size required")
     cell, frac = build_cell_from_lattice(pos)  # [B,3,3], [B,L,3]
+    validate_crystal_geometry(CrystalGeometry(cell, frac), mask_atom)
     B, L, _ = frac.shape
     assert mask_atom.shape == (B, L)
     device = frac.device

@@ -1,0 +1,116 @@
+{
+  "data_contract": {
+    "schema": "crystal-q1-v1",
+    "manifest_sha256": "8e1b0adff516835d52d9fb0321dae5e66fb9a2ac5fd964d317e1dd8647de4b80",
+    "normalization": "sumnorm",
+    "pair_budget": null,
+    "automatic_pair_budget": "max(effective_batch_size * 6400, largest_crystal_atoms**2)"
+  },
+  "splits": {
+    "train": {
+      "n": 18706,
+      "atoms": 220785,
+      "max_atoms": 192,
+      "structure_repairs": 45,
+      "training_n": 18704
+    },
+    "valid": {
+      "n": 2313,
+      "atoms": 27533,
+      "max_atoms": 136,
+      "structure_repairs": 6,
+      "training_n": 2313
+    },
+    "test": {
+      "n": 2287,
+      "atoms": 26731,
+      "max_atoms": 144,
+      "structure_repairs": 4,
+      "training_n": 2287
+    }
+  },
+  "training_exclusions": [
+    "mp-aaabidtd",
+    "mp-aaabilxy"
+  ],
+  "structure_repairs": 55,
+  "valence_repairs": 54,
+  "test_use": "cache identity/integrity only; no predictions or selection",
+  "largest_structural_case": {
+    "id": "mp-aaabilxy",
+    "n_atoms": 192
+  },
+  "source_sha256": {
+    "checker": "a481b40738e3a3cb795b19f87c8e7ab407482cdaf70d337f3ed56a97ce1e9d5a",
+    "transformer": "6788d0bba4c9c91df65ba29687d968c77b8a284875467be99bf9e38a96b1e225"
+  },
+  "hardware": "Tesla V100-SXM2-32GB",
+  "precision": "FP32; no AMP",
+  "model_parameters": 70887748,
+  "fixed80_historical": {
+    "forward_backward_finite": true,
+    "updates": 0,
+    "computation_batch_sizes": [
+      32
+    ],
+    "atom_widths": [
+      80
+    ],
+    "median_ms": 333.6081081070006,
+    "timings_ms": [
+      333.6081081070006,
+      334.6053359564394,
+      333.4868720266968
+    ],
+    "peak_allocated_MiB": 6553.91064453125
+  },
+  "complete_mixed": {
+    "forward_backward_finite": true,
+    "updates": 0,
+    "computation_batch_sizes": [
+      31,
+      1
+    ],
+    "atom_widths": [
+      8,
+      192
+    ],
+    "median_ms": 247.1844730898738,
+    "timings_ms": [
+      246.57868593931198,
+      247.1844730898738,
+      248.2244879938662
+    ],
+    "peak_allocated_MiB": 2852.86181640625
+  },
+  "complete_worst32x192": {
+    "forward_backward_finite": true,
+    "updates": 0,
+    "computation_batch_sizes": [
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      2
+    ],
+    "atom_widths": [
+      192,
+      192,
+      192,
+      192,
+      192,
+      192,
+      192
+    ],
+    "median_ms": 1312.5938649754971,
+    "timings_ms": [
+      1303.4842538181692,
+      1312.5938649754971,
+      1314.638676121831
+    ],
+    "peak_allocated_MiB": 5398.77099609375
+  },
+  "weights_unchanged": true
+}

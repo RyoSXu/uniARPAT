@@ -177,7 +177,7 @@ class ConfigBuilder(object):
             if split != 'train':
                 raise ValueError("length bucketing is training-only")
             from utils.bucket_batch import LengthBucketBatchSampler, trim_atom_padding_collate
-            lengths = (dataset.elements[:, 2:] != 0).sum(dim=1)
+            lengths = dataset.atom_counts
             batch_sampler = LengthBucketBatchSampler(sampler, lengths, batch_size, window_batches=20)
             return DataLoader(
                 dataset,
@@ -185,6 +185,9 @@ class ConfigBuilder(object):
                 collate_fn=trim_atom_padding_collate,
                 **dataloader_params
             )
+        if dataset.crystal_format:
+            from utils.bucket_batch import crystal_collate
+            dataloader_params = {**dataloader_params, "collate_fn": crystal_collate}
         return DataLoader(
             dataset,
             batch_size = batch_size,

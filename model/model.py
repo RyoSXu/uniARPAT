@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from model.transformer import Transformer
 from utils.builder import get_optimizer, get_lr_scheduler
+from utils.crystal import CrystalGeometry, atom_padding_mask
 from utils.metrics import MetricsRecorder
 import utils.misc as utils
 import time
@@ -326,7 +327,29 @@ class basemodel(nn.Module):
         finally:
             transformer.train(was_training)
 
-    def train_one_step(self, batch_data, step, pair_batch=None):
+    def train_one_step(self, batch_data, step, pair_batch=None, *, pair_budget=None,
+                       _accumulation=None):
+        if isinstance(batch_data[1], CrystalGeometry) and _accumulation is None:
+            from utils.bucket_batch import split_crystal_batch, automatic_pair_budget
+            # Match the historical batch's pair-volume budget, not an atom cap.
+            budget = pair_budget if pair_budget is not None else automatic_pair_budget(batch_data)
+            chunks = split_crystal_batch(batch_data, budget)
+            self.last_microbatch_sizes = [len(chunk[0]) for chunk in chunks]
+            if len(chunks) > 1:
+                if pair_batch is not None or self.loss_form != "sumnorm_klw":
+                    raise ValueError("crystal accumulation requires SumNorm without pair auxiliary")
+                if self.edos_slope_ratio > 0 and not self.edos_slope_calibrated:
+                    raise ValueError("calibrate slope loss before splitting a crystal batch")
+                result = {}
+                for i, chunk in enumerate(chunks):
+                    weight = len(chunk[0]) / len(batch_data[0])
+                    values = self.train_one_step(chunk, step, pair_budget=budget,
+                        _accumulation=(i == 0, i == len(chunks) - 1, weight))
+                    for key, value in values.items():
+                        result[key] = result.get(key, 0.0) + weight * value
+                return result
+            batch_data = chunks[0]
+        zero_grad, optimizer_step, loss_weight = _accumulation or (True, True, 1.0)
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
@@ -346,6 +369,8 @@ class basemodel(nn.Module):
             with self.amp_autocast():
                 outputs = self.model[list(self.model.keys())[0]](inp, mask, pos, edos_x, phdos_x)
             outputs = self.fp32_outputs(outputs)
+            if _accumulation is not None and ("scalars" in outputs or "c5_moe_balance" in outputs):
+                raise ValueError("non-additive auxiliary losses do not support crystal accumulation")
             predict_edos = outputs['edos']
             predict_phdos = outputs['phdos']
             if predict_edos.dim() == 3:
@@ -355,9 +380,7 @@ class basemodel(nn.Module):
         else:
             raise NotImplementedError('Invalid model type.')
 
-        # Sentinel tokens occupy the first two slots and are not atoms.
-        atom_len = pos.shape[1] - 2
-        valid_atoms = (~mask[:, 2:2 + atom_len]).sum(dim=-1).float()
+        valid_atoms = (~atom_padding_mask(pos, mask)).sum(dim=-1).float()
         NATOMS = valid_atoms.clamp_min(1.0).unsqueeze(-1)  # C2.4广延量
 
         # §1.2: 纯端到端直接回归 (Smooth-L1 / Huber),M1-M4 的 MSE 与 M5 的 5 项复合损失统一精简
@@ -484,7 +507,8 @@ class basemodel(nn.Module):
         reported_total_loss = total_loss
 
         if len(self.optimizer) == 1:
-            self.optimizer[list(self.optimizer.keys())[0]].zero_grad()
+            if zero_grad:
+                self.optimizer[list(self.optimizer.keys())[0]].zero_grad()
             optimizer = self.optimizer[list(self.optimizer.keys())[0]]
             if pair_batch is not None:
                 # Free the main graph before constructing the pair graph. Both
@@ -506,17 +530,19 @@ class basemodel(nn.Module):
                     )
                 optimizer.step()
             elif self.use_amp:
-                self.gscaler.scale(total_loss).backward()
-                if self.grad_clip > 0:
+                self.gscaler.scale(total_loss * loss_weight).backward()
+                if optimizer_step and self.grad_clip > 0:
                     self.gscaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(self.model[list(self.model.keys())[0]].parameters(), self.grad_clip)
-                self.gscaler.step(optimizer)
-                self.gscaler.update()
+                if optimizer_step:
+                    self.gscaler.step(optimizer)
+                    self.gscaler.update()
             else:
-                total_loss.backward()
-                if self.grad_clip > 0:
+                (total_loss * loss_weight).backward()
+                if optimizer_step and self.grad_clip > 0:
                     torch.nn.utils.clip_grad_norm_(self.model[list(self.model.keys())[0]].parameters(), self.grad_clip)
-                optimizer.step()
+                if optimizer_step:
+                    optimizer.step()
         else:
             raise NotImplementedError('Invalid model type.')
 
@@ -546,7 +572,21 @@ class basemodel(nn.Module):
             })
         return result
 
-    def test_one_step(self, batch_data, step=None, save_predict=False):
+    def test_one_step(self, batch_data, step=None, save_predict=False, *, pair_budget=None,
+                      _computation_chunk=False):
+        if isinstance(batch_data[1], CrystalGeometry) and not _computation_chunk:
+            from utils.bucket_batch import automatic_pair_budget, split_crystal_batch
+            budget = pair_budget if pair_budget is not None else automatic_pair_budget(batch_data)
+            chunks = split_crystal_batch(batch_data, budget)
+            if len(chunks) > 1:
+                result = {}
+                for i, chunk in enumerate(chunks):
+                    values = self.test_one_step(chunk, step, save_predict=save_predict and i == 0,
+                        pair_budget=budget, _computation_chunk=True)
+                    for key, value in values.items():
+                        result[key] = result.get(key, 0.0) + value * len(chunk[0]) / len(batch_data[0])
+                return result
+            batch_data = chunks[0]
         # Unpack the same batch layout used by training.
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \

@@ -20,7 +20,8 @@ class ExperimentConfig:
     seed: int = 42
     tag: str = ""
     skip_existing: bool = False
-    data_dir: str = "./data/train4ARPAT"
+    data_dir: str = "./data/crystal_q1_v1"
+    pair_budget: Optional[int] = None
     
     # --- Grid / Output dimensions ---
     edos_num: int = 128

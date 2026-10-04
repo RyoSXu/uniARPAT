@@ -1,6 +1,7 @@
 # utils/relative_features.py
 import torch
 import math
+from utils.crystal import CrystalGeometry
 
 def build_cell_from_lattice(pos):
     """
@@ -10,6 +11,8 @@ def build_cell_from_lattice(pos):
     ``pos[:, 1]`` stores lattice angles in degrees, and remaining rows are
     fractional atomic coordinates.
     """
+    if isinstance(pos, CrystalGeometry):
+        return pos.cell, pos.frac_coords
     B, Lp, _ = pos.shape
     abc    = pos[:, 0]       # [B, 3] = (a, b, inv_c) 归一化特征契约
     angles = pos[:, 1]       # [B, 3] = (alpha, beta, gamma) 单位度
@@ -63,7 +66,7 @@ def compute_relative_features(pos, cutoff=10.0):
 
     # 3. 转到实坐标 (frac → cartesian)
     # cell: [B,3,3], diff_frac: [B,L,L,3]
-    # diff_cart[b,i,j,:] = diff_frac[b,i,j,:] @ cell[b].T
+    # diff_cart[b,i,j,:] = diff_frac[b,i,j,:] @ cell[b]
     diff_cart = torch.einsum('bijd,bdk->bijk', diff_frac, cell)
 
     # 4. 计算距离 & 单位方向
