@@ -1,0 +1,27 @@
+{
+  "status": "complete",
+  "verdict": "fail",
+  "cases": 136,
+  "nonpassing_case_ids": [],
+  "prototype_max_abs_error": 0.0,
+  "geometry_max_vector_error_A": 0.0,
+  "local_orthogonal_max_abs_error": 5.960464477539062e-07,
+  "regressions": {
+    "tests": 56,
+    "passed": false,
+    "failures": 0,
+    "errors": 1,
+    "skipped": 0,
+    "seconds": 15.177300825016573,
+    "files": [
+      "test_periodic_neighbor_radius_audit.py",
+      "test_periodic_geometry_acceptance.py",
+      "test_periodic_message_prototypes.py",
+      "test_periodic_message_precheck.py",
+      "test_periodic_message_high_order.py",
+      "test_periodic_message_modules.py"
+    ]
+  },
+  "elapsed_seconds": 92.0186281898059,
+  "peak_rss_MiB": 528.53125
+}

@@ -1,0 +1,12 @@
+{
+  "status": "pass",
+  "cases": 136,
+  "regressions": 56,
+  "new_sources_checked": 5,
+  "frozen_sources_checked": 14,
+  "frozen_artifacts_checked": 11,
+  "input_files_checked": 7,
+  "failed_run_snapshots_checked": 5,
+  "manifest_sha256": "33b198bec15c8dc93cb3ff01de9fed953b479a54e57a28f5725e0a8db661f6d3",
+  "scope": "saved hashes/coverage/summary consistency; no neural rerun"
+}
