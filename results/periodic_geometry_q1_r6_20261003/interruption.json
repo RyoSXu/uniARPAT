@@ -1,0 +1,11 @@
+{
+  "status": "interrupted",
+  "recorded_utc": "2026-10-03T03:29:43.122723+00:00",
+  "reason": "TypeError: valid sample indices became floats when concatenating an empty prior-zero list",
+  "full_record_contracts_completed": true,
+  "train_sample_cases_completed_in_memory": 75,
+  "valid_sample_cases_started": 0,
+  "model_executed": false,
+  "training_started": false,
+  "source_sha256": "f8435388f4bf1d97cc75c37ce60a5a7e333bb7f5dcf22e30595072718c3dbbbc"
+}

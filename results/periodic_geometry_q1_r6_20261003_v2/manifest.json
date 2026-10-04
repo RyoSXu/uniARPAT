@@ -1,0 +1,62 @@
+{
+  "status": "complete",
+  "created_utc": "2026-10-03T03:30:15.413988+00:00",
+  "code_version": {
+    "git_commit": "921f468b24093b3445f081fe02185a47cf382b03",
+    "dirty": true
+  },
+  "data_version": "Q1",
+  "splits": [
+    "train",
+    "valid"
+  ],
+  "labels_loaded": false,
+  "model_executed": false,
+  "training_started": false,
+  "radius_A": 6.0,
+  "device": "cpu",
+  "threads": 1,
+  "torch": "2.2.1",
+  "tolerance_A": {
+    "torch.float32": 0.0001,
+    "torch.float64": 1e-06
+  },
+  "frame_tolerance": 2e-05,
+  "input_sha256": {
+    "train/elements_train.npy": "c35d50cf9504cf78285b0e16197ebe2684d6b7513f2f26b07ba49f23459063fb",
+    "train/positions_train.npy": "5a7069e16aa7dd58c9241c8f3aaaa161af9c67846439168e55ec71deb6915579",
+    "train/train_index.npy": "f792232911a1c2c89479a4fa62d2e3ca90bc926c8327eba75a3c201f6f2d1a71",
+    "valid/elements_valid.npy": "5abd3351f456ad3b1f2b0cef593f1bc514b0ed039e8694e2066ef61b2aa04d14",
+    "valid/positions_valid.npy": "f15cd98b7e34808b7a43d98d7ba16cbfa87d3f1efd960edfc0ede66746bde36f",
+    "valid/valid_index.npy": "f043ccd29e52f2133195311ea011630a2daff9093677e3dd6560ac2f4f386cb5",
+    "manifest.json": "bb4501f256aa8b1411c9b46337beddb118f39ee29826df68a20c436ec1d2cc6a"
+  },
+  "prior_artifact_sha256": {
+    "results/periodic_neighbor_radius_q1_20261003/structures.csv.gz": "86eb1fd0678ba9590f6d902432ee41b13fa10d04d188a9256247ef88a02440bf"
+  },
+  "source_sha256": {
+    "tools/eval/periodic_geometry_acceptance.py": "4b14e923004cc6acae1bb4584a0e39aa1b88b6cd6807c045b2a9130b4b48db57",
+    "tests/test_periodic_geometry_acceptance.py": "4112f07bde97c52c8cbf7bce0858a0a7a4a06effbcece305e946cef4912cdb01",
+    "tools/eval/periodic_neighbor_radius_audit.py": "69123ed845914040365b224b61daa9785cda16e3aaf441afd3198548689ec66a",
+    "model/periodic_manybody.py": "821e087e60557febb65d7ffcbc8c6ee5545e0aba6e1e6038a33e831313dfa980",
+    "utils/g2_periodic_edges.py": "e6dba018b05b8804c5e9679d8c978180f1a7738cdcfb43009bd5aea6e4ec811e",
+    "utils/relative_features.py": "b7402c099c98284bd98d270e5b999bfded12cd2d894c75f8fe5cbf809d47cd52",
+    "tools/eval/g2_edge_audit.py": "5cbde443d5ae0363386d96935df11a2eacbd0f932838e8d42f5c29e8c93c9397",
+    "tools/eval/element_identity_preflight.py": "62cd9afc92551dd9499be113399240a838f18d813cd1ff689b5a92d04d6b9c51"
+  },
+  "oracle": "float64, per-axis reciprocal-column bound, per-atom wrapping; no production K",
+  "boundary_policy": "strict d<R unchanged; unmatched records within dtype tolerance of R are separately limited",
+  "frame_policy": "physical A->A Q, x->x Q+t; scalar encoding; independently supplied canonical-to-physical frame",
+  "guarantee_scope": "finite geometry evidence; no full-model E(3) or architecture guarantee",
+  "outcome": "pass",
+  "elapsed_seconds": 176.32945940317586,
+  "peak_rss_MiB": 629.94921875,
+  "artifacts_sha256": {
+    "full_record_contracts.csv": "d2bfb9cd8d611731345f8fdcd0c83938386f749062e09d7bd7e92963f94c0aae",
+    "cases.jsonl": "f11ed331d46e489607e6b8acf687515c7aa74044cd7037fe820fd4b41e4ec04a",
+    "cases.json": "303a99cb95dc22d798cd552e194f4a3c4ce9220036759944e88d1b421e714b01",
+    "cases.csv": "3c73c0d2b8d057d5a767dfa0f74885abae664afc61380cd9884854d22ef4d496",
+    "summary.json": "a2ad87ec341db97e03913a17e644231b8f3a6c479062999ad1f4eb7eafea859d",
+    "verification.json": "6884633378fa7b6ff2b8488d7720c35f931300d26767e2372a91610b3a7c2f41"
+  }
+}

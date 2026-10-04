@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "source_input_prior_and_artifact_hashes_match": true,
+  "cases_json_jsonl_csv_match": true,
+  "case_group_statistics_match": true,
+  "full_rows": 21019,
+  "case_rows": 3352,
+  "every_6A_count_matches_prior_radius_audit": true,
+  "full_rows_match_interrupted_run": true,
+  "selected_samples": {
+    "train": 75,
+    "valid": 69
+  },
+  "every_sample_has_both_dtypes_and_all_operations": true,
+  "model_executed": false,
+  "training_started": false
+}

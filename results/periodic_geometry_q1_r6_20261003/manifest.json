@@ -1,0 +1,51 @@
+{
+  "status": "running",
+  "created_utc": "2026-10-03T03:25:56.347803+00:00",
+  "code_version": {
+    "git_commit": "921f468b24093b3445f081fe02185a47cf382b03",
+    "dirty": true
+  },
+  "data_version": "Q1",
+  "splits": [
+    "train",
+    "valid"
+  ],
+  "labels_loaded": false,
+  "model_executed": false,
+  "training_started": false,
+  "radius_A": 6.0,
+  "device": "cpu",
+  "threads": 1,
+  "torch": "2.2.1",
+  "tolerance_A": {
+    "torch.float32": 0.0001,
+    "torch.float64": 1e-06
+  },
+  "frame_tolerance": 2e-05,
+  "input_sha256": {
+    "train/elements_train.npy": "c35d50cf9504cf78285b0e16197ebe2684d6b7513f2f26b07ba49f23459063fb",
+    "train/positions_train.npy": "5a7069e16aa7dd58c9241c8f3aaaa161af9c67846439168e55ec71deb6915579",
+    "train/train_index.npy": "f792232911a1c2c89479a4fa62d2e3ca90bc926c8327eba75a3c201f6f2d1a71",
+    "valid/elements_valid.npy": "5abd3351f456ad3b1f2b0cef593f1bc514b0ed039e8694e2066ef61b2aa04d14",
+    "valid/positions_valid.npy": "f15cd98b7e34808b7a43d98d7ba16cbfa87d3f1efd960edfc0ede66746bde36f",
+    "valid/valid_index.npy": "f043ccd29e52f2133195311ea011630a2daff9093677e3dd6560ac2f4f386cb5",
+    "manifest.json": "bb4501f256aa8b1411c9b46337beddb118f39ee29826df68a20c436ec1d2cc6a"
+  },
+  "prior_artifact_sha256": {
+    "results/periodic_neighbor_radius_q1_20261003/structures.csv.gz": "86eb1fd0678ba9590f6d902432ee41b13fa10d04d188a9256247ef88a02440bf"
+  },
+  "source_sha256": {
+    "tools/eval/periodic_geometry_acceptance.py": "f8435388f4bf1d97cc75c37ce60a5a7e333bb7f5dcf22e30595072718c3dbbbc",
+    "tests/test_periodic_geometry_acceptance.py": "5c49faaf265306352b3da91e4de5c5e79cba14a202d2ed053666f10bdcebdbb2",
+    "tools/eval/periodic_neighbor_radius_audit.py": "69123ed845914040365b224b61daa9785cda16e3aaf441afd3198548689ec66a",
+    "model/periodic_manybody.py": "821e087e60557febb65d7ffcbc8c6ee5545e0aba6e1e6038a33e831313dfa980",
+    "utils/g2_periodic_edges.py": "e6dba018b05b8804c5e9679d8c978180f1a7738cdcfb43009bd5aea6e4ec811e",
+    "utils/relative_features.py": "b7402c099c98284bd98d270e5b999bfded12cd2d894c75f8fe5cbf809d47cd52",
+    "tools/eval/g2_edge_audit.py": "5cbde443d5ae0363386d96935df11a2eacbd0f932838e8d42f5c29e8c93c9397",
+    "tools/eval/element_identity_preflight.py": "62cd9afc92551dd9499be113399240a838f18d813cd1ff689b5a92d04d6b9c51"
+  },
+  "oracle": "float64, per-axis reciprocal-column bound, per-atom wrapping; no production K",
+  "boundary_policy": "strict d<R unchanged; unmatched records within dtype tolerance of R are separately limited",
+  "frame_policy": "physical A->A Q, x->x Q+t; scalar encoding; independently supplied canonical-to-physical frame",
+  "guarantee_scope": "finite geometry evidence; no full-model E(3) or architecture guarantee"
+}

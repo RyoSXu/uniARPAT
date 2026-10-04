@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "input_and_execution_source_hashes_unchanged": true,
+  "raw_artifact_hashes_match": true,
+  "atom_rows": {
+    "train": 219505,
+    "valid": 27437
+  },
+  "structure_radius_rows": 231209,
+  "raw_atom_and_structure_aggregates_match_summary": true,
+  "historical_count_matches_per_radius": {
+    "4.5": 21019,
+    "5.5": 21019
+  },
+  "independent_radius_benchmark_cases": 1474,
+  "benchmark_repeats": 3
+}
