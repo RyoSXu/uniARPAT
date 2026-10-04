@@ -5,8 +5,8 @@
 本轮只提取已接受公式、明确输入输出和运行 CPU 迁移检查，不选择生产 Encoder 或启动训练。
 本日志记录当时的 CPU 小单元；随后完成的 GPU 检查见
 [GPU 验收](log-2026-10-03-periodic-message-gpu.md)，最新进度见[当前状态](../status.md)。
-边界见[模块设计](../design/design-periodic-message-module-boundaries.md)，历史公式与限制见
-[候选](../design/design-periodic-message-candidates.md)及[B+ 对照](log-2026-10-03-periodic-message-high-order.md)。
+边界见[模块设计](../design/design-2026-10-04-periodic-message-module-boundaries.md)，历史公式与限制见
+[候选](../design/design-2026-10-04-periodic-message-candidates.md)及[B+ 对照](log-2026-10-03-periodic-message-high-order.md)。
 
 ## 文件、符号与职责
 
@@ -19,7 +19,7 @@
 | 同文件 → 公共接口 | `PeriodicLocalMessage.__init__`、`forward` | `route="A"/"B+"`，共同 `h, records, padding_mask → h_local`；两局部块与当前 512↔64 投影，方向状态仅留在内部/诊断输出 |
 | 包导入 → [`model/__init__.py`](../../model/__init__.py) | `__all__`、`__getattr__`、`__dir__` | 旧公开 `basemodel`/`Transformer` 按需解析；导入局部核心不加载旧完整模型、旧 Encoder 或训练工具 |
 | 诊断 → [`periodic_message_module_check.py`](../../tools/eval/periodic_message_module_check.py) | `sha256`、`write_json`、`aligned_local_models`、`frozen_hashes`、`run_regressions`、`acceptance`、`main` | 实验层严格复制冻结无训练权重、核对输入/旧证据、运行真实结构迁移与回归并保存报告；预算与拒绝覆盖 |
-| 测试 → [`test_periodic_message_modules.py`](../../tests/test_periodic_message_modules.py) | `records_from_probe`、`LocalModuleContracts` 及 14 个用例 | 导入隔离、公开类兼容、参数归属、数值与梯度迁移、几何/掩码/空邻域/异常输入、局部 O(3) 与表达一致性 |
+| 测试 → [`test_periodic_message_modules.py`](../../tests/model/test_periodic_messages.py) | `records_from_probe`、`LocalModuleContracts` 及 14 个用例 | 导入隔离、公开类兼容、参数归属、数值与梯度迁移、几何/掩码/空邻域/异常输入、局部 O(3) 与表达一致性 |
 
 内部常量继续采用 `SCALAR_CHANNELS=64`、`RADIAL_CHANNELS=16`、`STATE_IRREPS=64x0e+8x1o+4x2e`、
 `EDGE_IRREPS` 到二阶、`HIGH_ORDERS=(3,4)`、`MOMENT_CHANNELS=8`、`EXTRA_SCALARS=16`。
@@ -47,7 +47,7 @@ pos、padding_mask、显式 R
 没有创建 optimizer 或执行更新；这不能替代未来训练 runner 的参数/优化器验收。
 
 核心仅依赖 Torch/e3nn 与几何工具。全新子进程确认：物理几何层不加载模型/诊断，局部核心
-不加载 `model.model`、`model.transformer`、`model.periodic_manybody`、`tools.eval`、训练 runner
+不加载 `model.model`、`model.transformer`、`archive.code.model.periodic_manybody`、`tools.eval`、训练 runner
 或 `utils.builder`。旧公开类解析后仍为原类对象，未知名称正确报错。
 
 旧 CPU 原型、旧高阶增强、旧 Encoder 位移函数及旧结果保留冻结；它们只承担历史复核与迁移
@@ -81,16 +81,16 @@ pos、padding_mask、显式 R
 对照显式设置 FP64，并保持原容差。随后首次合并验收的 136 项数值检查全部通过，但测试容器
 受全局 FP64 默认影响，与其 FP32 几何不匹配；将容器显式 `.to(pos.dtype)` 后完整复跑通过。
 没有因此修改核心或旧证据。失败结果及当时五个源码快照保留于
-[`periodic_message_modules_q1_r6_20261003`](../../results/periodic_message_modules_q1_r6_20261003/summary.json)；
+[`periodic_message_modules_q1_r6_20261003`](../../archive/results/reports/periodic_message_modules_q1_r6_20261003/summary.json)；
 首个合并检查用时 92.02 秒，两次合并检查共 183.67 秒，独立测试/导入另计。
 
 正式产物：
 
-- [manifest](../../results/periodic_message_modules_q1_r6_20261003_v2/manifest.json)：源码、冻结证据、输入和产物哈希，零更新与执行范围。
-- [summary](../../results/periodic_message_modules_q1_r6_20261003_v2/summary.json)：136 项与 56 项回归摘要、资源。
-- [cases](../../results/periodic_message_modules_q1_r6_20261003_v2/cases.json)：逐结构/精度/路线/变换明细。
-- [regressions](../../results/periodic_message_modules_q1_r6_20261003_v2/regressions.txt)：实际执行的用例与结果。
-- [verification](../../results/periodic_message_modules_q1_r6_20261003_v2/verification.json)：另行读取产物核对 136 项覆盖、56 项回归摘要、5 个新源码、14 个冻结源码、11 个旧产物、7 个输入文件及首轮 5 个源码快照的哈希；未重跑网络。
+- [manifest](../../results/reports/periodic_message_modules_q1_r6_20261003_v2/manifest.json)：源码、冻结证据、输入和产物哈希，零更新与执行范围。
+- [summary](../../results/reports/periodic_message_modules_q1_r6_20261003_v2/summary.json)：136 项与 56 项回归摘要、资源。
+- [cases](../../results/reports/periodic_message_modules_q1_r6_20261003_v2/cases.json)：逐结构/精度/路线/变换明细。
+- [regressions](../../results/reports/periodic_message_modules_q1_r6_20261003_v2/regressions.txt)：实际执行的用例与结果。
+- [verification](../../results/reports/periodic_message_modules_q1_r6_20261003_v2/verification.json)：另行读取产物核对 136 项覆盖、56 项回归摘要、5 个新源码、14 个冻结源码、11 个旧产物、7 个输入文件及首轮 5 个源码快照的哈希；未重跑网络。
 
 新增/改动源码语法与行尾检查、`git diff --check` 通过；相关六份文档的本地引用已核对。
 
@@ -98,7 +98,7 @@ pos、padding_mask、显式 R
 
 ```bash
 PYTHONWARNINGS=ignore::DeprecationWarning python tools/eval/periodic_message_module_check.py \
-  --out-dir results/periodic_message_modules_q1_r6_NEW \
+  --out-dir results/reports/periodic_message_modules_q1_r6_NEW \
   --budget-seconds 180 --memory-mib 2048
 ```
 

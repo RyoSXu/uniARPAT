@@ -10,9 +10,7 @@ from model.heads import (
     MultiScaleResidualHead, PointwiseMLPHead, PostDecoderGatedCrossAttention,
     ScaleHead, global_masked_pool
 )
-from model.periodic_manybody import PeriodicManyBodyEncoder
 from utils.atom_feature import AtomFeatureEncoder
-from utils.macro_lattice import macro_lattice_features, raw_atomic_mass_table
 from utils.relative_features import compute_relative_features
 from utils.rp_encoding import RPEncoding
 
@@ -175,6 +173,8 @@ class Transformer(nn.Module):
         # enabled, keeping every legacy state dict and off-path bitwise stable.
         self.use_macro_lattice = bool(use_macro_lattice)
         if self.use_macro_lattice:
+            from archive.code.utils.macro_lattice import raw_atomic_mass_table
+
             self.register_buffer("macro_atomic_masses", raw_atomic_mass_table())
             self.register_buffer("macro_lattice_mean",
                                  torch.tensor(macro_lattice_mean, dtype=torch.float32))
@@ -256,7 +256,7 @@ class Transformer(nn.Module):
 
         # Element initialization supplies h_i^0; geometry-dependent atom updates
         # belong to the encoder. Current research uses z_only_proj (ZP).
-        # See docs/design/design-element-initialization.md for the contract.
+        # See docs/design/design-2026-10-02-element-initialization.md for the contract.
         self.tok_emb = nn.Embedding(token_num, d_model)
         if atom_feat_mode in ("z_only", "z_only_proj"):
             # Z100 纯原子序号表示：atom_src = atom_norm(tok_emb(atom_idx))。
@@ -289,6 +289,8 @@ class Transformer(nn.Module):
             self.fuse_proj = nn.Linear(d_model * 2, d_model)
 
         if self.use_periodic_manybody:
+            from archive.code.model.periodic_manybody import PeriodicManyBodyEncoder
+
             self.encoder = PeriodicManyBodyEncoder(
                 d_model=d_model, nhead=nhead,
                 dim_feedforward=dim_feedforward, dropout=dropout,
@@ -470,6 +472,8 @@ class Transformer(nn.Module):
         atom_src = self._encode_atoms(atom_idx)
 
         if self.use_macro_lattice:
+            from archive.code.utils.macro_lattice import macro_lattice_features
+
             macro = macro_lattice_features(
                 pos, atom_idx, mask_atom, self.macro_atomic_masses,
                 self.macro_lattice_mean, self.macro_lattice_std)
@@ -481,7 +485,7 @@ class Transformer(nn.Module):
         elif self.use_g1:
             # Sparse periodic graph and one global hub token.
             # Decoder/memory contract unchanged: hub is stripped before return.
-            from utils.g1_graph import build_g1_graph
+            from archive.code.utils.g1_graph import build_g1_graph
             g_d, g_u, g_adj, g_sm = build_g1_graph(
                 pos, mask_atom, r_cut=self.g1_r_cut,
                 max_neighbors=self.g1_max_neighbors, t_range=self.g1_t_range)
@@ -518,7 +522,7 @@ class Transformer(nn.Module):
             distances, unit_dirs = compute_relative_features(pos)
             g2_edges = None
             if self.use_g2:
-                from utils.g2_periodic_edges import build_g2_edges
+                from utils.periodic_neighbors import build_g2_edges
                 g2_edges = build_g2_edges(pos, mask_atom, r_cut=self.g2_r_cut)
 
             # Encoder -- sharing

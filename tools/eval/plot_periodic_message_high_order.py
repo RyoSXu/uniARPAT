@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from tools.eval.element_identity_preflight import sha256_file
+from archive.code.tools.eval.element_identity_preflight import sha256_file
 from tools.eval.periodic_geometry_acceptance import write_json
 
 

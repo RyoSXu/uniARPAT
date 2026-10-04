@@ -17,6 +17,7 @@ import torch.nn.functional as F
 from pymatgen.core import Structure
 
 from model.transformer import Transformer
+from utils.paths import input_path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -29,7 +30,7 @@ DELTA_EDOS = 0.09375
 DELTA_PHDOS = 19.6875
 
 # This is the effective B7 `_e9ctl` transformer configuration, not the
-# editable template in configs/default.yaml.
+# editable template in default.yaml.
 B7_TRANSFORMER_PARAMS = {
     "token_num": 118,
     "d_model": 512,
@@ -67,7 +68,7 @@ def resolve_device(device_name: str) -> torch.device:
 
 def load_b7_grids() -> tuple[np.ndarray, np.ndarray]:
     """Return B7's E0/P0 bin centers from the versioned edge contract."""
-    path = REPO_ROOT / "data" / "grids_c2b" / "grids.json"
+    path = REPO_ROOT / "data/reference/grids.json"
     with path.open(encoding="utf-8") as handle:
         grids = json.load(handle)
     e_edges = np.asarray(grids["E0"], dtype=np.float64)
@@ -80,7 +81,7 @@ def load_b7_grids() -> tuple[np.ndarray, np.ndarray]:
 
 
 def _zval_table() -> dict[str, dict[str, Any]]:
-    with (REPO_ROOT / "index" / "z0_zval.json").open(encoding="utf-8") as handle:
+    with (REPO_ROOT / "data/reference" / "valence_by_element.json").open(encoding="utf-8") as handle:
         return json.load(handle)
 
 
@@ -141,7 +142,7 @@ def structure_to_b7_inputs(structure: Structure) -> tuple[torch.Tensor, torch.Te
 
 def checkpoint_state(checkpoint_path: str | Path) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
     """Read and authenticate the specific B7 checkpoint payload before loading."""
-    path = Path(checkpoint_path)
+    path = input_path(checkpoint_path)
     if not path.is_file():
         raise FileNotFoundError(f"B7 checkpoint not found: {path}")
     checkpoint = torch.load(str(path), map_location="cpu", weights_only=True)

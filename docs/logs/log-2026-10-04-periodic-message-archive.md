@@ -2,7 +2,7 @@
 
 日期：2026-10-04。用户批准先整理文档，再将当前工作分批提交。
 本次只整理、复核并归档此前的 6.0 Å 工作，没有新增训练、GPU 数值作业或模型接入。
-当前科学状态见[状态页](../status.md)，模块职责见[边界设计](../design/design-periodic-message-module-boundaries.md)。
+当前科学状态见[状态页](../status.md)，模块职责见[边界设计](../design/design-2026-10-04-periodic-message-module-boundaries.md)。
 
 ## 文档职责与当前结论
 
@@ -20,15 +20,15 @@
 
 | 阶段 | 正式目录 | 依据 |
 |---|---|---|
-| 3–8 Å 半径审查 | [`periodic_neighbor_radius_q1_20261003`](../../results/periodic_neighbor_radius_q1_20261003/) | 全量 Q1 train/valid 结构，11 个候选；[审查日志](log-2026-10-03-periodic-neighbor-radius-audit.md) |
-| 6.0 Å 几何 | [`periodic_geometry_q1_r6_20261003_v2`](../../results/periodic_geometry_q1_r6_20261003_v2/) | 3,352 项通过；[几何日志](log-2026-10-03-periodic-geometry-acceptance.md) |
-| A/B 预检 | [`periodic_message_precheck_q1_r6_20261003`](../../results/periodic_message_precheck_q1_r6_20261003/) | 840 项通过；[预检日志](log-2026-10-03-periodic-message-precheck.md) |
-| A/B 补充对照 | [`periodic_message_controls_q1_r6_20261003`](../../results/periodic_message_controls_q1_r6_20261003/) | 固定径向角度与独立 RSS；与预检证据配套 |
-| B+ 高阶增强 | [`periodic_message_high_order_q1_r6_20261003_v2`](../../results/periodic_message_high_order_q1_r6_20261003_v2/) | 994 项通过；[高阶日志](log-2026-10-03-periodic-message-high-order.md) |
-| A/B/B+ 独立 RSS | [`periodic_message_high_order_rss_q1_r6_20261003`](../../results/periodic_message_high_order_rss_q1_r6_20261003/) | 三个子进程的资源证据，与高阶对照配套 |
-| 解耦与 CPU 迁移 | [`periodic_message_modules_q1_r6_20261003_v2`](../../results/periodic_message_modules_q1_r6_20261003_v2/) | 136 项及累计 56 项回归通过；[解耦日志](log-2026-10-03-periodic-message-modules.md) |
-| GPU 局部验收 | [`periodic_message_gpu_q1_r6_20261003`](../../results/periodic_message_gpu_q1_r6_20261003/) | 966 项通过；[GPU 日志](log-2026-10-03-periodic-message-gpu.md) |
-| GPU 预热补测 | [`periodic_message_gpu_timing_confirmation_q1_r6_20261003`](../../results/periodic_message_gpu_timing_confirmation_q1_r6_20261003/) | 三次预热、五次测量，八组路线/批次；保留首轮耗时峰值 |
+| 3–8 Å 半径审查 | [`periodic_neighbor_radius_q1_20261003`](../../results/reports/periodic_neighbor_radius_q1_20261003) | 全量 Q1 train/valid 结构，11 个候选；[审查日志](log-2026-10-03-periodic-neighbor-radius-audit.md) |
+| 6.0 Å 几何 | [`periodic_geometry_q1_r6_20261003_v2`](../../results/reports/periodic_geometry_q1_r6_20261003_v2) | 3,352 项通过；[几何日志](log-2026-10-03-periodic-geometry-acceptance.md) |
+| A/B 预检 | [`periodic_message_precheck_q1_r6_20261003`](../../results/reports/periodic_message_precheck_q1_r6_20261003) | 840 项通过；[预检日志](log-2026-10-03-periodic-message-precheck.md) |
+| A/B 补充对照 | [`periodic_message_controls_q1_r6_20261003`](../../archive/results/reports/periodic_message_controls_q1_r6_20261003) | 固定径向角度与独立 RSS；与预检证据配套 |
+| B+ 高阶增强 | [`periodic_message_high_order_q1_r6_20261003_v2`](../../results/reports/periodic_message_high_order_q1_r6_20261003_v2) | 994 项通过；[高阶日志](log-2026-10-03-periodic-message-high-order.md) |
+| A/B/B+ 独立 RSS | [`periodic_message_high_order_rss_q1_r6_20261003`](../../archive/results/reports/periodic_message_high_order_rss_q1_r6_20261003) | 三个子进程的资源证据，与高阶对照配套 |
+| 解耦与 CPU 迁移 | [`periodic_message_modules_q1_r6_20261003_v2`](../../results/reports/periodic_message_modules_q1_r6_20261003_v2) | 136 项及累计 56 项回归通过；[解耦日志](log-2026-10-03-periodic-message-modules.md) |
+| GPU 局部验收 | [`periodic_message_gpu_q1_r6_20261003`](../../results/reports/periodic_message_gpu_q1_r6_20261003) | 966 项通过；[GPU 日志](log-2026-10-03-periodic-message-gpu.md) |
+| GPU 预热补测 | [`periodic_message_gpu_timing_confirmation_q1_r6_20261003`](../../results/reports/periodic_message_gpu_timing_confirmation_q1_r6_20261003) | 三次预热、五次测量，八组路线/批次；保留首轮耗时峰值 |
 
 运行记录里的 `code_version` 是当时 HEAD，运行时还存在未提交源码；实际执行身份以源码
 SHA256 和快照追溯。归档不把历史版本号改写成新提交，也不修改已登记哈希的源码或结果。
@@ -39,9 +39,9 @@ SHA256 和快照追溯。归档不把历史版本号改写成新提交，也不�
 
 | 目录 | 实际状态与追溯 |
 |---|---|
-| [`periodic_geometry_q1_r6_20261003`](../../results/periodic_geometry_q1_r6_20261003/) | manifest 留在 `running`，另有 `interruption.json`；空索引列表的 dtype 问题导致中断。保留完整记录明细和当时源码，正式重跑在 `_v2` |
-| [`periodic_message_high_order_q1_r6_20261003`](../../results/periodic_message_high_order_q1_r6_20261003/) | `incomplete / needs_changes`；误用晶胞重建函数参数，369 项记录后中断。保留 `interrupted_source`，正式重跑在 `_v2` |
-| [`periodic_message_modules_q1_r6_20261003`](../../results/periodic_message_modules_q1_r6_20261003/) | `complete / fail`；136 项数值检查通过，但回归容器 dtype 不匹配，整轮判决失败。保留 `source_at_run` 五个快照，正式重跑在 `_v2` |
+| [`periodic_geometry_q1_r6_20261003`](../../archive/results/reports/periodic_geometry_q1_r6_20261003) | manifest 留在 `running`，另有 `interruption.json`；空索引列表的 dtype 问题导致中断。保留完整记录明细和当时源码，正式重跑在 `_v2` |
+| [`periodic_message_high_order_q1_r6_20261003`](../../archive/results/reports/periodic_message_high_order_q1_r6_20261003) | `incomplete / needs_changes`；误用晶胞重建函数参数，369 项记录后中断。保留 `interrupted_source`，正式重跑在 `_v2` |
+| [`periodic_message_modules_q1_r6_20261003`](../../archive/results/reports/periodic_message_modules_q1_r6_20261003) | `complete / fail`；136 项数值检查通过，但回归容器 dtype 不匹配，整轮判决失败。保留 `source_at_run` 五个快照，正式重跑在 `_v2` |
 
 没有重命名、删除或覆盖这些结果。历史 manifest 的 `running` 是中断时状态，不能单独当作
 当前仍在运行或已完成的依据；应连同中断标记与对应日志阅读。

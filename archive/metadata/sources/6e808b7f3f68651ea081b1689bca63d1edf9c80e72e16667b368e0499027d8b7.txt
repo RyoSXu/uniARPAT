@@ -1,0 +1,393 @@
+"""
+Configuration builder.
+
+Authors: Hongjie Fang.
+"""
+import os
+from torch.utils.data.distributed import DistributedSampler
+from utils.misc import get_rank, get_world_size, dictToObj
+from timm.scheduler import create_scheduler
+
+
+
+# logging.setLoggerClass(ColoredLogger)
+
+
+class ConfigBuilder(object):
+    """
+    Configuration Builder.
+
+    Features includes:
+        
+        - build model from configuration;
+        
+        - build optimizer from configuration;
+        
+        - build learning rate scheduler from configuration;
+        
+        - build dataset & dataloader from configuration;
+        
+        - build statistics directory from configuration;
+        
+        - build criterion from configuration;
+
+        - build metrics from configuration;
+        
+        - fetch training parameters (e.g., max_epoch, multigpu) from configuration.
+
+        - fetch inferencer parameters (e.g., inference image size, inference checkpoint path, inference min depth and max depth, etc.)
+    """
+    def __init__(self, **params):
+        """
+        Set the default configuration for the configuration builder.
+
+        Parameters
+        ----------
+        
+        params: the configuration parameters.
+        """
+        super(ConfigBuilder, self).__init__()
+        self.model_params = params.get('model', {})
+        # self.optimizer_params = params.get('optimizer', {})
+        # self.lr_scheduler_params = params.get('lr_scheduler', {})
+        self.dataset_params = params.get('dataset', {'data_dir': 'data'})
+        self.dataloader_params = params.get('dataloader', {})
+        self.trainer_params = params.get('trainer', {})
+
+        self.logger = params.get('logger', None)
+
+        self.dos_minmax = params.get('dos_minmax', False)
+        self.dos_zscore = params.get('dos_zscore', False)
+        self.apply_log = params.get('apply_log', False)
+        self.scale_factor = params.get('scale_factor', 1.0)
+        
+    def get_model(self, model_params = None):
+        """
+        Get the model from configuration.
+
+        Parameters
+        ----------
+        
+        model_params: dict, optional, default: None. If model_params is provided, then use the parameters specified in the model_params to build the model. Otherwise, the model parameters in the self.params will be used to build the model.
+        
+        Returns
+        -------
+        
+        A model, which is usually a torch.nn.Module object.
+        """
+        from model.model import basemodel
+        if model_params is None:
+            model_params = self.model_params
+        type = model_params.get('type', 'transformer')
+        params = model_params.get('params', {})
+        params['dos_minmax'] = self.dos_minmax
+        params['dos_zscore'] = self.dos_zscore
+        params['scale_factor'] = self.scale_factor
+        params['apply_log'] = self.apply_log  # 将 apply_log 参数传递给 basemodel
+        if type == 'transformer':
+            model = basemodel(self.logger, **params)
+        else:
+            raise NotImplementedError('Invalid model type.')
+        return model
+    
+
+    
+    def get_dataset(self, dataset_params = None, split = 'train', dos_minmax = False, dos_zscore = False, scale_factor=1.0, apply_log=False, smear = 0, choice=[], dos_sumnorm=False):
+        """
+        Get the dataset from configuration.
+
+        Parameters
+        ----------
+        
+        dataset_params: dict, optional, default: None. If dataset_params is provided, then use the parameters specified in the dataset_params to build the dataset. Otherwise, the dataset parameters in the self.params will be used to build the dataset;
+        
+        split: str in ['train', 'test'], optional, default: 'train', the splitted dataset.
+
+        Returns
+        -------
+        
+        A torch.utils.data.Dataset item.
+        """
+        from datasets.dataset import Dos_Dataset
+        if dataset_params is None:
+            dataset_params = self.dataset_params
+        dataset_params = dataset_params.get(split, None)
+        if dataset_params is None:
+            return None
+        if type(dataset_params) == dict:
+            dataset_type = str.lower(dataset_params.get('type', 'dos_dataset'))
+            if dataset_type == 'dos_dataset':
+                dataset = Dos_Dataset(split=split, dos_minmax = dos_minmax, dos_zscore=dos_zscore, scale_factor=scale_factor, apply_log=apply_log, smear = smear, choice=choice, dos_sumnorm=dos_sumnorm, **dataset_params)
+            else:
+                raise NotImplementedError('Invalid dataset type: {}.'.format(dataset_type))
+            # logger.info('Load {} dataset as {}ing set with {} samples.'.format(dataset_type, split, len(dataset)))
+        else:
+            raise AttributeError('Invalid dataset format.')
+        return dataset
+    
+    def get_sampler(self, dataset, split = 'train'):
+        if split == 'train':
+            shuffle = True
+        else:
+            shuffle = False
+
+        rank = get_rank()
+        num_gpus = get_world_size()
+        sampler = DistributedSampler(dataset, rank=rank, shuffle=shuffle, num_replicas=num_gpus, seed=0)
+
+        return sampler
+   
+
+    def get_dataloader(self, dataset_params = None, split = 'train', smear = 0, choice=[],batch_size = None, dataloader_params = None, dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, dos_sumnorm=False, use_bucket_batch=False):
+        """
+        Get the dataloader from configuration.
+
+        Parameters
+        ----------
+        
+        dataset_params: dict, optional, default: None. If dataset_params is provided, then use the parameters specified in the dataset_params to build the dataset. Otherwise, the dataset parameters in the self.params will be used to build the dataset;
+        
+        split: str in ['train', 'test'], optional, default: 'train', the splitted dataset;
+        
+        batch_size: int, optional, default: None. If batch_size is None, then the batch size parameter in the self.params will be used to represent the batch size (If still not specified, default: 4);
+        
+        dataloader_params: dict, optional, default: None. If dataloader_params is provided, then use the parameters specified in the dataloader_params to get the dataloader. Otherwise, the dataloader parameters in the self.params will be used to get the dataloader.
+
+        Returns
+        -------
+        
+        A torch.utils.data.DataLoader item.
+        """
+        self.choice = choice
+        from torch.utils.data import DataLoader
+        if batch_size is None:
+            if split == 'train':
+                batch_size = self.trainer_params.get('batch_size', 128)
+            elif split == "test":
+                batch_size = self.trainer_params.get('test_batch_size', 1)
+            else:
+                batch_size = self.trainer_params.get('valid_batch_size', 1)
+        if dataloader_params is None:
+            dataloader_params = self.dataloader_params
+        dataset = self.get_dataset(dataset_params, split=split, choice=choice, dos_minmax = dos_minmax, dos_zscore=dos_zscore, scale_factor=scale_factor, apply_log=apply_log, dos_sumnorm=dos_sumnorm)
+        if dataset is None:
+            return None
+        sampler = self.get_sampler(dataset, split)
+        if use_bucket_batch:
+            if split != 'train':
+                raise ValueError("length bucketing is training-only")
+            from utils.bucket_batch import LengthBucketBatchSampler, trim_atom_padding_collate
+            lengths = (dataset.elements[:, 2:] != 0).sum(dim=1)
+            batch_sampler = LengthBucketBatchSampler(sampler, lengths, batch_size, window_batches=20)
+            return DataLoader(
+                dataset,
+                batch_sampler=batch_sampler,
+                collate_fn=trim_atom_padding_collate,
+                **dataloader_params
+            )
+        return DataLoader(
+            dataset,
+            batch_size = batch_size,
+            sampler=sampler,
+            **dataloader_params
+        )
+
+    def get_max_epoch(self, trainer_params = None):
+        """
+        Get the max epoch from configuration.
+
+        Parameters
+        ----------
+        
+        trainer_params: dict, optional, default: None. If trainer_params is provided, then use the parameters specified in the trainer_params to get the maximum epoch. Otherwise, the trainer parameters in the self.params will be used to get the maximum epoch.
+
+        Returns
+        -------
+        
+        An integer, which is the max epoch (default: 40).
+        """
+        if trainer_params is None:
+            trainer_params = self.trainer_params
+        return trainer_params.get('max_epoch', 40)
+    
+    def get_stats_dir(self, stats_params = None):
+        """
+        Get the statistics directory from configuration.
+
+        Parameters
+        ----------
+        
+        stats_params: dict, optional, default: None. If stats_params is provided, then use the parameters specified in the stats_params to get the statistics directory. Otherwise, the statistics parameters in the self.params will be used to get the statistics directory.
+
+        Returns
+        -------
+        
+        A string, the statistics directory.
+        """
+        if stats_params is None:
+            stats_params = self.stats_params
+        stats_dir = stats_params.get('stats_dir', 'stats')
+        stats_exper = stats_params.get('stats_exper', 'default')
+        stats_res_dir = os.path.join(stats_dir, stats_exper)
+        if os.path.exists(stats_res_dir) == False:
+            os.makedirs(stats_res_dir)
+        return stats_res_dir
+    
+    def get_resume_lr(self, trainer_params = None):
+        """
+        Get the resume learning rate from configuration.
+
+        Parameters
+        ----------
+
+        trainer_params: dict, optional, default: None. If trainer_params is provided, then use the parameters specified in the trainer_params to get the resume learning rate. Otherwise, the trainer parameters in the self.params will be used to get the resume learning rate.
+
+        Returns
+        -------
+
+        A float value, the resume learning rate (default: 0.001).
+        """
+        if trainer_params is None:
+            trainer_params = self.trainer_params
+        return trainer_params.get('resume_lr', 0.001)
+
+    
+    def get_metrics(self, metrics_params = None):
+        """
+        Get the metrics settings from configuration.
+
+        Parameters
+        ----------
+
+        metrics_params: dict, optional, default: None. If metrics_params is provided, then use the parameters specified in the metrics_params to get the metrics. Otherwise, the metrics parameters in the self.params will be used to get the metrics.
+        
+        Returns
+        -------
+
+        A MetricsRecorder object.
+        """
+        if metrics_params is None:
+            metrics_params = self.metrics_params
+        metrics_list = metrics_params.get('types', ['MSE', 'MaskedMSE', 'RMSE', 'MaskedRMSE', 'REL', 'MaskedREL', 'MAE', 'MaskedMAE', 'WRMSE', 'WACC'])
+        from utils.metrics import MetricsRecorder
+        metrics = MetricsRecorder(metrics_list = metrics_list, **metrics_params)
+        return metrics
+    
+    def get_inference_checkpoint_path(self, inference_params = None):
+        """
+        Get the inference checkpoint path from inference configuration.
+
+        Parameters
+        ----------
+
+        inference_params: dict, optional, default: None. If inference_params is provided, then use the parameters specified in the inference_params to get the inference checkpoint path. Otherwise, the inference parameters in the self.params will be used to get the inference checkpoint path.
+        
+        Returns
+        -------
+
+        str, the checkpoint path.
+        """
+        if inference_params is None:
+            inference_params = self.inference_params
+        return inference_params.get('checkpoint_path', os.path.join('checkpoint', 'checkpoint.tar'))
+    
+    def get_inference_cuda_id(self, inference_params = None):
+        """
+        Get the inference CUDA ID from inference configuration.
+
+        Parameters
+        ----------
+
+        inference_params: dict, optional, default: None. If inference_params is provided, then use the parameters specified in the inference_params to get the inference CUDA ID. Otherwise, the inference parameters in the self.params will be used to get the inference CUDA ID.
+        
+        Returns
+        -------
+
+        int, the CUDA ID.
+        """
+        if inference_params is None:
+            inference_params = self.inference_params
+        return inference_params.get('cuda_id', 0)
+
+
+def get_optimizer(model, optimizer_params = None, resume = False, resume_lr = None):
+    """
+    Get the optimizer from configuration.
+    
+    Parameters
+    ----------
+    
+    model: a torch.nn.Module object, the model.
+    
+    optimizer_params: dict, optional, default: None. If optimizer_params is provided, then use the parameters specified in the optimizer_params to build the optimizer. Otherwise, the optimizer parameters in the self.params will be used to build the optimizer;
+    
+    resume: bool, optional, default: False, whether to resume training from an existing checkpoint;
+
+    resume_lr: float, optional, default: None, the resume learning rate.
+    
+    Returns
+    -------
+    
+    An optimizer for the given model.
+    """
+    from torch.optim import SGD, ASGD, Adagrad, Adamax, Adadelta, Adam, AdamW, RMSprop
+    type = optimizer_params.get('type', 'AdamW')
+    params = optimizer_params.get('params', {})
+
+
+
+    if resume:
+        network_params = [{'params': model.parameters(), 'initial_lr': resume_lr}]
+        params.update(lr = resume_lr)
+    else:
+        network_params = model.parameters()
+    if type == 'SGD':
+        optimizer = SGD(network_params, **params)
+    elif type == 'ASGD':
+        optimizer = ASGD(network_params, **params)
+    elif type == 'Adagrad':
+        optimizer = Adagrad(network_params, **params)
+    elif type == 'Adamax':
+        optimizer = Adamax(network_params, **params)
+    elif type == 'Adadelta':
+        optimizer = Adadelta(network_params, **params)
+    elif type == 'Adam':
+        optimizer = Adam(network_params, **params)
+    elif type == 'AdamW':
+        optimizer = AdamW(network_params, **params)
+    elif type == 'RMSprop':
+        optimizer = RMSprop(network_params, **params)
+    else:
+        raise NotImplementedError('Invalid optimizer type.')
+    return optimizer
+
+def get_lr_scheduler(optimizer, lr_scheduler_params = None, resume = False, resume_epoch = None):
+    """Build a scheduler from a configuration mapping."""
+    scheduler_args = dictToObj(lr_scheduler_params)
+    scheduler, _ = create_scheduler(scheduler_args, optimizer)
+    return scheduler
+
+
+def build_warmup_cosine_scheduler(optimizer, epochs, warmup_epochs=5,
+                                  warmup_lr=1e-5, min_lr=1e-6):
+    """H4 hygiene: single LR schedule shared by train.py semantics, ablation & pilot.
+
+    Mirrors configs/default.yaml (cosine, warmup 5 epochs from warmup_lr,
+    floor min_lr). Replaces the bare CosineAnnealingLR (no warmup) previously
+    hardcoded in run_ablation_experiments.py / run_pilot_10epochs.py, so pilot
+    LR curves extrapolate to full training. Stepped once per epoch.
+    """
+    import torch
+    base_lr = optimizer.param_groups[0]["lr"]
+    warmup = torch.optim.lr_scheduler.LinearLR(
+        optimizer,
+        start_factor=warmup_lr / base_lr if base_lr > 0 else 1.0,
+        end_factor=1.0,
+        total_iters=max(warmup_epochs, 1),
+    )
+    cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=max(epochs - warmup_epochs, 1), eta_min=min_lr
+    )
+    return torch.optim.lr_scheduler.SequentialLR(
+        optimizer, schedulers=[warmup, cosine], milestones=[max(warmup_epochs, 1)]
+    )

@@ -6,7 +6,7 @@
 
 ## 范围与调用链
 
-固定 [候选公式](../design/design-periodic-message-candidates.md)，使用 Q1 train/valid 的结构，
+固定 [候选公式](../design/design-2026-10-04-periodic-message-candidates.md)，使用 Q1 train/valid 的结构，
 不读取谱标签、test 或 checkpoint，不创建 optimizer，不更新参数，不调用生产 DOS 模型。
 blind/oracle 谱推理在本诊断中不适用。原有模型半径和训练配置未改变。
 
@@ -18,11 +18,11 @@ blind/oracle 谱推理在本诊断中不适用。原有模型半径和训练配�
 
 | 文件 | 主要符号及职责 |
 |---|---|
-| [原型模块](../../tools/eval/periodic_message_prototypes.py) | `ProbeGeometry`、`prepare_geometry`、`geometry_from_pos` 准备与检查几何；`InvariantMessageBlock` 实现 A；`EquivariantMessageBlock` 实现 B；`PeriodicMessageProbe` 提供共同标量接口；`ProbeZP` 提供共同元素入口 |
-| [正式预检](../../tools/eval/periodic_message_precheck.py) | `selection` 只按结构选样本；`changed_geometry` / `supercell_geometry` 重建物理框架；`compare_features` 区分不变标量与等变状态；`measure_resources` 反向但不更新；`BudgetMonitor` 检查计算时间与进程 RSS |
-| [补充对照](../../tools/eval/periodic_message_controls.py) | `recreate_probes` 重现并校验原权重哈希；`angle_control` 固定径向字段；`resource_control` 在独立进程测同一案例 |
+| [原型模块](../../archive/code/tools/eval/periodic_message_prototypes.py) | `ProbeGeometry`、`prepare_geometry`、`geometry_from_pos` 准备与检查几何；`InvariantMessageBlock` 实现 A；`EquivariantMessageBlock` 实现 B；`PeriodicMessageProbe` 提供共同标量接口；`ProbeZP` 提供共同元素入口 |
+| [正式预检](../../archive/code/tools/eval/periodic_message_precheck.py) | `selection` 只按结构选样本；`changed_geometry` / `supercell_geometry` 重建物理框架；`compare_features` 区分不变标量与等变状态；`measure_resources` 反向但不更新；`BudgetMonitor` 检查计算时间与进程 RSS |
+| [补充对照](../../archive/code/tools/eval/periodic_message_controls.py) | `recreate_probes` 重现并校验原权重哈希；`angle_control` 固定径向字段；`resource_control` 在独立进程测同一案例 |
 | [产物复核](../../tools/eval/verify_periodic_message_precheck.py) | `verify` 重新核对输入、源码、产物、摘要和覆盖；不重运行神经网络 |
-| [原型测试](../../tests/test_periodic_message_prototypes.py)、[判据测试](../../tests/test_periodic_message_precheck.py) | 12 项原型契约与 3 项证据判据检查；含错误向量帧、NaN、方向/距离不一致和梯度对照 |
+| [原型测试](../../archive/code/tests/test_periodic_message_prototypes.py)、[判据测试](../../archive/code/tests/test_periodic_message_precheck.py) | 12 项原型契约与 3 项证据判据检查；含错误向量帧、NaN、方向/距离不一致和梯度对照 |
 
 A 对每条边生成标量径向消息，对每个中心完整枚举无序邻边对，交换两边后平均角度消息。
 按 4,096 对分块，反向使用非重入 checkpoint 重计算；与不重计算、不同块大小的前向和
@@ -44,23 +44,23 @@ seed 为 20261003；float64 创建主权重及表示矩阵，再转换为各 dty
 每个 split 固定 8 个样本：最大邻边对数、最大入度、最小晶胞奇异值、最少/最多原子，
 再按邻边对数的 10%/50%/90% 分位补足去重后的 8 个。这个集合有意包含极端值，
 统计中位数不能当作全数据集的无偏成本估计。完整 ID 与选择理由见
-[samples.json](../../results/periodic_message_precheck_q1_r6_20261003/samples.json)。
+[samples.json](../../results/reports/periodic_message_precheck_q1_r6_20261003/samples.json)。
 
-正式产物：[manifest](../../results/periodic_message_precheck_q1_r6_20261003/manifest.json)、
-[summary](../../results/periodic_message_precheck_q1_r6_20261003/summary.json)、
-[逐项结果](../../results/periodic_message_precheck_q1_r6_20261003/cases.json)、
-[独立复核](../../results/periodic_message_precheck_q1_r6_20261003/verification.json)。
+正式产物：[manifest](../../results/reports/periodic_message_precheck_q1_r6_20261003/manifest.json)、
+[summary](../../results/reports/periodic_message_precheck_q1_r6_20261003/summary.json)、
+[逐项结果](../../results/reports/periodic_message_precheck_q1_r6_20261003/cases.json)、
+[独立复核](../../results/reports/periodic_message_precheck_q1_r6_20261003/verification.json)。
 源码、结构输入与上轮半径表均登记哈希；各 dtype 的参数及缓冲区起止哈希完全一致。
 
 实际入口命令如下；重新执行须选择新目录。运行时 OMP/MKL/OpenBLAS 线程均为 1，
 `CUDA_VISIBLE_DEVICES` 为空，命令中的产物目录已有结果，脚本会拒绝覆盖。
 
 ```bash
-python tools/eval/periodic_message_precheck.py --out-dir results/periodic_message_precheck_q1_r6_20261003
-python tools/eval/periodic_message_controls.py --precheck-dir results/periodic_message_precheck_q1_r6_20261003 --mode angles --budget-seconds 60 --out results/periodic_message_controls_q1_r6_20261003/angles.json
-python tools/eval/periodic_message_controls.py --precheck-dir results/periodic_message_precheck_q1_r6_20261003 --mode invariant --budget-seconds 60 --out results/periodic_message_controls_q1_r6_20261003/invariant_resource.json
-python tools/eval/periodic_message_controls.py --precheck-dir results/periodic_message_precheck_q1_r6_20261003 --mode equivariant --budget-seconds 60 --out results/periodic_message_controls_q1_r6_20261003/equivariant_resource.json
-python tools/eval/verify_periodic_message_precheck.py --precheck-dir results/periodic_message_precheck_q1_r6_20261003 --controls-dir results/periodic_message_controls_q1_r6_20261003
+python archive/code/tools/eval/periodic_message_precheck.py --out-dir results/reports/periodic_message_precheck_q1_r6_20261003
+python archive/code/tools/eval/periodic_message_controls.py --precheck-dir results/reports/periodic_message_precheck_q1_r6_20261003 --mode angles --budget-seconds 60 --out archive/results/reports/periodic_message_controls_q1_r6_20261003/angles.json
+python archive/code/tools/eval/periodic_message_controls.py --precheck-dir results/reports/periodic_message_precheck_q1_r6_20261003 --mode invariant --budget-seconds 60 --out archive/results/reports/periodic_message_controls_q1_r6_20261003/invariant_resource.json
+python archive/code/tools/eval/periodic_message_controls.py --precheck-dir results/reports/periodic_message_precheck_q1_r6_20261003 --mode equivariant --budget-seconds 60 --out archive/results/reports/periodic_message_controls_q1_r6_20261003/equivariant_resource.json
+python tools/eval/verify_periodic_message_precheck.py --precheck-dir results/reports/periodic_message_precheck_q1_r6_20261003 --controls-dir results/reports/periodic_message_controls_q1_r6_20261003
 ```
 
 在运行前固定无量纲特征判据 `|Δ|≤atol+rtol×|reference|`：
@@ -111,8 +111,8 @@ python tools/eval/verify_periodic_message_precheck.py --precheck-dir results/per
 同进程累计 RSS 不能归属某条路线。补充在全新进程测同一 train 最大案例：
 `mp-aaabofsw`、64 原子、7,704 条记录、460,180 个无序邻边对；包括共同库、初始化和一条
 路线的反向，A 峰值 **973.45 MiB**，B **565.13 MiB**。
-原始结果见 [A](../../results/periodic_message_controls_q1_r6_20261003/invariant_resource.json)、
-[B](../../results/periodic_message_controls_q1_r6_20261003/equivariant_resource.json)。
+原始结果见 [A](../../archive/results/reports/periodic_message_controls_q1_r6_20261003/invariant_resource.json)、
+[B](../../archive/results/reports/periodic_message_controls_q1_r6_20261003/equivariant_resource.json)。
 该组只有一次预热，保留原始时间但以它核对 RSS；正式表用于描述主要时间证据。
 CPU 原型优势不能直接外推到 GPU、完整模型或训练速度；低入度案例 A 的固定开销也可能更小。
 
@@ -141,7 +141,7 @@ A 中心标量输出差为 **2.56e-5**，B 仅 **5.55e-16**。
 公式解释是：同距离、同元素下边系数相同，中心 `l=1,2` 聚合消去；叶节点只有同一条径向
 方向，第二层的标量收缩也不能恢复两个环境的高阶角关系。该解释限于当前状态、两层消息和
 这个星形结构，不否定所有等变架构。A 的有限基与通道同样不保证所有环境唯一可分。
-对照 [angles.json](../../results/periodic_message_controls_q1_r6_20261003/angles.json)包含十项：
+对照 [angles.json](../../archive/results/reports/periodic_message_controls_q1_r6_20261003/angles.json)包含十项：
 其中 B 盲点项的 `pass` 表示成功复现反例，不能解释为 B 已通过充分表达能力验收。
 
 ## 结论、验证与下一步

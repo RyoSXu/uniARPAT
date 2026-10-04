@@ -46,11 +46,11 @@ O(3) 更新保留局部对称性。单元检查已对 26 个完整周期镜像�
 
 | 文件 | 新增符号与职责 |
 |---|---|
-| [增强原型](../../tools/eval/periodic_message_high_order.py) | `high_order_pair_features` 计算三/四阶配对统计；`HighOrderEquivariantBlock` 追加标量输入；`HighOrderMessageProbe` 复制原版权重并提供原接口及关掉新增输入的消融 |
-| [三路对照](../../tools/eval/periodic_message_high_order_compare.py) | `create_models` 对齐权重；`fixed_radial_pair` 固定径向字段；`low_moment_pair` 重建旧反例；`response_metrics` / `angle_controls` 测特征响应；`load_sample` / `sheared_geometry` 读取与物理形变；`main_comparison` 调用既有几何/对称性/资源检查；`shape_summary` 汇总；`main` 提供主运行和独立 RSS 模式 |
+| [增强原型](../../archive/code/tools/eval/periodic_message_high_order.py) | `high_order_pair_features` 计算三/四阶配对统计；`HighOrderEquivariantBlock` 追加标量输入；`HighOrderMessageProbe` 复制原版权重并提供原接口及关掉新增输入的消融 |
+| [三路对照](../../archive/code/tools/eval/periodic_message_high_order_compare.py) | `create_models` 对齐权重；`fixed_radial_pair` 固定径向字段；`low_moment_pair` 重建旧反例；`response_metrics` / `angle_controls` 测特征响应；`load_sample` / `sheared_geometry` 读取与物理形变；`main_comparison` 调用既有几何/对称性/资源检查；`shape_summary` 汇总；`main` 提供主运行和独立 RSS 模式 |
 | [独立复核](../../tools/eval/verify_periodic_message_high_order.py) | `verify` 核对哈希、逐项/CSV、覆盖、摘要和独立 RSS；`main` 导出复核结果，不重跑网络 |
 | [对比图](../../tools/eval/plot_periodic_message_high_order.py) | `main` 从复核后的产物导出 PNG/SVG 和图表数据/哈希 |
-| [回归](../../tests/test_periodic_message_high_order.py) | `HighOrderMessageContracts` 七项科学契约；包含实际晶胞输入契约下的形变重建回归 |
+| [回归](../../archive/code/tests/test_periodic_message_high_order.py) | `HighOrderMessageContracts` 七项科学契约；包含实际晶胞输入契约下的形变重建回归 |
 
 原有 `count_features`、球谐/张量积、`prepare_geometry`、`inspect_case`、`compare_features`、
 `measure_resources`、`BudgetMonitor` 等均复用。原版 A/B 的 Python 文件和参数量不变。
@@ -108,8 +108,8 @@ O(3) 更新保留局部对称性。单元检查已对 26 个完整周期镜像�
 B+ 与 B 的这项真实结构响应基本接近；不能声称本轮已经证明真实材料上大幅改善。
 输出幅度由未训练参数和归一化共同决定，响应更大不等于谱预测更准确。
 
-对比图：[PNG](../../results/periodic_message_high_order_q1_r6_20261003_v2/comparison.png)、
-[SVG](../../results/periodic_message_high_order_q1_r6_20261003_v2/comparison.svg)。
+对比图：[PNG](../../results/reports/periodic_message_high_order_q1_r6_20261003_v2/comparison.png)、
+[SVG](../../results/reports/periodic_message_high_order_q1_r6_20261003_v2/comparison.svg)。
 图中的反例条目明确为 `c=1` 消融，近截断弱响应同时保留。
 
 ## 验证、产物与预算
@@ -140,29 +140,29 @@ float32 最大误差为 **2.79e-8**。物理平移/晶胞表达重建的 float64
 正式主对照 **418.77 s**、RSS **1,066.70 MiB**；主对照加三个独立 RSS 脚本计时
 **453.83 s**。首轮脚本在形变重建处因晶胞函数调用签名错误中断，已修正并补回归；
 其 **32.63 s、369 项无失败但未完成**的产物与中断时源码快照
-[保留](../../results/periodic_message_high_order_q1_r6_20261003/interrupted_source/snapshot.json)，不纳入通过结论。
+[保留](../../archive/results/reports/periodic_message_high_order_q1_r6_20261003/interrupted_source/snapshot.json)，不纳入通过结论。
 含这次中断的主/RSS 脚本计时为 **486.46 s**，相关回归/导入/复核/画图另计，仍在 15 分钟
 CPU 计算与 2 GiB RSS 的本轮边界内；阅读、实现及文档时间不计作数值计算预算。
 预算是监控线程采样并在 Python 边界检查，不是内核级硬中断。
 
-正式产物：[manifest](../../results/periodic_message_high_order_q1_r6_20261003_v2/manifest.json)、
-[summary](../../results/periodic_message_high_order_q1_r6_20261003_v2/summary.json)、
-[逐项结果](../../results/periodic_message_high_order_q1_r6_20261003_v2/cases.json)、
-[复核](../../results/periodic_message_high_order_q1_r6_20261003_v2/verification.json)、
-[图表数据](../../results/periodic_message_high_order_q1_r6_20261003_v2/figure.json)。
-独立 RSS：[A](../../results/periodic_message_high_order_rss_q1_r6_20261003/A/summary.json)、
-[B](../../results/periodic_message_high_order_rss_q1_r6_20261003/B/summary.json)、
-[B+](../../results/periodic_message_high_order_rss_q1_r6_20261003/Bplus/summary.json)。
+正式产物：[manifest](../../results/reports/periodic_message_high_order_q1_r6_20261003_v2/manifest.json)、
+[summary](../../results/reports/periodic_message_high_order_q1_r6_20261003_v2/summary.json)、
+[逐项结果](../../results/reports/periodic_message_high_order_q1_r6_20261003_v2/cases.json)、
+[复核](../../results/reports/periodic_message_high_order_q1_r6_20261003_v2/verification.json)、
+[图表数据](../../results/reports/periodic_message_high_order_q1_r6_20261003_v2/figure.json)。
+独立 RSS：[A](../../archive/results/reports/periodic_message_high_order_rss_q1_r6_20261003/A/summary.json)、
+[B](../../archive/results/reports/periodic_message_high_order_rss_q1_r6_20261003/B/summary.json)、
+[B+](../../archive/results/reports/periodic_message_high_order_rss_q1_r6_20261003/Bplus/summary.json)。
 
 实际命令如下，产物已存在，重跑必须指定新目录：
 
 ```bash
-python -W ignore::DeprecationWarning tools/eval/periodic_message_high_order_compare.py --out-dir results/periodic_message_high_order_q1_r6_20261003_v2 --budget-seconds 750
-python -W ignore::DeprecationWarning tools/eval/periodic_message_high_order_compare.py --mode rss-A --budget-seconds 45 --out-dir results/periodic_message_high_order_rss_q1_r6_20261003/A
-python -W ignore::DeprecationWarning tools/eval/periodic_message_high_order_compare.py --mode rss-B --budget-seconds 45 --out-dir results/periodic_message_high_order_rss_q1_r6_20261003/B
-python -W ignore::DeprecationWarning tools/eval/periodic_message_high_order_compare.py --mode rss-Bplus --budget-seconds 45 --out-dir results/periodic_message_high_order_rss_q1_r6_20261003/Bplus
-python tools/eval/verify_periodic_message_high_order.py --out-dir results/periodic_message_high_order_q1_r6_20261003_v2 --rss-dir results/periodic_message_high_order_rss_q1_r6_20261003
-python tools/eval/plot_periodic_message_high_order.py --out-dir results/periodic_message_high_order_q1_r6_20261003_v2
+python -W ignore::DeprecationWarning archive/code/tools/eval/periodic_message_high_order_compare.py --out-dir results/reports/periodic_message_high_order_q1_r6_20261003_v2 --budget-seconds 750
+python -W ignore::DeprecationWarning archive/code/tools/eval/periodic_message_high_order_compare.py --mode rss-A --budget-seconds 45 --out-dir results/reports/periodic_message_high_order_rss_q1_r6_20261003/A
+python -W ignore::DeprecationWarning archive/code/tools/eval/periodic_message_high_order_compare.py --mode rss-B --budget-seconds 45 --out-dir results/reports/periodic_message_high_order_rss_q1_r6_20261003/B
+python -W ignore::DeprecationWarning archive/code/tools/eval/periodic_message_high_order_compare.py --mode rss-Bplus --budget-seconds 45 --out-dir results/reports/periodic_message_high_order_rss_q1_r6_20261003/Bplus
+python tools/eval/verify_periodic_message_high_order.py --out-dir results/reports/periodic_message_high_order_q1_r6_20261003_v2 --rss-dir results/reports/periodic_message_high_order_rss_q1_r6_20261003
+python tools/eval/plot_periodic_message_high_order.py --out-dir results/reports/periodic_message_high_order_q1_r6_20261003_v2
 ```
 
 ## 判断与剩余范围

@@ -1,7 +1,7 @@
 # AGENTS.md — 项目协作约定
 
 uniARPAT 从晶体结构预测 eDOS 与 phDOS。当前科学目标与证据见 `docs/status.md`；总体路线见
-`docs/design/design-structural-refinement.md`。
+`docs/design/design-2026-09-19-structural-refinement.md`。
 
 ## 开始前
 

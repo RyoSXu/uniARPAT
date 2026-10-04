@@ -1,4 +1,4 @@
-"""Stable checkpoint boundary for ``run_ablation_experiments.py``.
+"""Stable checkpoint boundary for ``tools/train.py``.
 
 This module intentionally knows nothing about uniARPAT model architecture.  It
 only owns the runner's checkpoint schema, atomic persistence, and AMP resume

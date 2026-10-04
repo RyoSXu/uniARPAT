@@ -25,13 +25,14 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from model.periodic_manybody import periodic_edge_vectors
-from tools.eval.element_identity_preflight import code_version, sha256_file
+from archive.code.model.periodic_manybody import periodic_edge_vectors
+from archive.code.tools.eval.element_identity_preflight import code_version, sha256_file
 from tools.eval.periodic_neighbor_radius_audit import (
     SPLITS, load_structures, positive_values, validate_inputs,
 )
-from utils.g2_periodic_edges import build_g2_edges, g2_indegrees
+from utils.periodic_neighbors import build_g2_edges, g2_indegrees
 from utils.relative_features import build_cell_from_lattice
+from utils.paths import repository_path
 
 # Fixed before execution. The float64 frame tolerance also accounts for the
 # existing cell reconstruction's sin(gamma)+1e-8 stabilizer, not just roundoff.
@@ -307,8 +308,8 @@ def select_indices(total, sample_size, critical, prior_zero):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "data/train4ARPAT")
-    parser.add_argument("--radius-audit-dir", type=Path, default=ROOT / "results/periodic_neighbor_radius_q1_20261003")
+    parser.add_argument("--data-dir", type=Path, default=repository_path(ROOT / "data/train4ARPAT", root=ROOT))
+    parser.add_argument("--radius-audit-dir", type=Path, default=repository_path(ROOT / "results/reports/periodic_neighbor_radius_q1_20261003", root=ROOT))
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--radius", type=float, default=6.0)
     parser.add_argument("--samples-per-split", type=int, default=64)
@@ -322,10 +323,10 @@ def main(argv=None):
     start = time.perf_counter()
     loaded, input_hashes = load_structures(args.data_dir)
     counts, old_zero, prior_hashes = prior_counts(args.radius_audit_dir, args.radius)
-    sources = [Path(__file__), ROOT / "tests/test_periodic_geometry_acceptance.py",
-               ROOT / "tools/eval/periodic_neighbor_radius_audit.py", ROOT / "model/periodic_manybody.py",
-               ROOT / "utils/g2_periodic_edges.py", ROOT / "utils/relative_features.py",
-               ROOT / "tools/eval/g2_edge_audit.py", ROOT / "tools/eval/element_identity_preflight.py"]
+    sources = [Path(__file__), repository_path(ROOT / "tests/data/test_periodic_geometry_acceptance.py", root=ROOT),
+               repository_path(ROOT / "tools/eval/periodic_neighbor_radius_audit.py", root=ROOT), repository_path(ROOT / "archive/code/model/periodic_manybody.py", root=ROOT),
+               repository_path(ROOT / "utils/periodic_neighbors.py", root=ROOT), repository_path(ROOT / "utils/relative_features.py", root=ROOT),
+               repository_path(ROOT / "archive/code/tools/eval/g2_edge_audit.py", root=ROOT), repository_path(ROOT / "archive/code/tools/eval/element_identity_preflight.py", root=ROOT)]
     args.out_dir.mkdir(parents=True)
     manifest = {"status": "running", "created_utc": datetime.now(timezone.utc).isoformat(),
                 "code_version": code_version(), "data_version": "Q1", "splits": list(SPLITS),

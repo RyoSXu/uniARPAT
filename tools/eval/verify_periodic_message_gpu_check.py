@@ -14,7 +14,10 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from utils.paths import historical_path, input_path
+
 from tools.eval.periodic_message_module_check import sha256, write_json
+from utils.paths import repository_path
 
 CATEGORIES = {
     "gpu_geometry": 44, "cpu_gpu_features": 88, "gpu_rebuilt_features": 88,
@@ -44,7 +47,7 @@ def verify(directory, confirmation_dir, cpu_dir, data_dir):
     for mapping in (manifest["source_sha256"], manifest["core_source_sha256"],
                     cpu["frozen_source_sha256"], cpu["frozen_artifact_sha256"]):
         for relative, digest in mapping.items():
-            assert sha256(ROOT / relative) == digest, relative
+            assert sha256(historical_path(relative, digest)) == digest, relative
     for relative, digest in manifest["input_sha256"].items():
         assert sha256(data_dir / relative) == digest, relative
     for folder, saved in ((directory, manifest), (cpu_dir, cpu)):
@@ -157,7 +160,7 @@ def verify(directory, confirmation_dir, cpu_dir, data_dir):
     assert confirmation["parameters_unchanged"] and confirmation["original_timings_retained"]
     assert not confirmation["optimizer_created"] and not confirmation["labels_loaded"] and confirmation["parameter_updates"] == 0
     for name, digest in confirmation["source_sha256"].items():
-        assert sha256(ROOT / name) == digest
+        assert sha256(historical_path(name, digest)) == digest
     for route in ROUTES:
         assert confirmation["initial_state_sha256"][route] == manifest["states"][DTYPES[0]]["initial"][f"cuda/{route}"]
     assert {(row["batch_label"], row["route"]) for row in confirmation["rows"]} == {
@@ -181,13 +184,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--confirmation-dir", type=Path, required=True)
-    parser.add_argument("--cpu-dir", type=Path, default=ROOT / "results/periodic_message_modules_q1_r6_20261003_v2")
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "data/train4ARPAT")
+    parser.add_argument("--cpu-dir", type=Path, default=repository_path(ROOT / "results/reports/periodic_message_modules_q1_r6_20261003_v2", root=ROOT))
+    parser.add_argument("--data-dir", type=Path, default=repository_path(ROOT / "data/train4ARPAT", root=ROOT))
     args = parser.parse_args(argv)
-    target = args.out_dir / "verification.json"
+    target = input_path(args.out_dir) / "verification.json"
     if target.exists():
         raise FileExistsError(f"refusing to overwrite {target}")
-    result = verify(args.out_dir, args.confirmation_dir, args.cpu_dir, args.data_dir)
+    result = verify(input_path(args.out_dir), input_path(args.confirmation_dir), input_path(args.cpu_dir), input_path(args.data_dir))
     write_json(target, result)
     print(json.dumps(result, ensure_ascii=False))
 

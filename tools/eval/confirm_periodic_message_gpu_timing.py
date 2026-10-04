@@ -20,29 +20,32 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from utils.paths import protected_path
+
 from tools.eval.periodic_message_gpu_check import (
     GPUBudget, ROUTES, benchmark_samples, make_batch, measured_forward, module_digest, verify_cpu_evidence,
 )
-from tools.eval.periodic_message_high_order_compare import create_models
+from archive.code.tools.eval.periodic_message_high_order_compare import create_models
 from tools.eval.periodic_message_module_check import aligned_local_models, sha256, write_json
 from utils.periodic_geometry import build_periodic_records
+from utils.paths import repository_path
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, required=True)
-    parser.add_argument("--acceptance-dir", type=Path, default=ROOT / "results/periodic_message_gpu_q1_r6_20261003")
+    parser.add_argument("--acceptance-dir", type=Path, default=repository_path(ROOT / "results/reports/periodic_message_gpu_q1_r6_20261003", root=ROOT))
     args = parser.parse_args(argv)
     if args.out_dir.exists():
         raise FileExistsError(f"refusing to overwrite {args.out_dir}")
-    prior = json.loads((ROOT / "results/periodic_message_precheck_q1_r6_20261003/manifest.json").read_text())
+    prior = json.loads((repository_path(ROOT / "results/reports/periodic_message_precheck_q1_r6_20261003/manifest.json", root=ROOT)).read_text())
     accepted = json.loads((args.acceptance_dir / "manifest.json").read_text())
     assert accepted["status"] == "complete" and accepted["verdict"] == "pass"
     for name, digest in accepted["source_sha256"].items():
-        assert sha256(ROOT / name) == digest
-    verify_cpu_evidence(ROOT / "results/periodic_message_modules_q1_r6_20261003_v2")
+        protected_path(name, digest)
+    verify_cpu_evidence(repository_path(ROOT / "results/reports/periodic_message_modules_q1_r6_20261003_v2", root=ROOT))
     for name, digest in accepted["input_sha256"].items():
-        assert sha256(ROOT / "data/train4ARPAT" / name) == digest
+        assert sha256(repository_path(ROOT / "data/train4ARPAT" / name, root=ROOT)) == digest
     torch.set_num_threads(1)
     torch.set_default_dtype(torch.float64)
     torch.backends.cuda.matmul.allow_tf32 = False
@@ -59,7 +62,7 @@ def main(argv=None):
     rows = []
     with GPUBudget(90., 2048., 8.) as budget:
         for label, selected in benchmark_samples(prior["selected_samples"]).items():
-            pos, mask, ids = make_batch(ROOT / "data/train4ARPAT", selected)
+            pos, mask, ids = make_batch(repository_path(ROOT / "data/train4ARPAT", root=ROOT), selected)
             records = build_periodic_records(pos, mask, 6.).to("cuda")
             with torch.no_grad():
                 h = entry(ids, mask).cuda()

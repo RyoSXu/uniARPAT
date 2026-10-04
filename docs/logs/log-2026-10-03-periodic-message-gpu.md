@@ -1,7 +1,7 @@
 # 6.0 Å 独立 A/B+ 的 GPU 验收与 CPU 成本对照
 
 日期：2026-10-03。结论：**独立局部模块在本次 GPU 范围内通过；没有启动训练。**
-用户批准测试 GPU，沿用已提取的[模块边界](../design/design-periodic-message-module-boundaries.md)、
+用户批准测试 GPU，沿用已提取的[模块边界](../design/design-2026-10-04-periodic-message-module-boundaries.md)、
 严格 `d<6.0 Å` 和原固定 16 个 Q1 train/valid 结构。A/B+ 都通过，未选定最终生产 Encoder。
 这项验收不代表完整 eDOS/phDOS 模型已经满足 E(3)，也不比较预测准确率。
 
@@ -27,7 +27,7 @@
 | [`periodic_message_gpu_check.py`](../../tools/eval/periodic_message_gpu_check.py) | `GPUBudget` 控制资源；`numeric_checks` 检查几何/特征/状态，`compare_local` 检查标量、等变状态、角度统计与整数计数；`local_gradients` / `compare_gradients` 检查连续输入和参数梯度；`pipeline_checks` 检查最小注册链；`benchmark_samples` / `benchmark` / `measured_forward` / `summarize_benchmark` 固定批次并记录同步计时 |
 | [`confirm_periodic_message_gpu_timing.py`](../../tools/eval/confirm_periodic_message_gpu_timing.py) | `main` 使用相同批次、FP32 和权重补做充分预热后的 GPU 前向加反向，不替换首轮原始耗时 |
 | [`verify_periodic_message_gpu_check.py`](../../tools/eval/verify_periodic_message_gpu_check.py) | `verify` 独立核对覆盖、各项判据、计时中位数、CSV/JSON 与哈希；不重运行神经网络 |
-| [`test_periodic_message_gpu_check.py`](../../tests/test_periodic_message_gpu_check.py) | 四项 CPU 回归，检查梯度错误、B+ 角度统计遗漏、临界键差异与批次/中位数统计 |
+| [`test_periodic_message_gpu_check.py`](../../tests/model/test_periodic_messages_gpu.py) | 四项 CPU 回归，检查梯度错误、B+ 角度统计遗漏、临界键差异与批次/中位数统计 |
 
 检查调用 `build_periodic_records → PeriodicNeighborRecords → PeriodicLocalMessage`。
 CPU/GPU 使用同样的标量输入及权重；另在 GPU 原生构建物理记录，与 CPU 的逐条记录对齐。
@@ -141,23 +141,23 @@ PYTHONWARNINGS=ignore::DeprecationWarning python -m unittest discover -s tests -
 输入、当前核心与新工具、旧原型和原 CPU 产物哈希一致。复核没有重运行网络。
 核心本轮未修改，未重复此前已通过的 56 项 CPU 回归。
 
-主产物：[manifest](../../results/periodic_message_gpu_q1_r6_20261003/manifest.json)、
-[summary](../../results/periodic_message_gpu_q1_r6_20261003/summary.json)、
-[明细](../../results/periodic_message_gpu_q1_r6_20261003/cases.csv)、
-[独立复核](../../results/periodic_message_gpu_q1_r6_20261003/verification.json)；
-[预热补测](../../results/periodic_message_gpu_timing_confirmation_q1_r6_20261003/summary.json)。
+主产物：[manifest](../../results/reports/periodic_message_gpu_q1_r6_20261003/manifest.json)、
+[summary](../../results/reports/periodic_message_gpu_q1_r6_20261003/summary.json)、
+[明细](../../results/reports/periodic_message_gpu_q1_r6_20261003/cases.csv)、
+[独立复核](../../results/reports/periodic_message_gpu_q1_r6_20261003/verification.json)；
+[预热补测](../../results/reports/periodic_message_gpu_timing_confirmation_q1_r6_20261003/summary.json)。
 入口拒绝覆盖已有目录；复现应选择新的结果目录：
 
 ```bash
 PYTHONWARNINGS=ignore::DeprecationWarning python tools/eval/periodic_message_gpu_check.py \
-  --out-dir results/periodic_message_gpu_recheck \
+  --out-dir results/reports/periodic_message_gpu_recheck \
   --budget-seconds 720 --memory-mib 2048 --gpu-memory-gib 8
 PYTHONWARNINGS=ignore::DeprecationWarning python tools/eval/confirm_periodic_message_gpu_timing.py \
-  --acceptance-dir results/periodic_message_gpu_recheck \
-  --out-dir results/periodic_message_gpu_timing_recheck
+  --acceptance-dir results/reports/periodic_message_gpu_recheck \
+  --out-dir results/reports/periodic_message_gpu_timing_recheck
 PYTHONWARNINGS=ignore::DeprecationWarning python tools/eval/verify_periodic_message_gpu_check.py \
-  --out-dir results/periodic_message_gpu_recheck \
-  --confirmation-dir results/periodic_message_gpu_timing_recheck
+  --out-dir results/reports/periodic_message_gpu_recheck \
+  --confirmation-dir results/reports/periodic_message_gpu_timing_recheck
 ```
 
 ## 判断与仍未验证的范围

@@ -23,21 +23,30 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from utils.paths import historical_path, protected_path
+
 from model.periodic_messages import PeriodicLocalMessage
 from tools.eval.periodic_geometry_acceptance import e3_operations
-from tools.eval.periodic_message_high_order_compare import create_models, load_sample
-from tools.eval.periodic_message_precheck import BudgetMonitor, compare_features, feature_error, state_digest
-from tools.eval.periodic_message_prototypes import geometry_from_pos
+from archive.code.tools.eval.periodic_message_high_order_compare import create_models, load_sample
+from archive.code.tools.eval.periodic_message_precheck import BudgetMonitor, compare_features, feature_error, state_digest
+from archive.code.tools.eval.periodic_message_prototypes import geometry_from_pos
 from utils.periodic_geometry import PeriodicNeighborRecords, build_periodic_records
+from utils.paths import repository_path
 
 SOURCE_FILES = (
     "model/__init__.py", "model/periodic_messages.py", "utils/periodic_geometry.py",
-    "tests/test_periodic_message_modules.py", "tools/eval/periodic_message_module_check.py",
+    "tests/model/test_periodic_messages.py", "tools/eval/periodic_message_module_check.py",
 )
 TEST_FILES = (
     "test_periodic_neighbor_radius_audit.py", "test_periodic_geometry_acceptance.py",
     "test_periodic_message_prototypes.py", "test_periodic_message_precheck.py",
     "test_periodic_message_high_order.py", "test_periodic_message_modules.py",
+)
+TEST_MODULES = (
+    "tests.data.test_neighbor_radius_audit", "tests.data.test_periodic_geometry_acceptance",
+    "archive.code.tests.test_periodic_message_prototypes",
+    "archive.code.tests.test_periodic_message_precheck",
+    "archive.code.tests.test_periodic_message_high_order", "tests.model.test_periodic_messages",
 )
 
 
@@ -59,15 +68,17 @@ def aligned_local_models(references, dtype):
 
 def frozen_hashes(prior_directory):
     original = json.loads((prior_directory / "manifest.json").read_text())
-    enhanced_dir = ROOT / "results/periodic_message_high_order_q1_r6_20261003_v2"
+    enhanced_dir = repository_path(ROOT / "results/reports/periodic_message_high_order_q1_r6_20261003_v2", root=ROOT)
     enhanced = json.loads((enhanced_dir / "manifest.json").read_text())
     sources = original["source_sha256"] | enhanced["source_sha256"] | enhanced["old_source_sha256"]
     for relative, digest in sources.items():
-        if sha256(ROOT / relative) != digest:
+        if sha256(historical_path(relative, digest)) != digest:
             raise AssertionError(f"frozen source changed: {relative}")
+    for relative, digest in sources.items():
+        protected_path(relative, digest)
     artifacts = {}
     for directory, manifest in ((prior_directory, original), (enhanced_dir, enhanced)):
-        artifacts[str(directory.relative_to(ROOT) / "manifest.json")] = sha256(directory / "manifest.json")
+        artifacts[str(repository_path(directory.relative_to(ROOT) / "manifest.json", root=ROOT))] = sha256(directory / "manifest.json")
         for name, digest in manifest["artifacts_sha256"].items():
             path = directory / name
             if sha256(path) != digest:
@@ -78,7 +89,10 @@ def frozen_hashes(prior_directory):
 
 def run_regressions(directory):
     loader = unittest.TestLoader()
-    suite = unittest.TestSuite(loader.discover(str(ROOT / "tests"), pattern=name) for name in TEST_FILES)
+    suites = [loader.loadTestsFromName(name) for name in TEST_MODULES]
+    if not all(suite.countTestCases() for suite in suites):
+        raise AssertionError("a required regression module discovered zero tests")
+    suite = unittest.TestSuite(suites)
     started = time.perf_counter()
     with (directory / "regressions.txt").open("w") as stream:
         result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
@@ -173,7 +187,7 @@ def acceptance(args):
                 "production_model_executed": False, "parameter_updates": 0,
                 "initialization_scope": "explicit copy of frozen untrained local weights; not a training protocol",
                 "parameter_counts": {"A": 261568, "B+": 184772}, "states": states,
-                "input_sha256": prior["input_sha256"], "source_sha256": {name: sha256(ROOT / name) for name in SOURCE_FILES},
+                "input_sha256": prior["input_sha256"], "source_sha256": {name: sha256(repository_path(ROOT / name, root=ROOT)) for name in SOURCE_FILES},
                 "frozen_source_sha256": old_sources, "frozen_artifact_sha256": old_artifacts,
                 "artifacts_sha256": {name: sha256(args.out_dir / name) for name in ("cases.json", "summary.json", "regressions.txt")},
                 "limits": ["CPU migration/interface evidence only", "no GPU/AMP or training benchmark", "no whole-model E(3) acceptance"]}
@@ -184,8 +198,8 @@ def acceptance(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, required=True)
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "data/train4ARPAT")
-    parser.add_argument("--precheck-dir", type=Path, default=ROOT / "results/periodic_message_precheck_q1_r6_20261003")
+    parser.add_argument("--data-dir", type=Path, default=repository_path(ROOT / "data/train4ARPAT", root=ROOT))
+    parser.add_argument("--precheck-dir", type=Path, default=repository_path(ROOT / "results/reports/periodic_message_precheck_q1_r6_20261003", root=ROOT))
     parser.add_argument("--budget-seconds", type=float, default=180.)
     parser.add_argument("--memory-mib", type=float, default=2048.)
     args = parser.parse_args(argv)

@@ -1,7 +1,7 @@
 # 周期邻域半径的结构审查
 
 日期：2026-10-03。状态：全量结构统计与核对已完成；用户已确定下一轮几何验收采用 6.0 Å。
-记录规范见 [`design-periodic-neighbor-records.md`](../design/design-periodic-neighbor-records.md)。
+记录规范见 [`design-2026-10-03-periodic-neighbor-records.md`](../design/design-2026-10-03-periodic-neighbor-records.md)。
 
 ## 范围与口径
 
@@ -9,7 +9,7 @@
   test、eDOS/phDOS 标签或 checkpoint，不执行模型前向或训练。blind/oracle 指标不适用于本项。
 - 全量扫描前固定诊断半径集合：3.0、3.5、4.0、4.5、5.0、5.5、6.0、6.5、7.0、7.5、8.0 Å。
   集合用于比较覆盖与成本，不构成模型超参数的采用决定；4.5、5.5 Å 同时用于核对历史计数。
-- 复用 [`build_g2_edges`](../../utils/g2_periodic_edges.py) 在最大候选半径枚举，再以严格 `d<R`
+- 复用 [`build_g2_edges`](../../utils/periodic_neighbors.py) 在最大候选半径枚举，再以严格 `d<R`
   筛选各候选记录；复用 `g2_indegrees`，计数包括多镜像和跨胞自身邻居，无 top-k。
 - 每个中心的距离从小到大排序，以每组首距离为锚点，归组到 `首距离+容差`，不做链式合并。
   取前三组，要求整组满足 `d<R` 才计为完整覆盖。主容差为 0.001 Å，另报 0.01 Å 敏感性；
@@ -34,7 +34,7 @@
 
 ## 验证与产物
 
-[`test_periodic_neighbor_radius_audit.py`](../../tests/test_periodic_neighbor_radius_audit.py) 验证
+[`test_periodic_neighbor_radius_audit.py`](../../tests/data/test_neighbor_radius_audit.py) 验证
 正有限半径、train/valid 边界、有效槽 NaN 拒绝、立方晶胞解析计数、严格边界、参考扩张与
 截尾、非链式壳层分组、多半径筛选与直接枚举一致、重合异原子拒绝。
 
@@ -43,28 +43,28 @@
 未发现非有限输入或零距离异原子记录。train/valid 分别 21/5 个结构扩大参考半径到 12 Å，
 两个容差下所有原子的前三组均已解析，无参考截尾。
 
-产物目录：[`periodic_neighbor_radius_q1_20261003`](../../results/periodic_neighbor_radius_q1_20261003/)。
+产物目录：[`periodic_neighbor_radius_q1_20261003`](../../results/reports/periodic_neighbor_radius_q1_20261003)。
 
-- [汇总 CSV](../../results/periodic_neighbor_radius_q1_20261003/summary.csv)、
-  [完整摘要](../../results/periodic_neighbor_radius_q1_20261003/summary.json)、
-  [执行与输入/源码哈希](../../results/periodic_neighbor_radius_q1_20261003/manifest.json)。
-- [原子明细](../../results/periodic_neighbor_radius_q1_20261003/atoms.csv.gz)：train/valid
-  219,505/27,437 行；[结构与半径明细](../../results/periodic_neighbor_radius_q1_20261003/structures.csv.gz)
+- [汇总 CSV](../../results/reports/periodic_neighbor_radius_q1_20261003/summary.csv)、
+  [完整摘要](../../results/reports/periodic_neighbor_radius_q1_20261003/summary.json)、
+  [执行与输入/源码哈希](../../results/reports/periodic_neighbor_radius_q1_20261003/manifest.json)。
+- [原子明细](../../results/runs/evidence/periodic_neighbor_radius_q1_20261003/atoms.csv.gz)：train/valid
+  219,505/27,437 行；[结构与半径明细](../../results/runs/evidence/periodic_neighbor_radius_q1_20261003/structures.csv.gz)
   共 231,209 行，均保留样本编号与索引。
-- [CPU 独立计时](../../results/periodic_neighbor_radius_q1_20261003/cpu_benchmark.csv)：各划分实际
+- [CPU 独立计时](../../results/reports/periodic_neighbor_radius_q1_20261003/cpu_benchmark.csv)：各划分实际
   67 个固定结构、11 个半径、每项三次；1,474 项直接枚举的记录数与最大半径筛选结果一致。
-- [复核记录](../../results/periodic_neighbor_radius_q1_20261003/verification.json)：从原子和结构
+- [复核记录](../../results/reports/periodic_neighbor_radius_q1_20261003/verification.json)：从原子和结构
   明细独立汇总，核对记录总数、入度中位数/p99、空邻域、壳层覆盖和邻边对数，均与摘要一致；
   输入及执行源码哈希未变。4.5/5.5 Å 分别对照
-  [历史周期多体计数](../../results/periodic_manybody_edge_audit_q1.csv)和
-  [历史 G2 计数](../../results/g2_edge_audit_q1.csv)，每个半径的 21,019 个结构的原子数、记录数、
+  [历史周期多体计数](../../archive/results/reports/periodic_manybody_edge_audit_q1.csv)和
+  [历史 G2 计数](../../archive/results/reports/g2_edge_audit_q1.csv)，每个半径的 21,019 个结构的原子数、记录数、
   最大入度均一致。历史文件中的 test 行不参与比较或选型。
 
 复现入口（拒绝覆盖已有目录，重跑时指定新的输出目录）：
 
 ```sh
-python -B tools/eval/periodic_neighbor_radius_audit.py --radii 3 3.5 4 4.5 5 5.5 6 6.5 7 7.5 8 --out-dir results/periodic_neighbor_radius_q1_recheck
-python -B tools/eval/plot_periodic_neighbor_radius_audit.py --audit-dir results/periodic_neighbor_radius_q1_recheck
+python -B tools/eval/periodic_neighbor_radius_audit.py --radii 3 3.5 4 4.5 5 5.5 6 6.5 7 7.5 8 --out-dir results/reports/periodic_neighbor_radius_q1_recheck
+python -B tools/eval/plot_periodic_neighbor_radius_audit.py --audit-dir results/reports/periodic_neighbor_radius_q1_recheck
 ```
 
 ## 数据结果与半径取舍
@@ -89,7 +89,7 @@ python -B tools/eval/plot_periodic_neighbor_radius_audit.py --audit-dir results/
 | 7.0 | 2.101 / 2.102 | 4.377 / 4.372 | 169 / 176 | 5.658 / 4.823 |
 | 8.0 | 3.150 / 3.154 | 9.867 / 9.876 | 254 / 261 | 6.617 / 5.998 |
 
-![几何覆盖与成本](../../results/periodic_neighbor_radius_q1_20261003/coverage_cost.png)
+![几何覆盖与成本](../../results/reports/periodic_neighbor_radius_q1_20261003/coverage_cost.png)
 
 事实：6.0 Å 是已检查的 0.5 Å 网格中，同时使 train/valid 无空邻域并完整覆盖第一组的最小候选。
 第一组上界最大值为 train 5.58379 Å、valid 5.44234 Å；5.5 Å 的遗漏集中在 train 的 6 个结构、

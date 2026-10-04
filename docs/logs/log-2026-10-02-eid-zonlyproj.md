@@ -1,6 +1,6 @@
 # 元素表示投影（ZP100）对齐初始化候选：实施、运行与判读记录
 
-日期：2026-10-01 启动，2026-10-02 完成训练与判读。对应设计 [`../design/design-element-identity-zonlyproj.md`](../design/design-element-identity-zonlyproj.md)。
+日期：2026-10-01 启动，2026-10-02 完成训练与判读。对应设计 [`../design/design-2026-10-02-element-identity-zonlyproj.md`](../../archive/docs/design/design-2026-10-02-element-identity-zonlyproj.md)。
 结论口径：单次运行（seed 42）；test 未参与任何计算（训练结束日志明确跳过 test 评估）。
 **结论：未达到工程采用标准**（eDOS oracle 失败率上升 1.04pp ≥ 1pp 越线，与 Z100 败在同一项、幅度略小），
 不登记为 baseline，A100 保留为对照；对 Z100 的问题（加投影是否改善）答：**未观察到可区分的改善**——
@@ -12,16 +12,16 @@
 |---|---|
 | `model/transformer.py` | `Transformer.__init__`：`atom_feat_mode in ("z_only","z_only_proj")` 分支；`z_only_proj` 新增 `atom_proj = Linear(512→512, bias=True)`（`z_only` 下为 `None`，不进 `state_dict`），`num_emb_encoder/num_norm/fuse_proj` 同样置 `None`。`Transformer.forward`：`z_only_proj` 走 `atom_src = atom_proj(atom_norm(tok_emb(atom_idx)))`。旧三模式（`legacy3`/`legacy3_const`/`mendeleev24`）分支语句与创建顺序逐字不变。 |
 | `utils/atom_feature.py` | `AtomFeatureEncoder.__init__` 对 `feat in ('z_only','z_only_proj')` 显式 `ValueError`（`z_only` 的报错文本逐字不变）。 |
-| `run_ablation_experiments.py` | `build_arg_parser` 的 `--atom_feat` choices 加入 `z_only_proj`；新增 `validate_zproj_config`（拒绝 `--init_ckpt`、`--reset_rng_after_init`、`--freeze_backbone`、pair aux、AMP、未开 `--skip_test_eval`）；`train_and_eval` 增加受控对齐三步（重建参考 → 复制+核对 → 检查后恢复随机状态并在进循环前复核），非 `z_only_proj` 路径逐字不变。 |
+| `tools/train.py` | `build_arg_parser` 的 `--atom_feat` choices 加入 `z_only_proj`；新增 `validate_zproj_config`（拒绝 `--init_ckpt`、`--reset_rng_after_init`、`--freeze_backbone`、pair aux、AMP、未开 `--skip_test_eval`）；`train_and_eval` 增加受控对齐三步（重建参考 → 复制+核对 → 检查后恢复随机状态并在进循环前复核），非 `z_only_proj` 路径逐字不变。 |
 | `utils/zproj_alignment.py` | 新增：对齐初始化唯一实现（参考重建、共享参数复制、单位投影、训练前数值核对、样本顺序哈希、随机状态保存/恢复/摘要、记录写盘），runner 与 preflight 共用。 |
-| `tools/eval/eid_zproj_preflight.py` | 新增：训练前检查（59 项）、manifest 写入、`--verify-run`、`--finalize`。复用 `element_identity_preflight` 与 `eid_zonly_preflight` 的哈希/版本/构造辅助。 |
-| `tools/eval/eid_zproj_monitor.py` | 新增：训练监控（等待目标 epoch、健康快照、异常检测），路径常量指向本候选。 |
+| `archive/code/tools/eval/eid_zproj_preflight.py` | 新增：训练前检查（59 项）、manifest 写入、`--verify-run`、`--finalize`。复用 `element_identity_preflight` 与 `eid_zonly_preflight` 的哈希/版本/构造辅助。 |
+| `archive/code/tools/eval/eid_zproj_monitor.py` | 新增：训练监控（等待目标 epoch、健康快照、异常检测），路径常量指向本候选。 |
 | `tools/eval/eid_zproj_valid_verdict.py` | 新增：valid 判读。复用 `element_identity_valid_verdict` 的逐样本 oracle/blind、配对 bootstrap、尺度误差与同组成 pair 逻辑；ZP100 独立加载核对，A100/B100/Z100 逐样本结果核对后复用。 |
 
 `z_only_proj` 不使用元素性质或常数分支，不新增门控或额外元素特征；encoder、decoder、谱头、尺度头（H1 eta/gamma）、
 损失、隐藏维度、层数、任务权重与选点规则均未改动。新增参数恰为 `512×512+512 = 262,656`。
 
-## 2. 训练前检查与溯源（manifest：`results/eidzproj100_s42_manifest.json`）
+## 2. 训练前检查与溯源（manifest：`results/reports/eidzproj100_s42_manifest.json`）
 
 **59/59 通过**。要点：
 
@@ -59,7 +59,7 @@
 命令（从零训练，共享初值来自未训练参考模型，不加载任何 checkpoint）：
 
 ```bash
-python3 run_ablation_experiments.py --model M1 --epochs 100 --seed 42 --batch_size 32 \
+python3 tools/train.py --model M1 --epochs 100 --seed 42 --batch_size 32 \
   --lr 5e-5 --norm sumnorm --scale_mode eta --atom_feat z_only_proj \
   --skip_test_eval --tag _eidzproj100_s42
 ```
@@ -72,16 +72,16 @@ python3 run_ablation_experiments.py --model M1 --epochs 100 --seed 42 --batch_si
   差别只有新增投影及其梯度。实测旁证：ep1 `train_loss` ZP100 1.20072 vs Z100 1.20315（A100 1.23913、
   B100 1.24019）——共享初值与随机流下两臂第 1 轮几乎重合，未对齐的两臂差约 0.036。
 - 进程与日志：`setsid` 持久进程（监控按命令行匹配登记 PID `[18588, 18589, 18705, 20137]`，
-  含启动包装、python 主进程与 DataLoader 子进程），日志 `results/train_m1_eidzproj100_s42.log`。
-- 产物：`output/ablation_m1_eidzproj100_s42/`（`checkpoint_best.pth`=ep89、`checkpoint_latest.pth`=ep100、
-  `config_used.yaml`、`zproj_align.json`）、`results/history_m1_eidzproj100_s42.csv`。
+  含启动包装、python 主进程与 DataLoader 子进程），日志 `results/runs/evidence/train_m1_eidzproj100_s42.log`。
+- 产物：`results/runs/ablation_m1_eidzproj100_s42/`（`checkpoint_best.pth`=ep89、`checkpoint_latest.pth`=ep100、
+  `config_used.yaml`、`zproj_align.json`）、`results/reports/history_m1_eidzproj100_s42.csv`。
 - 资源实测：**189.3 s/轮**，峰值显存 **7138 MiB**，训练合计 18,928 s ≈ **5.26 GPU 小时**（预估 5.3h 吻合）；
   含前置检查与判读另加约 0.7 小时。
 - **异常（1 次，训练前）**：第 1 次启动（2026-10-01 20:56，PID 5575）在第 1 轮训练循环开始前，
   因 `utils/zproj_alignment.py::write_alignment_record` 收到 `str` 路径调用 `Path.parent` 抛
   `AttributeError` 退出：**0 epoch、无 checkpoint、无 history**。证据保留：
-  `results/train_m1_eidzproj100_s42_attempt1_crashed.log`、`results/eidzproj100_s42_manifest_attempt1.json`
-  与崩溃尝试写下的 `output/ablation_m1_eidzproj100_s42/config_used.yaml`（均未删除）。
+  `results/runs/evidence/train_m1_eidzproj100_s42_attempt1_crashed.log`、`results/reports/eidzproj100_s42_manifest_attempt1.json`
+  与崩溃尝试写下的 `results/runs/ablation_m1_eidzproj100_s42/config_used.yaml`（均未删除）。
   修复为 `write_alignment_record` 接受 `str`/`Path`；未改任何参数或配方。经用户确认后按原命令重启，
   重启前的检查把上述残留如实记入 manifest `prior_attempt` 段。除此之外：**无** NaN/Inf、无 OOM、
   无中断/续跑、无 test 路径访问；每约 5 轮监控一次（1..100 共 20 次检查点），history 与 checkpoint
@@ -103,7 +103,7 @@ ZP100 全程 balanced 与 Z100 互有胜负（25/35/75/100 轮略优、50 轮略
 eDOS 失败率（runner valid）：ZP100 从 ep25 的 5.53% 升至 ep100 的 9.90%（Z100 6.01%→9.90%，A100 5.58%→9.51%）；
 phDOS 失败率 ZP100 3.11%→6.01%（Z100 3.07%→6.18%）。
 
-## 4. valid 判读（`results/eid_zproj_s42_valid_verdict.json`）
+## 4. valid 判读（`results/reports/eid_zproj_s42_valid_verdict.json`）
 
 选点规则保持 `balanced_score = 0.5×MAE_edos_median + 0.5×MAE_phdos_median` 最小（已知受原始 MAE 尺度影响，未改规则）。
 **ZP100 best=ep89（0.63310）；Z100 best=ep82（0.63689）；A100 best=ep73（0.62277）；B100 best=ep87（0.62447）**。
@@ -132,12 +132,12 @@ Z100 0.52234/0.47142/0.70364/0.69655；A100 0.52916/0.47837/0.72385/0.71945（�
 ZP100 0.02732、Z100 0.02724、A100 0.03820、B100 0.03840；「预测差−目标差」TV 中位 ZP100 0.26938、
 Z100 0.27147、A100 0.26876、B100 0.26595。投影没有改变同组成对比度坍缩（预测谱差 TV 与 Z100 同量级）。
 
-复用溯源：A100/B100/Z100 逐样本结果取自 `results/eid_s42_valid_samples.csv`（A/B 原始）与
-`results/eid_zonly_s42_valid_samples.csv`（Z100 及其 A/B 复制列），复用前核对三臂 manifest 模式、
+复用溯源：A100/B100/Z100 逐样本结果取自 `archive/results/reports/eid_s42_valid_samples.csv`（A/B 原始）与
+`archive/results/reports/eid_zonly_s42_valid_samples.csv`（Z100 及其 A/B 复制列），复用前核对三臂 manifest 模式、
 `config_used.yaml` 与 best/latest checkpoint SHA-256、表/split 指纹、样本 ID 顺序，A/B 列与原始 CSV
 逐值一致（最大差 0.0），Z100 列中位数/失败率与其判读 JSON 交叉核对（最大往返误差 <1e-6）；
 pair 复用列与固定 320 对 ID/目标 TV 核对一致。所有新产物独立命名
-（`results/eid_zproj_s42_valid_{verdict.json,samples.csv,pairs.csv}`），未覆盖 A100/B100/Z100 任何文件。
+（`results/reports/eid_zproj_s42_valid_{verdict.json,samples.csv,pairs.csv}`），未覆盖 A100/B100/Z100 任何文件。
 
 ## 5. 两个问题的结论
 
@@ -179,14 +179,14 @@ pair 复用列与固定 320 对 ID/目标 TV 核对一致。所有新产物独�
 ## 7. 交付物索引
 
 - 实现：`model/transformer.py`（`z_only_proj` 分支）、`utils/atom_feature.py`（拒绝 `z_only_proj`）、
-  `run_ablation_experiments.py`（choices、`validate_zproj_config`、对齐三步）、`utils/zproj_alignment.py`（对齐实现）。
-- 工具：`tools/eval/eid_zproj_preflight.py`、`tools/eval/eid_zproj_monitor.py`、`tools/eval/eid_zproj_valid_verdict.py`。
-- 溯源：`results/eidzproj100_s42_manifest.json`（命令、计划 CLI、指纹、代码版本与训练相关文件哈希、
+  `tools/train.py`（choices、`validate_zproj_config`、对齐三步）、`utils/zproj_alignment.py`（对齐实现）。
+- 工具：`archive/code/tools/eval/eid_zproj_preflight.py`、`archive/code/tools/eval/eid_zproj_monitor.py`、`tools/eval/eid_zproj_valid_verdict.py`。
+- 溯源：`results/reports/eidzproj100_s42_manifest.json`（命令、计划 CLI、指纹、代码版本与训练相关文件哈希、
   59 项检查、对齐细节、`prior_attempt` 崩溃记录、checkpoint SHA-256 与 epoch 身份、进程 PID）；
-  `output/ablation_m1_eidzproj100_s42/zproj_align.json`（训练内对齐记录）；
-  `results/eidzproj100_s42_manifest_attempt1.json`、`results/train_m1_eidzproj100_s42_attempt1_crashed.log`（第 1 次启动）。
-- 训练：`results/history_m1_eidzproj100_s42.csv`、`results/train_m1_eidzproj100_s42.log`、
-  `output/ablation_m1_eidzproj100_s42/`（best=ep89、latest=ep100）。
-- 判读：`results/eid_zproj_s42_valid_verdict.json`、`results/eid_zproj_s42_valid_samples.csv`、
-  `results/eid_zproj_s42_valid_pairs.csv`、`results/eid_zproj_verdict_run.log`。
+  `results/runs/ablation_m1_eidzproj100_s42/zproj_align.json`（训练内对齐记录）；
+  `results/reports/eidzproj100_s42_manifest_attempt1.json`、`results/runs/evidence/train_m1_eidzproj100_s42_attempt1_crashed.log`（第 1 次启动）。
+- 训练：`results/reports/history_m1_eidzproj100_s42.csv`、`results/runs/evidence/train_m1_eidzproj100_s42.log`、
+  `results/runs/ablation_m1_eidzproj100_s42/`（best=ep89、latest=ep100）。
+- 判读：`results/reports/eid_zproj_s42_valid_verdict.json`、`results/runs/evidence/eid_zproj_s42_valid_samples.csv`、
+  `results/runs/evidence/eid_zproj_s42_valid_pairs.csv`、`archive/results/reports/eid_zproj_verdict_run.log`。
 - 异常/中断说明：第 1 次启动训练前崩溃 1 次（见第 3 节），修复后按原命令重启；正式训练无中断、无续跑。

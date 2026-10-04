@@ -17,7 +17,7 @@ from e3nn import o3
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from utils.g2_periodic_edges import (
+from utils.periodic_neighbors import (
     g2_indegrees, g2_quintic_cutoff, g2_rbf_features, g2_rbf_params,
 )
 from utils.periodic_geometry import PeriodicNeighborRecords

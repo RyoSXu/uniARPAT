@@ -26,10 +26,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.eval.element_identity_preflight import code_version, sha256_file
-from tools.eval.g2_edge_audit import _load_split, _quantiles
-from utils.g2_periodic_edges import build_g2_edges, g2_indegrees
+from archive.code.tools.eval.element_identity_preflight import code_version, sha256_file
+from archive.code.tools.eval.g2_edge_audit import _load_split, _quantiles
+from utils.periodic_neighbors import build_g2_edges, g2_indegrees
 from utils.relative_features import build_cell_from_lattice
+from utils.paths import repository_path
 
 SPLITS = ("train", "valid")
 
@@ -243,7 +244,7 @@ def benchmark(split, data, rows, radii, per_split, repeats, writer):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "data/train4ARPAT")
+    parser.add_argument("--data-dir", type=Path, default=repository_path(ROOT / "data/train4ARPAT", root=ROOT))
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--radii", type=float, nargs="+", required=True)
     parser.add_argument("--shell-tolerances", type=float, nargs="+", default=[0.001, 0.01])
@@ -269,9 +270,9 @@ def main(argv=None):
                 "max_reference_radius_A": args.max_reference_radius, "torch": torch.__version__,
                 "dtype": "float32", "device": "cpu", "threads": 1, "code_version": code_version(),
                 "input_sha256": input_hashes, "source_sha256": {str(path.relative_to(ROOT)): sha256_file(path)
-                    for path in (Path(__file__), ROOT / "utils/g2_periodic_edges.py",
-                                 ROOT / "utils/relative_features.py", ROOT / "tools/eval/g2_edge_audit.py",
-                                 ROOT / "tools/eval/element_identity_preflight.py")},
+                    for path in (Path(__file__), repository_path(ROOT / "utils/periodic_neighbors.py", root=ROOT),
+                                 repository_path(ROOT / "utils/relative_features.py", root=ROOT), repository_path(ROOT / "archive/code/tools/eval/g2_edge_audit.py", root=ROOT),
+                                 repository_path(ROOT / "archive/code/tools/eval/element_identity_preflight.py", root=ROOT))},
                 "shell_definition": "sorted distances, groups anchored at first distance with absolute tolerance; no chaining",
                 "coverage_definition": "all records in the shell satisfy strict d<R; censored shells are not certified covered",
                 "cost_scope": "CPU edge enumeration only; angle pairs and storage are structural estimates, not model cost"}

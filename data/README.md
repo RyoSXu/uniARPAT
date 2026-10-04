@@ -1,15 +1,9 @@
-# 数据目录
+# 当前数据
 
-本目录保存训练所需的本地缓存、受版本控制的清单和网格审计材料。当前唯一的生产数据池是 Q1；
-其训练/验证/测试样本数为 18,706 / 2,313 / 2,287。详细数据约定见
-[`../docs/data.md`](../docs/data.md)。
+Q1 是唯一当前数据池；train/valid/test 为 18,706 / 2,313 / 2,287 条。
+`train4ARPAT/` 保留机器本地数组与掩码，仅根部 manifest/stats 纳入 Git。
+`reference/` 保存固定划分、网格、元素表、价电子/截断参考与排除清单。
+`quarantine_q1.json` 是兼容链接，保留原 Q1 manifest 的旧清单路径。
 
-| 路径 | 内容 | 状态 |
-|---|---|---|
-| `train4ARPAT/{train,valid,test}/` | Q1 主训练缓存、掩码和 `manifest.json` | 当前使用 |
-| `quarantine_q1.json` | Q1 排除记录清单 | 当前使用 |
-| `grids_c2b/` | C2b 网格审计与已批准的实验网格变体 | 实验参考 |
-| `archive/` | 早期缓存和恢复材料 | 只读 |
-
-训练使用裸路径 `train4ARPAT/`。历史文档中的 v1、v2 或 `train4ARPAT-v2` 是早期数据版本或
-曾用名称，不得当作当前 Q1 的同义词。原始获取内容在仓库外保存，不纳入 Git。
+旧数据与旧网格位于 [archive/data](../archive/data/)，不能替代 Q1。
+输入契约和恢复限制见 [docs/data.md](../docs/data.md)，工具见 [tools/data](../tools/data/README.md)。

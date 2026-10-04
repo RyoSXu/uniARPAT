@@ -23,4 +23,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt ruff
       - name: Run cache-free static contracts
-        run: bash tools/ci/check-static.sh
+        run: bash tools/checks/check-static.sh
+      - name: Check every versioned payload
+        run: python tools/checks/check_repository.py --revision HEAD

@@ -1,14 +1,14 @@
 """ZP100 (z_only_proj) 对齐初始化候选：Q1 valid-only 判读。
 
-对应设计：``docs/design/design-element-identity-zonlyproj.md`` 第 6 节。
-复用 ``tools/eval/element_identity_valid_verdict.py`` 的逐样本 oracle/blind 计算、
+对应设计：``archive/docs/design/design-2026-10-02-element-identity-zonlyproj.md`` 第 6 节。
+复用 ``archive/code/tools/eval/element_identity_valid_verdict.py`` 的逐样本 oracle/blind 计算、
 配对 bootstrap、尺度误差与同组成 pair 逻辑；ZP100 权重在 manifest、配方、对齐记录与
 checkpoint 身份核对通过后加载。A100/B100/Z100 三臂逐样本结果在身份、样本 ID、配置与
 指纹核对通过后复用：
 
-* A100/B100：``results/eid_s42_valid_samples.csv``（原始产物）；
-* Z100：``results/eid_zonly_s42_valid_samples.csv`` / ``..._pairs.csv``，并与
-  ``results/eid_zonly_s42_valid_verdict.json`` 的中位数/失败率交叉核对，同时核对
+* A100/B100：``archive/results/reports/eid_s42_valid_samples.csv``（原始产物）；
+* Z100：``archive/results/reports/eid_zonly_s42_valid_samples.csv`` / ``..._pairs.csv``，并与
+  ``archive/results/reports/eid_zonly_s42_valid_verdict.json`` 的中位数/失败率交叉核对，同时核对
   Z100 manifest 与 checkpoint SHA-256 未漂移。
 
 不覆盖任何 A100/B100/Z100 产物；所有新产物使用 ``eid_zproj_s42_*`` 独立文件名。
@@ -31,21 +31,22 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import element_identity_valid_verdict as base  # noqa: E402
-from element_identity_preflight import sha256_file  # noqa: E402
+import archive.code.tools.eval.element_identity_valid_verdict as base  # noqa: E402
+from archive.code.tools.eval.element_identity_preflight import sha256_file  # noqa: E402
+from utils.paths import repository_path
 
-RESULTS = ROOT / "results"
-OUTPUT = ROOT / "output"
-DATA_DIR = ROOT / "data/train4ARPAT"
+RESULTS = repository_path(ROOT / "results/reports", root=ROOT)
+OUTPUT = repository_path(ROOT / "results/runs", root=ROOT)
+DATA_DIR = repository_path(ROOT / "data/train4ARPAT", root=ROOT)
 
 P_TAG = "_eidzproj100_s42"
 Z_TAG = "_eidzonly100_s42"
 A_TAG = "_eidprop100_s42"
 B_TAG = "_eidconst100_s42"
-REUSED_SAMPLES = RESULTS / "eid_zonly_s42_valid_samples.csv"
-REUSED_PAIRS = RESULTS / "eid_zonly_s42_valid_pairs.csv"
-REUSED_Z_VERDICT = RESULTS / "eid_zonly_s42_valid_verdict.json"
-REUSED_AB_SAMPLES = RESULTS / "eid_s42_valid_samples.csv"
+REUSED_SAMPLES = repository_path(RESULTS / "eid_zonly_s42_valid_samples.csv", root=ROOT)
+REUSED_PAIRS = repository_path(RESULTS / "eid_zonly_s42_valid_pairs.csv", root=ROOT)
+REUSED_Z_VERDICT = repository_path(RESULTS / "eid_zonly_s42_valid_verdict.json", root=ROOT)
+REUSED_AB_SAMPLES = repository_path(RESULTS / "eid_s42_valid_samples.csv", root=ROOT)
 
 METRICS = base.METRICS
 BOOTSTRAP_REPLICATES = 2000
@@ -67,13 +68,13 @@ def load_zp100(directory: Path, checkpoint_name: str, device):
     """核对 manifest/配方/对齐记录/checkpoint 身份后载入 ZP100；不匹配即拒绝载入。"""
     from model.transformer import Transformer
 
-    manifest = json.loads((RESULTS / "eidzproj100_s42_manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads((repository_path(RESULTS / "eidzproj100_s42_manifest.json", root=ROOT)).read_text(encoding="utf-8"))
     if manifest.get("atom_feat_mode") != "z_only_proj":
         raise ValueError("manifest is not a z_only_proj run")
-    for key, name in (("table_sha256", "utils/periodic_table_v2.csv"),
-                      ("split_sha256", "index/split_v2.yaml"),
+    for key, name in (("table_sha256", "data/reference/periodic_table_v2.csv"),
+                      ("split_sha256", "data/reference/split_v2.yaml"),
                       ("data_manifest_sha256", "data/train4ARPAT/manifest.json")):
-        if manifest["hashes"][key] != sha256_file(ROOT / name):
+        if manifest["hashes"][key] != sha256_file(repository_path(ROOT / name, root=ROOT)):
             raise ValueError(f"{name} changed since preflight")
     config_path = directory / "config_used.yaml"
     if manifest.get("config_used_sha256") != sha256_file(config_path):
@@ -128,14 +129,14 @@ def load_zp100(directory: Path, checkpoint_name: str, device):
 def verify_reused_arm(tag: str, atom_feat_mode: str) -> dict:
     """复用前核对 A100/B100/Z100 的 manifest、配置哈希与 checkpoint 哈希。"""
     manifest = json.loads(
-        (RESULTS / f"{tag.lstrip('_')}_manifest.json").read_text(encoding="utf-8"))
+        (repository_path(RESULTS / f"{tag.lstrip('_')}_manifest.json", root=ROOT)).read_text(encoding="utf-8"))
     if manifest.get("atom_feat_mode") != atom_feat_mode:
         raise ValueError(f"{tag} manifest mode mismatch")
-    if manifest["hashes"]["table_sha256"] != sha256_file(ROOT / "utils/periodic_table_v2.csv"):
+    if manifest["hashes"]["table_sha256"] != sha256_file(repository_path(ROOT / "data/reference/periodic_table_v2.csv", root=ROOT)):
         raise ValueError(f"{tag} property table hash changed")
-    if manifest["hashes"]["split_sha256"] != sha256_file(ROOT / "index/split_v2.yaml"):
+    if manifest["hashes"]["split_sha256"] != sha256_file(repository_path(ROOT / "data/reference/split_v2.yaml", root=ROOT)):
         raise ValueError(f"{tag} split hash changed")
-    save_dir = OUTPUT / f"ablation_m1{tag}"
+    save_dir = repository_path(OUTPUT / f"ablation_m1{tag}", root=ROOT)
     if manifest["config_used_sha256"] != sha256_file(save_dir / "config_used.yaml"):
         raise ValueError(f"{tag} config_used.yaml mismatch")
     out = {}
@@ -216,13 +217,13 @@ def history_row(path: Path, epoch: int) -> dict:
 def learning_curves() -> dict:
     out = {}
     for arm, tag in (("ZP100", P_TAG), ("Z100", Z_TAG), ("A100", A_TAG), ("B100", B_TAG)):
-        path = RESULTS / f"history_m1{tag}.csv"
+        path = repository_path(RESULTS / f"history_m1{tag}.csv", root=ROOT)
         out[arm] = [history_row(path, epoch) for epoch in CURVE_EPOCHS]
     return out
 
 
 def arm_summary(tag: str, metrics: dict, params: int, cost: dict) -> dict:
-    history = pd.read_csv(RESULTS / f"history_m1{tag}.csv")
+    history = pd.read_csv(repository_path(RESULTS / f"history_m1{tag}.csv", root=ROOT))
     best_row = history.loc[history["balanced_score"].idxmin()]
     last_row = history.loc[history["epoch"].idxmax()]
     return {
@@ -239,7 +240,7 @@ def arm_summary(tag: str, metrics: dict, params: int, cost: dict) -> dict:
         "fail_percent": {name: float(100 * np.mean(metrics[name] < 0)) for name in METRICS},
         "trainable_params": params,
         "cost": cost,
-        "history_csv": f"results/history_m1{tag}.csv",
+        "history_csv": f"results/reports/history_m1{tag}.csv",
     }
 
 
@@ -277,7 +278,7 @@ def main() -> None:
     torch.set_grad_enabled(False)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     from torch.utils.data import DataLoader
-    from datasets.dataset import Dos_Dataset
+    from utils.dataset import Dos_Dataset
 
     dataset = Dos_Dataset(data_dir=str(DATA_DIR), split="valid", dos_minmax=True, dos_sumnorm=True)
     loader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=0)
@@ -285,8 +286,8 @@ def main() -> None:
     if len(dataset) != 2313 or len(ids) != len(dataset):
         raise ValueError("Q1 valid sample count mismatch")
 
-    manifest = json.loads((RESULTS / "eidzproj100_s42_manifest.json").read_text(encoding="utf-8"))
-    dir_p = OUTPUT / f"ablation_m1{P_TAG}"
+    manifest = json.loads((repository_path(RESULTS / "eidzproj100_s42_manifest.json", root=ROOT)).read_text(encoding="utf-8"))
+    dir_p = repository_path(OUTPUT / f"ablation_m1{P_TAG}", root=ROOT)
     p_outputs = {}
     for which, checkpoint_name in (("best", "checkpoint_best.pth"),
                                    ("epoch100", "checkpoint_latest.pth")):
@@ -332,7 +333,7 @@ def main() -> None:
     pairs_frame, pairs_summary = pair_table(
         p_outputs["best"][2]["e_shape"], p_outputs["best"][2]["target_shape"], ids)
 
-    p_history = pd.read_csv(RESULTS / f"history_m1{P_TAG}.csv")
+    p_history = pd.read_csv(repository_path(RESULTS / f"history_m1{P_TAG}.csv", root=ROOT))
     cost = {"total_epoch_time_s": float(p_history["epoch_time_s"].sum()),
             "mean_epoch_time_s": float(p_history["epoch_time_s"].mean()),
             "peak_vram_mb": float(p_history["peak_vram_mb"].max())}
@@ -380,7 +381,7 @@ def main() -> None:
 
     verdict = {
         "experiment": "ZP100 z_only + learnable atom projection with Z100-aligned "
-                      "initialization (design-element-identity-zonlyproj.md)",
+                      "initialization (design-2026-10-02-element-identity-zonlyproj.md)",
         "split": "Q1 valid", "n": len(dataset), "seed": args.seed,
         "seeds_run": [args.seed],
         "claim_level": "single-seed temporary baseline candidate; conclusions limited to this "
@@ -428,9 +429,9 @@ def main() -> None:
             "不检验未见元素泛化；不涉及几何 encoder 路径。",
         ],
         "outputs": {
-            "samples_csv": "results/eid_zproj_s42_valid_samples.csv",
-            "pairs_csv": "results/eid_zproj_s42_valid_pairs.csv",
-            "verdict_json": "results/eid_zproj_s42_valid_verdict.json"},
+            "samples_csv": "results/runs/evidence/eid_zproj_s42_valid_samples.csv",
+            "pairs_csv": "results/runs/evidence/eid_zproj_s42_valid_pairs.csv",
+            "verdict_json": "results/reports/eid_zproj_s42_valid_verdict.json"},
     }
 
     sample_frame = pd.DataFrame({"mpid": ids})
@@ -446,9 +447,9 @@ def main() -> None:
                                                       - sample_frame[f"A100_{name}"])
     for key in ("gamma_pred", "gamma_true", "eta_pred", "eta_true"):
         sample_frame[f"ZP100_{key}"] = p_outputs["best"][2][key]
-    sample_frame.to_csv(RESULTS / "eid_zproj_s42_valid_samples.csv", index=False)
-    pairs_frame.to_csv(RESULTS / "eid_zproj_s42_valid_pairs.csv", index=False)
-    (RESULTS / "eid_zproj_s42_valid_verdict.json").write_text(
+    sample_frame.to_csv(repository_path(RESULTS / "eid_zproj_s42_valid_samples.csv", root=ROOT), index=False)
+    pairs_frame.to_csv(repository_path(RESULTS / "eid_zproj_s42_valid_pairs.csv", root=ROOT), index=False)
+    (repository_path(RESULTS / "eid_zproj_s42_valid_verdict.json", root=ROOT)).write_text(
         json.dumps(verdict, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(verdict, ensure_ascii=False, indent=2))
 

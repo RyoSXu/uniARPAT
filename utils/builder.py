@@ -108,7 +108,7 @@ class ConfigBuilder(object):
         
         A torch.utils.data.Dataset item.
         """
-        from datasets.dataset import Dos_Dataset
+        from utils.dataset import Dos_Dataset
         if dataset_params is None:
             dataset_params = self.dataset_params
         dataset_params = dataset_params.get(split, None)
@@ -372,9 +372,9 @@ def build_warmup_cosine_scheduler(optimizer, epochs, warmup_epochs=5,
                                   warmup_lr=1e-5, min_lr=1e-6):
     """H4 hygiene: single LR schedule shared by train.py semantics, ablation & pilot.
 
-    Mirrors configs/default.yaml (cosine, warmup 5 epochs from warmup_lr,
+    Mirrors tools/training-defaults.yaml (cosine, warmup 5 epochs from warmup_lr,
     floor min_lr). Replaces the bare CosineAnnealingLR (no warmup) previously
-    hardcoded in run_ablation_experiments.py / run_pilot_10epochs.py, so pilot
+    hardcoded in tools/train.py / run_pilot_10epochs.py, so pilot
     LR curves extrapolate to full training. Stepped once per epoch.
     """
     import torch

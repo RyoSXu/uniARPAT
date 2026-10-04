@@ -9,7 +9,7 @@
 | **DOS / eDOS / phDOS** | 态密度；分别指电子态密度和声子态密度。 |
 | **CIF** | 晶体信息文件；生产推理的结构输入。 |
 | **Q1 / pre-Q** | Q1 是当前清洁数据池（train/valid/test 为 18,706/2,313/2,287）；pre-Q 是早期数据口径，不能与 Q1 直接比较。 |
-| **Z0 / N_valence** | Z0 是价电子数审计；`N_valence` 是原胞价电子数，用于 eDOS 尺度相关处理。详见 `index/z0_REPORT.md`。 |
+| **Z0 / N_valence** | Z0 是价电子数审计；`N_valence` 是原胞价电子数，用于 eDOS 尺度相关处理。详见 `data/reference/edos-label-audit.md`。 |
 | **oracle / blind** | oracle 使用从真实目标推导的尺度信息，主要看谱形；blind 只使用结构预测量，对应可部署评估。 |
 | **中位 R² / 失败率** | 主要汇总指标；失败率为 `R² < 0` 的样本比例。 |
 | **TV** | 总变差距离；本项目用它描述归一化谱形之间的差异。 |

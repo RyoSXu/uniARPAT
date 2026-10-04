@@ -1,17 +1,17 @@
 """纯原子序号模型（Z100/ZP100）相对 B100 的训练差距诊断。
 
-对应设计：``docs/design/design-element-identity-diagnosis.md``。
+对应设计：``archive/docs/design/design-2026-10-02-element-identity-diagnosis.md``。
 只读取既有日志/配置/checkpoint 与 Q1 train/valid，重建未训练模型仅用于内存快照比较；
 不训练、不更新参数、不追加 seed、不构建或读取 test。
 
 三个执行阶段（``--phase``）：
 
 * A：固定 train 子集与完整 valid 上的同口径评估（损失、oracle/blind 物理指标、配对
-  bootstrap、失败翻转），并与 ``results/eid_zproj_s42_valid_samples.csv`` 交叉核对；
+  bootstrap、失败翻转），并与 ``results/runs/evidence/eid_zproj_s42_valid_samples.csv`` 交叉核对；
 * B：初值重建与指纹核对、参数变化、优化器状态核对、当前 eval 梯度探针；
 * C：入口表示、各层状态、共享偏移分解与注意力打分/权重行为。
 
-全部产物写入 ``results/eid_diagnosis_s42/<run_id>/``；同 run_id 续写同一目录，重跑须换新
+全部产物写入 ``results/reports/eid_diagnosis_s42/<run_id>/``；同 run_id 续写同一目录，重跑须换新
 run_id。任何身份核对失败即停止归因，先报告问题。
 """
 
@@ -38,7 +38,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from datasets.dataset import Dos_Dataset  # noqa: E402
+from utils.dataset import Dos_Dataset  # noqa: E402
 from model.losses import sumnorm_klw_loss  # noqa: E402
 from model.transformer import Transformer  # noqa: E402
 from utils.atom_feature import legacy3_const_vector  # noqa: E402
@@ -46,15 +46,16 @@ from utils.metrics import per_sample_spectral_metrics  # noqa: E402
 from utils.relative_features import compute_relative_features  # noqa: E402
 from utils.zproj_alignment import identity_projection_, state_hash  # noqa: E402
 
-import element_identity_valid_verdict as base  # noqa: E402  复用 predict/配对 bootstrap 口径
-from element_identity_preflight import sha256_file  # noqa: E402
-from eid_zonly_valid_verdict import load_z100  # noqa: E402
+import archive.code.tools.eval.element_identity_valid_verdict as base  # noqa: E402  复用 predict/配对 bootstrap 口径
+from archive.code.tools.eval.element_identity_preflight import sha256_file  # noqa: E402
+from archive.code.tools.eval.eid_zonly_valid_verdict import load_z100  # noqa: E402
 from eid_zproj_valid_verdict import load_zp100  # noqa: E402
+from utils.paths import repository_path
 
-RESULTS = ROOT / "results"
-OUTPUT = ROOT / "output"
-DATA_DIR = ROOT / "data/train4ARPAT"
-RUNS_DIR = RESULTS / "eid_diagnosis_s42"
+RESULTS = repository_path(ROOT / "results/reports", root=ROOT)
+OUTPUT = repository_path(ROOT / "results/runs", root=ROOT)
+DATA_DIR = repository_path(ROOT / "data/train4ARPAT", root=ROOT)
+RUNS_DIR = repository_path(RESULTS / "eid_diagnosis_s42", root=ROOT)
 
 ARMS = {
     "B100": {
@@ -105,19 +106,19 @@ LOSS_DEFAULTS = {  # basemodel.__init__ 缺省解析口径
 
 SOURCE_FILES = [
     "model/transformer.py", "model/model.py", "model/losses.py", "model/heads.py",
-    "datasets/dataset.py", "utils/metrics.py", "utils/zproj_alignment.py",
+    "utils/dataset.py", "utils/metrics.py", "utils/zproj_alignment.py",
     "utils/atom_feature.py", "utils/builder.py", "utils/relative_features.py",
-    "utils/rp_encoding.py", "run_ablation_experiments.py",
+    "utils/rp_encoding.py", "tools/train.py",
     "tools/eval/element_identity_diagnosis.py",
 ]
 OLD_ARTIFACT_GLOBS = [
-    "results/eidconst100_s42_manifest.json", "results/eidzonly100_s42_manifest.json",
-    "results/eidzproj100_s42_manifest.json", "results/eid_s42_valid_samples.csv",
-    "results/eid_zonly_s42_valid_samples.csv", "results/eid_zproj_s42_valid_samples.csv",
-    "results/eid_s42_valid_verdict.json", "results/eid_zonly_s42_valid_verdict.json",
-    "results/eid_zproj_s42_valid_verdict.json",
-    "results/history_m1_eidconst100_s42.csv", "results/history_m1_eidzonly100_s42.csv",
-    "results/history_m1_eidzproj100_s42.csv",
+    "archive/results/reports/eidconst100_s42_manifest.json", "archive/results/reports/eidzonly100_s42_manifest.json",
+    "results/reports/eidzproj100_s42_manifest.json", "archive/results/reports/eid_s42_valid_samples.csv",
+    "archive/results/reports/eid_zonly_s42_valid_samples.csv", "results/runs/evidence/eid_zproj_s42_valid_samples.csv",
+    "archive/results/reports/eid_s42_valid_verdict.json", "archive/results/reports/eid_zonly_s42_valid_verdict.json",
+    "results/reports/eid_zproj_s42_valid_verdict.json",
+    "archive/results/reports/history_m1_eidconst100_s42.csv", "archive/results/reports/history_m1_eidzonly100_s42.csv",
+    "results/reports/history_m1_eidzproj100_s42.csv",
 ]
 
 
@@ -201,7 +202,7 @@ class RunContext:
 # ---------------------------------------------------------------------------
 
 def arm_dir(arm: str) -> Path:
-    return OUTPUT / f"ablation_m1{ARMS[arm]['tag']}"
+    return repository_path(OUTPUT / f"ablation_m1{ARMS[arm]['tag']}", root=ROOT)
 
 
 def arm_config(arm: str) -> dict:
@@ -233,19 +234,19 @@ def resolve_loss_params() -> tuple[dict, dict]:
 
 def collect_input_identity() -> dict:
     identity = {"checked_utc": utc_now(), "hashes": {}, "arms": {}}
-    for path in ("utils/periodic_table_v2.csv", "index/split_v2.yaml",
+    for path in ("data/reference/periodic_table_v2.csv", "data/reference/split_v2.yaml",
                  "data/train4ARPAT/manifest.json"):
-        identity["hashes"][path] = sha256_file(ROOT / path)
+        identity["hashes"][path] = sha256_file(repository_path(ROOT / path, root=ROOT))
     for arm in ARM_ORDER:
-        manifest = json.loads((RESULTS / ARMS[arm]["manifest"]).read_text(encoding="utf-8"))
-        record = {"manifest": ARMS[arm]["manifest"], "manifest_sha256": sha256_file(RESULTS / ARMS[arm]["manifest"]),
+        manifest = json.loads((repository_path(RESULTS / ARMS[arm]["manifest"], root=ROOT)).read_text(encoding="utf-8"))
+        record = {"manifest": ARMS[arm]["manifest"], "manifest_sha256": sha256_file(repository_path(RESULTS / ARMS[arm]["manifest"], root=ROOT)),
                   "atom_feat_mode": manifest.get("atom_feat_mode"),
                   "config_used_sha256": sha256_file(arm_dir(arm) / "config_used.yaml"),
                   "checkpoints": {}}
         if manifest.get("atom_feat_mode") != ARMS[arm]["mode"]:
             raise ValueError(f"{arm} manifest mode mismatch")
-        for key, name in (("table_sha256", "utils/periodic_table_v2.csv"),
-                          ("split_sha256", "index/split_v2.yaml"),
+        for key, name in (("table_sha256", "data/reference/periodic_table_v2.csv"),
+                          ("split_sha256", "data/reference/split_v2.yaml"),
                           ("data_manifest_sha256", "data/train4ARPAT/manifest.json")):
             if manifest["hashes"][key] != identity["hashes"][name]:
                 raise ValueError(f"{arm}: {name} changed since training preflight")
@@ -259,13 +260,13 @@ def collect_input_identity() -> dict:
             record["checkpoints"][which] = {"file": filename, "sha256": digest,
                                             "epoch": entry["epoch"],
                                             "best_val_score": entry.get("best_val_score")}
-        record["history_csv"] = f"results/history_m1{ARMS[arm]['tag']}.csv"
-        record["history_csv_sha256"] = sha256_file(ROOT / record["history_csv"])
+        record["history_csv"] = f"results/reports/history_m1{ARMS[arm]['tag']}.csv"
+        record["history_csv_sha256"] = sha256_file(repository_path(ROOT / record["history_csv"], root=ROOT))
         identity["arms"][arm] = record
-    identity["sources"] = {path: sha256_file(ROOT / path) for path in SOURCE_FILES}
-    z_manifest = json.loads((RESULTS / ARMS["Z100"]["manifest"]).read_text(encoding="utf-8"))
+    identity["sources"] = {path: sha256_file(repository_path(ROOT / path, root=ROOT)) for path in SOURCE_FILES}
+    z_manifest = json.loads((repository_path(RESULTS / ARMS["Z100"]["manifest"], root=ROOT)).read_text(encoding="utf-8"))
     for path in z_manifest["training_code_sha256"]:
-        identity["sources"].setdefault(path, sha256_file(ROOT / path))
+        identity["sources"].setdefault(path, sha256_file(repository_path(ROOT / path, root=ROOT)))
     identity["sources_vs_z100_training_record"] = {
         path: {"now": identity["sources"][path],
                "training_record": z_manifest["training_code_sha256"].get(path),
@@ -275,7 +276,7 @@ def collect_input_identity() -> dict:
 
 
 def old_artifact_hashes() -> dict:
-    return {path: sha256_file(ROOT / path) for path in OLD_ARTIFACT_GLOBS}
+    return {path: sha256_file(repository_path(ROOT / path, root=ROOT)) for path in OLD_ARTIFACT_GLOBS}
 
 
 # ---------------------------------------------------------------------------
@@ -350,7 +351,7 @@ def sample_identity_block(data) -> dict:
 def load_trained(arm: str, which: str, device):
     """复用各判读工具的载入函数（含 manifest/配方/checkpoint 身份核对）。"""
     if arm == "B100":
-        model, info = base.load_arm(arm_dir(arm), RESULTS / ARMS[arm]["manifest"],
+        model, info = base.load_arm(arm_dir(arm), repository_path(RESULTS / ARMS[arm]["manifest"], root=ROOT),
                                     ARMS[arm]["mode"], SNAPSHOT_FILES[which], device)
     elif arm == "Z100":
         model, info = load_z100(arm_dir(arm), SNAPSHOT_FILES[which], device)
@@ -365,7 +366,7 @@ def load_checkpoint(arm: str, which: str) -> dict:
 
 def build_init_models() -> dict:
     """按各臂有效配置独立重建 seed-42 未训练模型；ZP100 复制 Z100 共享初值 + 恒等投影。"""
-    from run_ablation_experiments import setup_ablation_seed
+    from tools.train import setup_ablation_seed
 
     models = {}
     for arm in ("B100", "Z100"):
@@ -661,7 +662,7 @@ def phase_a(ctx: RunContext) -> None:
     ctx.log.log(f"phase A samples.csv written: {len(rows)} rows")
 
     # ---- 与 eid_zproj_s42_valid_samples.csv 交叉核对（预注册容差 rtol=1e-5, atol=1e-6） ----
-    cross = pd.read_csv(RESULTS / "eid_zproj_s42_valid_samples.csv")
+    cross = pd.read_csv(repository_path(RESULTS / "eid_zproj_s42_valid_samples.csv", root=ROOT))
     valid_ids = data["valid_ids"]
     if not np.array_equal(cross["mpid"].to_numpy(), valid_ids):
         raise ValueError("valid sample order mismatch vs eid_zproj_s42_valid_samples.csv")
@@ -755,8 +756,8 @@ def phase_a(ctx: RunContext) -> None:
             "data": paired,
         },
         "valid_crosscheck_vs_eid_zproj_samples": {
-            "source": "results/eid_zproj_s42_valid_samples.csv",
-            "source_sha256": sha256_file(RESULTS / "eid_zproj_s42_valid_samples.csv"),
+            "source": "results/runs/evidence/eid_zproj_s42_valid_samples.csv",
+            "source_sha256": sha256_file(repository_path(RESULTS / "eid_zproj_s42_valid_samples.csv", root=ROOT)),
             "rtol": 1e-5, "atol": 1e-6,
             "tolerance_note": "按设计预注册容差核对，未放宽容差；口径（公式、输入、批次顺序）已逐项核对一致，"
                              "残差来自 GPU 前向浮点非确定性并在近平坦目标的 R² 上病态放大。",
@@ -1549,7 +1550,7 @@ def regime_check(ctx: RunContext) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     resolved, _ = resolve_loss_params()
     data = build_data()
-    cross = pd.read_csv(RESULTS / "eid_zproj_s42_valid_samples.csv")
+    cross = pd.read_csv(repository_path(RESULTS / "eid_zproj_s42_valid_samples.csv", root=ROOT))
     model, _ = load_trained("ZP100", "best", device)
     cold, _ = evaluate_split(model, data["valid_loader"], resolved, device,
                              data["split_index"]["valid"], data["split_ids"]["valid"], repeat=1)

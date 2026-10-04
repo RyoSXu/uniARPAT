@@ -2,13 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import os 
 import pandas as pd
 from typing import Any, Optional, List
 
 
-current_dir = os.path.dirname(__file__)
-periodic_table_csv = os.path.join(current_dir, 'periodic_table_v2.csv')
+from utils.paths import REFERENCE_ROOT
+
+periodic_table_csv = REFERENCE_ROOT / 'periodic_table_v2.csv'
 
 class PeriodicTable():
     """Utility class to provide further element type information for crystal graph node embeddings."""
@@ -70,7 +70,7 @@ class PeriodicTable():
         return self.feature
         
 class Mendeleev24():
-    """Frozen 24-dim physical features (C1.1): utils/atom_features_mendeleev.csv.
+    """Frozen 24-dim physical features (C1.1): data/reference/atom_features_mendeleev.csv.
 
     Z-score stats are computed from the frozen 103-row table itself (fixed,
     no data fitting, no leakage). Row 0 (padding/sentinel) stays exact zeros.
@@ -86,7 +86,7 @@ class Mendeleev24():
     def __init__(self, csv_path=None):
         import pandas as pd
         if csv_path is None:
-            csv_path = os.path.join(current_dir, 'atom_features_mendeleev.csv')
+            csv_path = REFERENCE_ROOT / 'atom_features_mendeleev.csv'
         df = pd.read_csv(csv_path, index_col=0)
         assert list(df.columns) == self.COLS24, "feature table schema drift!"
         raw = df.to_numpy(dtype=np.float64)  # [103, 24], Z=1..103
@@ -161,4 +161,4 @@ def _get_activation_fn(activation):
 if __name__ == "__main__":
     a = AtomFeatureEncoder()
     b = a.feature_map
-    print("d") 
+    print("d")

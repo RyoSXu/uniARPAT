@@ -12,7 +12,7 @@ import math
 
 import torch
 
-from utils.g2_periodic_edges import build_g2_edges
+from utils.periodic_neighbors import build_g2_edges
 from utils.relative_features import build_cell_from_lattice
 
 

@@ -29,16 +29,19 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from utils.paths import historical_path, protected_path
+
 from tools.eval.periodic_geometry_acceptance import compare_records, e3_operations
-from tools.eval.periodic_message_high_order_compare import create_models, load_sample
+from archive.code.tools.eval.periodic_message_high_order_compare import create_models, load_sample
 from tools.eval.periodic_message_module_check import aligned_local_models, frozen_hashes, sha256, write_json
-from tools.eval.periodic_message_precheck import (
+from archive.code.tools.eval.periodic_message_precheck import (
     BudgetMonitor, FEATURE_TOLERANCES, Recorder, changed_geometry, compare_features,
     feature_error, synthetic_cases,
 )
-from tools.eval.periodic_message_prototypes import geometry_from_pos
+from archive.code.tools.eval.periodic_message_prototypes import geometry_from_pos
 from utils.periodic_geometry import PeriodicNeighborRecords, build_periodic_records
 from utils.relative_features import build_cell_from_lattice
+from utils.paths import repository_path
 
 ROUTES = ("A", "B+")
 DTYPES = (torch.float32, torch.float64)
@@ -48,7 +51,7 @@ GRAD_TOLERANCES = {
     torch.float32: {"atol": 2e-6, "rtol": 2e-3, "relative_l2": 3e-3},
     torch.float64: {"atol": 2e-11, "rtol": 1e-8, "relative_l2": 1e-8},
 }
-SOURCE_FILES = ("tools/eval/periodic_message_gpu_check.py", "tests/test_periodic_message_gpu_check.py")
+SOURCE_FILES = ("tools/eval/periodic_message_gpu_check.py", "tests/model/test_periodic_messages_gpu.py")
 
 
 class GPUBudget(BudgetMonitor):
@@ -385,8 +388,10 @@ def verify_cpu_evidence(directory):
         raise ValueError("completed CPU module acceptance required")
     for mapping in (manifest["source_sha256"], manifest["frozen_source_sha256"], manifest["frozen_artifact_sha256"]):
         for relative, digest in mapping.items():
-            if sha256(ROOT / relative) != digest:
+            if sha256(historical_path(relative, digest)) != digest:
                 raise AssertionError(f"protected source/artifact changed: {relative}")
+    for relative, digest in manifest["source_sha256"].items():
+        protected_path(relative, digest)
     for name, digest in manifest["artifacts_sha256"].items():
         if sha256(directory / name) != digest:
             raise AssertionError(f"CPU acceptance artifact changed: {name}")
@@ -396,9 +401,9 @@ def verify_cpu_evidence(directory):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, required=True)
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "data/train4ARPAT")
-    parser.add_argument("--cpu-dir", type=Path, default=ROOT / "results/periodic_message_modules_q1_r6_20261003_v2")
-    parser.add_argument("--precheck-dir", type=Path, default=ROOT / "results/periodic_message_precheck_q1_r6_20261003")
+    parser.add_argument("--data-dir", type=Path, default=repository_path(ROOT / "data/train4ARPAT", root=ROOT))
+    parser.add_argument("--cpu-dir", type=Path, default=repository_path(ROOT / "results/reports/periodic_message_modules_q1_r6_20261003_v2", root=ROOT))
+    parser.add_argument("--precheck-dir", type=Path, default=repository_path(ROOT / "results/reports/periodic_message_precheck_q1_r6_20261003", root=ROOT))
     parser.add_argument("--budget-seconds", type=float, default=720.)
     parser.add_argument("--memory-mib", type=float, default=2048.)
     parser.add_argument("--gpu-memory-gib", type=float, default=8.)
@@ -436,7 +441,7 @@ def main(argv=None):
                 "production_model_executed": False, "parameter_updates": 0,
                 "environment": environment, "selected_samples": prior["selected_samples"],
                 "input_sha256": prior["input_sha256"], "cpu_manifest_sha256": sha256(args.cpu_dir / "manifest.json"),
-                "source_sha256": {name: sha256(ROOT / name) for name in SOURCE_FILES},
+                "source_sha256": {name: sha256(repository_path(ROOT / name, root=ROOT)) for name in SOURCE_FILES},
                 "core_source_sha256": protected["source_sha256"],
                 "feature_tolerances": FEATURE_TOLERANCES,
                 "gradient_tolerances": {str(k): v for k, v in GRAD_TOLERANCES.items()},

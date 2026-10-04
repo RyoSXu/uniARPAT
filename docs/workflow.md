@@ -1,7 +1,7 @@
 # 协作与研究流程
 
 本流程约束如何把研究问题变成可复核的工作，不限定可提出的架构路线。整体状态见 `status.md`，方向地图见
-`design/design-structural-refinement.md`，已确定的长期约定见 `decisions.md`。
+`design/design-2026-09-19-structural-refinement.md`，已确定的长期约定见 `decisions.md`。
 
 1. **理解问题。**先确认用户当前目标，阅读相关证据和调用链。区分事实、推断与未知项，不从最近一个 park 的候选自动续跑。
 2. **开放探索。**可从 encoder、decoder/head、训练目标、数据或完整架构重新思考。Agent 可分别提出新假设、审查代码/数据、提出反方解释；不必围绕同一个预设候选工作，也不必局限于路线图列出的例子。
@@ -10,3 +10,7 @@
 5. **判读与交接。**valid 用于开发决策，test 不用于调参或选型。单个候选的平局或失败只关闭它实际检验的假设；不自动 park 整条路线，也不自动启动下一项。把结论写入对应日志，`status.md` 只保留当前状态和待共同决定事项。
 
 历史设计、提示词和日志用于追溯当时的工作，不默认成为当前 agent 的执行指令。并行工作时协调共享文件；不覆盖他人或用户已有改动。
+
+设计正文使用 `design/design-YYYY-MM-DD-topic.md`；新文档使用创建日期，内容更新不改变创建编号。
+旧文档的日期证据及改名对应保存在 [迁移登记](../archive/metadata/repository-migration-2026-10-04.json)，不把文件复制/检出时间视为创建时间。
+设计和日志模板分别在 [design/template.md](design/template.md)、[logs/template.md](logs/template.md)；路径和 Git 规则见 `repository.md`。

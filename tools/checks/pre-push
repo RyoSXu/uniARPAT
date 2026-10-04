@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo_root="$(git rev-parse --show-toplevel)"
+exec "${PYTHON:-python3}" "$repo_root/tools/checks/check_repository.py" --pre-push "$1"

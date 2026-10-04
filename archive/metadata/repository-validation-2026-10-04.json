@@ -1,0 +1,1234 @@
+{
+  "date": "2026-10-04",
+  "status": "pass",
+  "first_round": {
+    "status": "pass",
+    "date": "2026-10-04",
+    "tests": [
+      {
+        "name": "complete_unit_suite",
+        "tests": 345,
+        "status": "pass",
+        "log": "tests_after.txt"
+      },
+      {
+        "name": "static_ci_contracts",
+        "tests": 189,
+        "status": "pass",
+        "log": "static_checks.txt"
+      },
+      {
+        "name": "final_import_contracts",
+        "tests": 43,
+        "status": "pass",
+        "log": "last_import_checks.txt"
+      }
+    ],
+    "verification": {
+      "layout": {
+        "status": "pass",
+        "business_roots": [
+          "data",
+          "docs",
+          "model",
+          "results",
+          "tests",
+          "tools",
+          "utils"
+        ],
+        "moved_files": 1119,
+        "immutable_regular_files": 981,
+        "checkpoints_same_inode_size_mtime": 164,
+        "critical_checkpoint_sha256": {
+          "results/runs/ablation_m1_e9ctl/checkpoint_best.pth": "cbbf94f227c9a3b4802c09bad7c1058ea015283b0acbd868831a829368d9ad40",
+          "results/runs/ablation_m1_e9ctl/checkpoint_latest.pth": "4f20e50cd846e457ae36ec78684c69aa78aeee82bb6f4d5fad24cc382d6545e2",
+          "results/runs/ablation_m1_eidzproj100_s42/checkpoint_best.pth": "2d2170979361ce6b7a8fc086f85ca818f7cb85042e74ef6a5dc6ff48718e57d1",
+          "results/runs/ablation_m1_eidzproj100_s42/checkpoint_latest.pth": "22ad81200b761474d3467c36b60af96d6cbb1f9d1520743e604090d14dae4a58"
+        },
+        "frozen_code_files_sha256": 14,
+        "authenticated_source_snapshots": 348,
+        "links_valid": 126,
+        "links_broken_preserved": 30,
+        "design_documents_dated": 43,
+        "markdown_file_links_checked": 408,
+        "historical_report_navigation": [
+          {
+            "path": "results/reports/eid_diagnosis_s42/20261002T095909Z/report.md",
+            "line": 3,
+            "current_navigation": "README.md",
+            "original_retained": true
+          }
+        ],
+        "gitignore_paths_checked": 26,
+        "mapped_preexisting_tracked_files_not_ignored": 656,
+        "user_draft_content": "retained except 4 necessary links; remains untracked",
+        "git_head_unchanged": true,
+        "git_index_unchanged": true
+      },
+      "golden": {
+        "status": "pass",
+        "tensors_equal": 114,
+        "values_equal": 431,
+        "max_absolute_output_difference": 0.0,
+        "mode": "CPU fp32 eval; B7 CIF blind and ZP100 fixed Q1 train/valid samples; strict state dict"
+      },
+      "model_math": {
+        "status": "pass",
+        "model_modules_ast_identical": 7,
+        "modules": [
+          "model/heads.py",
+          "model/model.py",
+          "model/transformer.py",
+          "model/__init__.py",
+          "model/losses.py",
+          "model/periodic_manybody.py",
+          "model/periodic_messages.py"
+        ],
+        "comparison": "Python AST without source location/comment attributes; all model computation unchanged"
+      },
+      "evidence": {
+        "precheck": {
+          "status": "pass",
+          "cases": 840,
+          "control_cases": 10,
+          "isolated_resource_cases": 2,
+          "main_manifest_sha256": "1a41058687a001d9185b782970c6a1abc557ce62ef814b1c6572256fb034b501",
+          "main_case_categories": {
+            "synthetic_boundary": 24,
+            "e3_direct": 400,
+            "e3_rebuilt": 84,
+            "representation": 272,
+            "angle_response": 8,
+            "structural_response": 8,
+            "geometry_vjp": 4,
+            "resources": 32,
+            "supercell": 8
+          },
+          "control_artifact_sha256": {
+            "angles.json": "c4038032dd01f5604579c875334166df7dd0335ca623ecce8a8117ca81cd659f",
+            "invariant_resource.json": "dfe5079bfcdc4581bb003a45a6c3f8b4f6c5cd060098dcc0e73c46f2f36cb817",
+            "equivariant_resource.json": "ffda12204e0cc34f80719751bbab7234cb612664c4daa110e85bca3cebb57c26"
+          },
+          "main_and_control_seconds": 598.8947314380202,
+          "checks": [
+            "input/source/prior/output hashes",
+            "JSON/JSONL/CSV identity and counts",
+            "independent summary/group reconciliation",
+            "all 16 samples have expected transform coverage",
+            "parameter/buffer hashes unchanged",
+            "all real backward parameter tensors active and finite",
+            "angle identity controls, near-cutoff weakness, low-order blind spot",
+            "resource limits"
+          ],
+          "scope": "artifact and protocol consistency only; does not rerun neural forwards or prove DOS accuracy",
+          "verifier_source_sha256": "c519fc2bb2d113a53cf490b6643b54bcaef6042273dab2b05ffa64f7d8771d5e",
+          "additional_test_source_sha256": "a6f8818f40d89955faa01d2d70f71beaa7f98d5e3641e7bc319661e82d1b86c4"
+        },
+        "high_order": {
+          "status": "pass",
+          "cases": 994,
+          "categories": {
+            "fixed_radial_angle": 60,
+            "equal_low_order_moments": 60,
+            "high_order_ablation": 20,
+            "synthetic_boundary": 36,
+            "e3_direct": 280,
+            "e3_rebuilt": 62,
+            "representation": 152,
+            "supercell": 4,
+            "real_shared_e3": 96,
+            "high_order_invariant_e3": 32,
+            "real_shear_response": 48,
+            "resources": 144
+          },
+          "csv_cells_checked": 56658,
+          "main_and_rss_elapsed_seconds": 453.83148253918625,
+          "isolated": {
+            "A": {
+              "peak_rss_MiB": 974.1875,
+              "manifest_sha256": "f0654217def6668ee64a5aa8a0341e3e8c04e8f7c2f1678445e2abfbf6badb0f"
+            },
+            "B": {
+              "peak_rss_MiB": 576.28125,
+              "manifest_sha256": "79893ab232c0d51de0da83318865c432b3f2d547933bafb204fb819fd16a04da"
+            },
+            "B+": {
+              "peak_rss_MiB": 582.73828125,
+              "manifest_sha256": "ee9e20c9e1ebffa9c28ccf84ef32b6cd88f491c4515ca82797ddf48a5ae1217b"
+            }
+          },
+          "main_manifest_sha256": "d498b708e64ee0fba4dd8f4a1f7c39d47ed3514190164c5e5ea1675fe2da6587",
+          "verifier_source_sha256": "0645df64662bdf30f9d68bea0717c9161eeef533d3c78b3b17686750d6573b5c",
+          "scope": "saved evidence consistency; not a neural rerun, arbitrary-environment proof or DOS evaluation"
+        },
+        "gpu": {
+          "status": "pass",
+          "cases": 966,
+          "categories": {
+            "gpu_geometry": 44,
+            "cpu_gpu_features": 88,
+            "gpu_rebuilt_features": 88,
+            "gpu_orthogonal": 440,
+            "gpu_padding": 80,
+            "gpu_representation": 48,
+            "cpu_gpu_gradients": 12,
+            "gpu_translation": 64,
+            "gpu_zp_pipeline": 2,
+            "batch_preparation": 4,
+            "benchmark": 96
+          },
+          "csv_cells_checked": 46368,
+          "confirmation_profiles": 8,
+          "main_manifest_sha256": "7e9bb2a22fd5db85edc1af952fcc5fd5c8c221cb3ab0267222debe9af8d388fc",
+          "confirmation_summary_sha256": "94ced135998a1c16df04e07102903401c7bdb7c3929fec13a40ee71ea27b4a76",
+          "verifier_source_sha256": "3d6508c312051efc6af4b53fbb906f0ea8458b25b492877eb26a92e40ea1ef38",
+          "scope": "saved evidence consistency; no neural rerun or full-model/accuracy claim"
+        }
+      },
+      "cli": {
+        "status": "pass",
+        "cwd": "/tmp",
+        "command": "python <absolute-entry> --help",
+        "entries": [
+          {
+            "path": "run_ablation_experiments.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "b7_cif_infer.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/data/a6_split.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/data/build_v2_cache.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/data/c2b_grids.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/data/download_delta_tables.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/data/download_phonondb.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/data/fetch_mp_raw.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/data/q1_rebuild.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/c2_1b_loss_attribution.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/c4_amp_resource_gate.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/confirm_periodic_message_gpu_timing.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/d3a_edos_support_adjudication.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/d4b_negative_coordinate_provenance_audit.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/d4c_jarvis_min_fd_semantics_audit.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/e6_bucket_resource_gate.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/edos_error_attribution.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/edos_pair_aux_resource_gate.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/edos_pair_aux_verdict.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/edos_slope_pilot_verdict.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/eid_zonly_monitor.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/eid_zonly_preflight.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/eid_zonly_valid_verdict.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/eid_zproj_monitor.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/eid_zproj_preflight.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/eid_zproj_valid_verdict.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/element_identity_diagnosis.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/element_identity_preflight.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/element_identity_valid_verdict.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_edge_audit.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_encoder_adaptation_probe.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_frozen_readout_probe.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_last_layer_fit_probe.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_non_value_fit_probe.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_pilot_verdict.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_resource_gate.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_small_fit_probe.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_structure_path_audit.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/g2_value_fit_probe.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/h1_gamma_calibration_gate.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/joint_content_pilot_verdict.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/periodic_geometry_acceptance.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/periodic_message_gpu_check.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/periodic_message_module_check.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/periodic_neighbor_radius_audit.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/plot_g2_small_fit.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/plot_periodic_message_high_order.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/plot_periodic_neighbor_radius_audit.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/r2a_decoder_resource.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/structure_signal_diagnostic.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/verify_periodic_message_gpu_check.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/verify_periodic_message_high_order.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/verify_periodic_message_precheck.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/joint_content_resource_gate.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/r2a_pilot_verdict.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/r2b_atom_additive_resource.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          },
+          {
+            "path": "tools/eval/r2b_pilot_verdict.py",
+            "exit_code": 0,
+            "output": "help displayed"
+          }
+        ]
+      },
+      "b7_frontend": {
+        "status": "pass",
+        "cwd": "/tmp",
+        "device": "cpu",
+        "legacy_checkpoint_path_translated": true,
+        "custom_output_respected": true,
+        "files": [
+          "silicon_b7_blind.json",
+          "silicon_b7_blind.npz",
+          "summary.csv"
+        ],
+        "n_atoms": 2,
+        "epoch": 33,
+        "spectra_bitwise_equal_to_before": true,
+        "production_output_written": false
+      }
+    },
+    "limitations": [
+      "10 historical source identities were unresolvable before migration; original manifests retained",
+      "30 old grid symlinks remain broken and mixed-row historical grids are non-production",
+      "full historical experiment reruns, real training and GPU execution were not performed; CLI help only for 57 entrypoints"
+    ],
+    "git_actions": "no staging, commit, push, checkout or history rewrite",
+    "final_current_markdown_links_checked": 418,
+    "regenerated_caches_cleaned": true,
+    "inventory": {
+      "project_directories_excluding_git": 188,
+      "git_internal_directories": 342,
+      "all_files_including_git": 5046,
+      "file_classifications": {
+        "已受控": 275,
+        "原受控文件迁移，待暂存": 381,
+        "Git内部": 3203,
+        "本地忽略": 808,
+        "未跟踪，待审阅": 379
+      },
+      "business_roots": [
+        "data",
+        "docs",
+        "model",
+        "results",
+        "tests",
+        "tools",
+        "utils"
+      ]
+    }
+  },
+  "second_round": {
+    "status": "pass",
+    "tests": {
+      "current": {
+        "status": "pass",
+        "tests": 102,
+        "seconds": 61.395,
+        "skipped": 0
+      },
+      "archived_compatibility": {
+        "status": "pass",
+        "tests": 251,
+        "seconds": 66.034,
+        "skipped": 0
+      },
+      "static_contracts": {
+        "status": "pass",
+        "tests": 222,
+        "seconds": 72.402,
+        "skipped": 0
+      },
+      "clean_prospective_checkout_static_contracts": {
+        "status": "pass",
+        "tests": 222,
+        "seconds": 72.695,
+        "skipped": 1
+      }
+    },
+    "full_current_and_archived_tests": 353,
+    "layout": {
+      "status": "pass",
+      "business_roots": [
+        "archive",
+        "data",
+        "docs",
+        "model",
+        "results",
+        "tests",
+        "tools",
+        "utils"
+      ],
+      "files_moved": 1662,
+      "immutable_payload_files_sha256": 813,
+      "q1_files_sha256": 26,
+      "checkpoints_same_inode_size_mtime": 165,
+      "critical_checkpoint_sha256_checked": 4,
+      "original_symlinks_valid": 126,
+      "original_broken_symlinks_preserved": 30,
+      "added_manifest_compatibility_symlink": 1,
+      "model_math_modules_verified": 7,
+      "model_math_comparison": "AST with import-only branches removed; tensor calculation unchanged",
+      "thermodynamic_calculator_class_ast_identical": true,
+      "removed_source_versions_restored_and_sha256_verified": 269,
+      "git_head_unchanged": true,
+      "user_draft_prose_retained_and_untracked": true
+    },
+    "golden": {
+      "status": "pass",
+      "tensors_equal": 114,
+      "values_equal": 431,
+      "max_absolute_output_difference": 0.0,
+      "mode": "CPU fp32 eval; B7 CIF blind and ZP100 fixed Q1 train/valid samples; strict state dict"
+    },
+    "evidence": {
+      "precheck": {
+        "status": "pass",
+        "cases": 840,
+        "control_cases": 10,
+        "isolated_resource_cases": 2,
+        "main_manifest_sha256": "1a41058687a001d9185b782970c6a1abc557ce62ef814b1c6572256fb034b501",
+        "main_case_categories": {
+          "synthetic_boundary": 24,
+          "e3_direct": 400,
+          "e3_rebuilt": 84,
+          "representation": 272,
+          "angle_response": 8,
+          "structural_response": 8,
+          "geometry_vjp": 4,
+          "resources": 32,
+          "supercell": 8
+        },
+        "control_artifact_sha256": {
+          "angles.json": "c4038032dd01f5604579c875334166df7dd0335ca623ecce8a8117ca81cd659f",
+          "invariant_resource.json": "dfe5079bfcdc4581bb003a45a6c3f8b4f6c5cd060098dcc0e73c46f2f36cb817",
+          "equivariant_resource.json": "ffda12204e0cc34f80719751bbab7234cb612664c4daa110e85bca3cebb57c26"
+        },
+        "main_and_control_seconds": 598.8947314380202,
+        "checks": [
+          "input/source/prior/output hashes",
+          "JSON/JSONL/CSV identity and counts",
+          "independent summary/group reconciliation",
+          "all 16 samples have expected transform coverage",
+          "parameter/buffer hashes unchanged",
+          "all real backward parameter tensors active and finite",
+          "angle identity controls, near-cutoff weakness, low-order blind spot",
+          "resource limits"
+        ],
+        "scope": "artifact and protocol consistency only; does not rerun neural forwards or prove DOS accuracy",
+        "verifier_source_sha256": "ce298f809d8e1eec9ff0c8a9c9c95401ffc58372edb6d2834504b95e8f36a184",
+        "additional_test_source_sha256": "2a83ff8cbaadea3b663c7c7c039ee5357855ba1ed4786560a7e010c034b12ecb"
+      },
+      "high_order": {
+        "status": "pass",
+        "cases": 994,
+        "categories": {
+          "fixed_radial_angle": 60,
+          "equal_low_order_moments": 60,
+          "high_order_ablation": 20,
+          "synthetic_boundary": 36,
+          "e3_direct": 280,
+          "e3_rebuilt": 62,
+          "representation": 152,
+          "supercell": 4,
+          "real_shared_e3": 96,
+          "high_order_invariant_e3": 32,
+          "real_shear_response": 48,
+          "resources": 144
+        },
+        "csv_cells_checked": 56658,
+        "main_and_rss_elapsed_seconds": 453.83148253918625,
+        "isolated": {
+          "A": {
+            "peak_rss_MiB": 974.1875,
+            "manifest_sha256": "f0654217def6668ee64a5aa8a0341e3e8c04e8f7c2f1678445e2abfbf6badb0f"
+          },
+          "B": {
+            "peak_rss_MiB": 576.28125,
+            "manifest_sha256": "79893ab232c0d51de0da83318865c432b3f2d547933bafb204fb819fd16a04da"
+          },
+          "B+": {
+            "peak_rss_MiB": 582.73828125,
+            "manifest_sha256": "ee9e20c9e1ebffa9c28ccf84ef32b6cd88f491c4515ca82797ddf48a5ae1217b"
+          }
+        },
+        "main_manifest_sha256": "d498b708e64ee0fba4dd8f4a1f7c39d47ed3514190164c5e5ea1675fe2da6587",
+        "verifier_source_sha256": "7fe82b594c7c08af51c0600abf7b47b374b8fc1d63340d1c4eea7e908c8d666f",
+        "scope": "saved evidence consistency; not a neural rerun, arbitrary-environment proof or DOS evaluation"
+      },
+      "gpu": {
+        "status": "pass",
+        "cases": 966,
+        "categories": {
+          "gpu_geometry": 44,
+          "cpu_gpu_features": 88,
+          "gpu_rebuilt_features": 88,
+          "gpu_orthogonal": 440,
+          "gpu_padding": 80,
+          "gpu_representation": 48,
+          "cpu_gpu_gradients": 12,
+          "gpu_translation": 64,
+          "gpu_zp_pipeline": 2,
+          "batch_preparation": 4,
+          "benchmark": 96
+        },
+        "csv_cells_checked": 46368,
+        "confirmation_profiles": 8,
+        "main_manifest_sha256": "7e9bb2a22fd5db85edc1af952fcc5fd5c8c221cb3ab0267222debe9af8d388fc",
+        "confirmation_summary_sha256": "94ced135998a1c16df04e07102903401c7bdb7c3929fec13a40ee71ea27b4a76",
+        "verifier_source_sha256": "554e9f3e95045e87760baf350d78ad979f53c3ce267828fcf3ef1fcbd1a6332d",
+        "scope": "saved evidence consistency; no neural rerun or full-model/accuracy claim"
+      }
+    },
+    "cli": {
+      "status": "pass",
+      "help_entries": 61,
+      "cwd": "/tmp",
+      "maintained_current_and_archived_entrypoints": [
+        "tools/train.py",
+        "tools/infer_b7_cif.py",
+        "archive/code/tools/eval/c2_1b_loss_attribution.py",
+        "archive/code/tools/eval/c4_amp_resource_gate.py",
+        "archive/code/tools/eval/d3a_edos_support_adjudication.py",
+        "archive/code/tools/eval/e6_bucket_resource_gate.py",
+        "archive/code/tools/eval/edos_error_attribution.py",
+        "archive/code/tools/eval/edos_pair_aux_resource_gate.py",
+        "archive/code/tools/eval/edos_pair_aux_verdict.py",
+        "archive/code/tools/eval/edos_slope_pilot_verdict.py",
+        "archive/code/tools/eval/eid_zonly_preflight.py",
+        "archive/code/tools/eval/eid_zonly_valid_verdict.py",
+        "archive/code/tools/eval/eid_zproj_preflight.py",
+        "archive/code/tools/eval/element_identity_valid_verdict.py",
+        "archive/code/tools/eval/g2_edge_audit.py",
+        "archive/code/tools/eval/g2_encoder_adaptation_probe.py",
+        "archive/code/tools/eval/g2_frozen_readout_probe.py",
+        "archive/code/tools/eval/g2_last_layer_fit_probe.py",
+        "archive/code/tools/eval/g2_non_value_fit_probe.py",
+        "archive/code/tools/eval/g2_pilot_verdict.py",
+        "archive/code/tools/eval/g2_resource_gate.py",
+        "archive/code/tools/eval/g2_small_fit_probe.py",
+        "archive/code/tools/eval/g2_structure_path_audit.py",
+        "archive/code/tools/eval/g2_value_fit_probe.py",
+        "archive/code/tools/eval/joint_content_pilot_verdict.py",
+        "archive/code/tools/eval/joint_content_resource_gate.py",
+        "archive/code/tools/eval/periodic_message_controls.py",
+        "archive/code/tools/eval/periodic_message_high_order_compare.py",
+        "archive/code/tools/eval/periodic_message_precheck.py",
+        "archive/code/tools/eval/plot_g2_small_fit.py",
+        "archive/code/tools/eval/r2a_decoder_resource.py",
+        "archive/code/tools/eval/r2a_pilot_verdict.py",
+        "archive/code/tools/eval/r2b_atom_additive_resource.py",
+        "archive/code/tools/eval/r2b_pilot_verdict.py",
+        "archive/code/tools/eval/structure_signal_diagnostic.py",
+        "tools/checks/check_repository.py",
+        "tools/data/a6_split.py",
+        "tools/data/build_v2_cache.py",
+        "tools/data/c2b_grids.py",
+        "tools/data/download_delta_tables.py",
+        "tools/data/download_phonondb.py",
+        "tools/data/fetch_mp_raw.py",
+        "tools/data/q1_rebuild.py",
+        "tools/eval/confirm_periodic_message_gpu_timing.py",
+        "tools/eval/eid_zproj_valid_verdict.py",
+        "tools/eval/element_identity_diagnosis.py",
+        "tools/eval/periodic_geometry_acceptance.py",
+        "tools/eval/periodic_message_gpu_check.py",
+        "tools/eval/periodic_message_module_check.py",
+        "tools/eval/periodic_neighbor_radius_audit.py",
+        "tools/eval/plot_periodic_message_high_order.py",
+        "tools/eval/plot_periodic_neighbor_radius_audit.py",
+        "tools/eval/verify_periodic_message_gpu_check.py",
+        "tools/eval/verify_periodic_message_high_order.py",
+        "tools/eval/verify_periodic_message_precheck.py",
+        "archive/code/tools/eval/d4b_negative_coordinate_provenance_audit.py",
+        "archive/code/tools/eval/d4c_jarvis_min_fd_semantics_audit.py",
+        "archive/code/tools/eval/eid_zonly_monitor.py",
+        "archive/code/tools/eval/eid_zproj_monitor.py",
+        "archive/code/tools/eval/element_identity_preflight.py",
+        "archive/code/tools/eval/h1_gamma_calibration_gate.py"
+      ]
+    },
+    "b7_frontend": {
+      "status": "pass",
+      "cwd": "/tmp",
+      "device": "cpu",
+      "legacy_checkpoint_path_translated": true,
+      "custom_output_respected": true,
+      "files": [
+        "silicon_b7_blind.json",
+        "silicon_b7_blind.npz",
+        "summary.csv"
+      ],
+      "n_atoms": 2,
+      "epoch": 33,
+      "spectra_bitwise_equal_to_before": true,
+      "production_output_written": false
+    },
+    "current_imports": {
+      "status": "pass",
+      "training_import_and_default_model_load_no_archive_code": true,
+      "thermodynamic_library_load_no_archive_code": true
+    },
+    "git_payload_boundary": {
+      "status": "pass",
+      "generated_payloads_removed_from_index": 90,
+      "bytes_kept_local": 72035505,
+      "other_index_entries_unchanged": true,
+      "local_files_retained": true,
+      "reviewed_additional_evidence_exceptions": 31,
+      "entries": [
+        {
+          "original_index_path": "results/c2_1b_valid_gradient_batches.csv",
+          "current_local_path": "archive/results/reports/c2_1b_valid_gradient_batches.csv"
+        },
+        {
+          "original_index_path": "results/c2_1b_valid_samples.csv",
+          "current_local_path": "archive/results/reports/c2_1b_valid_samples.csv"
+        },
+        {
+          "original_index_path": "results/d3a_edos_support_q1_valid_q4.csv",
+          "current_local_path": "archive/results/reports/d3a_edos_support_q1_valid_q4.csv"
+        },
+        {
+          "original_index_path": "results/d3a_edos_support_sample.csv",
+          "current_local_path": "archive/results/reports/d3a_edos_support_sample.csv"
+        },
+        {
+          "original_index_path": "results/d4_phdos_b7_test_samples.csv",
+          "current_local_path": "archive/results/reports/d4_phdos_b7_test_samples.csv"
+        },
+        {
+          "original_index_path": "results/d4b_phdos_provenance_test_samples.csv",
+          "current_local_path": "archive/results/reports/d4b_phdos_provenance_test_samples.csv"
+        },
+        {
+          "original_index_path": "results/d4c_jarvis_min_fd_test_samples.csv",
+          "current_local_path": "archive/results/reports/d4c_jarvis_min_fd_test_samples.csv"
+        },
+        {
+          "original_index_path": "results/edos_error_attribution_q1_samples.csv",
+          "current_local_path": "archive/results/reports/edos_error_attribution_q1_samples.csv"
+        },
+        {
+          "original_index_path": "results/edos_error_attribution_q1_valid_samples.csv",
+          "current_local_path": "archive/results/reports/edos_error_attribution_q1_valid_samples.csv"
+        },
+        {
+          "original_index_path": "results/edos_pair_aux_q1_pairs.csv",
+          "current_local_path": "archive/results/reports/edos_pair_aux_q1_pairs.csv"
+        },
+        {
+          "original_index_path": "results/edos_shape_diagnostic_q1_valid_samples.csv",
+          "current_local_path": "archive/results/reports/edos_shape_diagnostic_q1_valid_samples.csv"
+        },
+        {
+          "original_index_path": "results/edos_slope_pilot_q1_valid_candidate_samples.csv",
+          "current_local_path": "archive/results/reports/edos_slope_pilot_q1_valid_candidate_samples.csv"
+        },
+        {
+          "original_index_path": "results/edos_slope_pilot_q1_valid_control_samples.csv",
+          "current_local_path": "archive/results/reports/edos_slope_pilot_q1_valid_control_samples.csv"
+        },
+        {
+          "original_index_path": "results/edos_spectral_support_q1_train_valid_samples.csv",
+          "current_local_path": "archive/results/reports/edos_spectral_support_q1_train_valid_samples.csv"
+        },
+        {
+          "original_index_path": "results/edos_spectral_support_q1_valid_pairs.csv",
+          "current_local_path": "archive/results/reports/edos_spectral_support_q1_valid_pairs.csv"
+        },
+        {
+          "original_index_path": "results/eid_diagnosis_s42/20261002T095909Z/activations.csv",
+          "current_local_path": "results/reports/eid_diagnosis_s42/20261002T095909Z/activations.csv"
+        },
+        {
+          "original_index_path": "results/eid_diagnosis_s42/20261002T095909Z/activations.v1.csv",
+          "current_local_path": "results/reports/eid_diagnosis_s42/20261002T095909Z/activations.v1.csv"
+        },
+        {
+          "original_index_path": "results/eid_diagnosis_s42/20261002T095909Z/attention.csv",
+          "current_local_path": "results/reports/eid_diagnosis_s42/20261002T095909Z/attention.csv"
+        },
+        {
+          "original_index_path": "results/eid_diagnosis_s42/20261002T095909Z/attention.v1.csv",
+          "current_local_path": "results/reports/eid_diagnosis_s42/20261002T095909Z/attention.v1.csv"
+        },
+        {
+          "original_index_path": "results/eid_diagnosis_s42/20261002T095909Z/failure_flips.csv",
+          "current_local_path": "results/reports/eid_diagnosis_s42/20261002T095909Z/failure_flips.csv"
+        },
+        {
+          "original_index_path": "results/eid_diagnosis_s42/20261002T095909Z/gradients.csv",
+          "current_local_path": "results/reports/eid_diagnosis_s42/20261002T095909Z/gradients.csv"
+        },
+        {
+          "original_index_path": "results/eid_diagnosis_s42/20261002T095909Z/optimizer_state.csv",
+          "current_local_path": "results/reports/eid_diagnosis_s42/20261002T095909Z/optimizer_state.csv"
+        },
+        {
+          "original_index_path": "results/eid_diagnosis_s42/20261002T095909Z/parameter_changes.csv",
+          "current_local_path": "results/reports/eid_diagnosis_s42/20261002T095909Z/parameter_changes.csv"
+        },
+        {
+          "original_index_path": "results/eid_diagnosis_s42/20261002T095909Z/samples.csv",
+          "current_local_path": "results/runs/evidence/eid_diagnosis_s42/20261002T095909Z/samples.csv"
+        },
+        {
+          "original_index_path": "results/eid_s42_valid_pairs.csv",
+          "current_local_path": "archive/results/reports/eid_s42_valid_pairs.csv"
+        },
+        {
+          "original_index_path": "results/eid_s42_valid_samples.csv",
+          "current_local_path": "archive/results/reports/eid_s42_valid_samples.csv"
+        },
+        {
+          "original_index_path": "results/eid_zonly_s42_valid_pairs.csv",
+          "current_local_path": "archive/results/reports/eid_zonly_s42_valid_pairs.csv"
+        },
+        {
+          "original_index_path": "results/eid_zonly_s42_valid_samples.csv",
+          "current_local_path": "archive/results/reports/eid_zonly_s42_valid_samples.csv"
+        },
+        {
+          "original_index_path": "results/eid_zproj_s42_valid_pairs.csv",
+          "current_local_path": "results/runs/evidence/eid_zproj_s42_valid_pairs.csv"
+        },
+        {
+          "original_index_path": "results/eid_zproj_s42_valid_samples.csv",
+          "current_local_path": "results/runs/evidence/eid_zproj_s42_valid_samples.csv"
+        },
+        {
+          "original_index_path": "results/g2_edge_audit_q1.csv",
+          "current_local_path": "archive/results/reports/g2_edge_audit_q1.csv"
+        },
+        {
+          "original_index_path": "results/g2_encoder_adaptation_q1_pairs.csv",
+          "current_local_path": "archive/results/reports/g2_encoder_adaptation_q1_pairs.csv"
+        },
+        {
+          "original_index_path": "results/g2_encoder_adaptation_q1_plan.csv",
+          "current_local_path": "archive/results/reports/g2_encoder_adaptation_q1_plan.csv"
+        },
+        {
+          "original_index_path": "results/g2_encoder_adaptation_q1_samples.csv",
+          "current_local_path": "archive/results/reports/g2_encoder_adaptation_q1_samples.csv"
+        },
+        {
+          "original_index_path": "results/g2_frozen_readout_q1_pairs.csv",
+          "current_local_path": "archive/results/reports/g2_frozen_readout_q1_pairs.csv"
+        },
+        {
+          "original_index_path": "results/g2_frozen_readout_q1_plan.csv",
+          "current_local_path": "archive/results/reports/g2_frozen_readout_q1_plan.csv"
+        },
+        {
+          "original_index_path": "results/g2_frozen_readout_q1_samples.csv",
+          "current_local_path": "archive/results/reports/g2_frozen_readout_q1_samples.csv"
+        },
+        {
+          "original_index_path": "results/g2_last_layer_fit_q1_final_pairs.csv",
+          "current_local_path": "archive/results/reports/g2_last_layer_fit_q1_final_pairs.csv"
+        },
+        {
+          "original_index_path": "results/g2_last_layer_fit_q1_pair_history.csv",
+          "current_local_path": "archive/results/reports/g2_last_layer_fit_q1_pair_history.csv"
+        },
+        {
+          "original_index_path": "results/g2_last_layer_fit_q1_samples.csv",
+          "current_local_path": "archive/results/reports/g2_last_layer_fit_q1_samples.csv"
+        },
+        {
+          "original_index_path": "results/g2_last_layer_fit_q1_selection.csv",
+          "current_local_path": "archive/results/reports/g2_last_layer_fit_q1_selection.csv"
+        },
+        {
+          "original_index_path": "results/g2_non_value_fit_q1_final_pairs.csv",
+          "current_local_path": "archive/results/reports/g2_non_value_fit_q1_final_pairs.csv"
+        },
+        {
+          "original_index_path": "results/g2_non_value_fit_q1_pair_history.csv",
+          "current_local_path": "archive/results/reports/g2_non_value_fit_q1_pair_history.csv"
+        },
+        {
+          "original_index_path": "results/g2_non_value_fit_q1_samples.csv",
+          "current_local_path": "archive/results/reports/g2_non_value_fit_q1_samples.csv"
+        },
+        {
+          "original_index_path": "results/g2_non_value_fit_q1_selection.csv",
+          "current_local_path": "archive/results/reports/g2_non_value_fit_q1_selection.csv"
+        },
+        {
+          "original_index_path": "results/g2_small_fit_q1_final_pairs.csv",
+          "current_local_path": "archive/results/reports/g2_small_fit_q1_final_pairs.csv"
+        },
+        {
+          "original_index_path": "results/g2_small_fit_q1_input_audit.csv",
+          "current_local_path": "archive/results/reports/g2_small_fit_q1_input_audit.csv"
+        },
+        {
+          "original_index_path": "results/g2_small_fit_q1_pair_history.csv",
+          "current_local_path": "archive/results/reports/g2_small_fit_q1_pair_history.csv"
+        },
+        {
+          "original_index_path": "results/g2_small_fit_q1_samples.csv",
+          "current_local_path": "archive/results/reports/g2_small_fit_q1_samples.csv"
+        },
+        {
+          "original_index_path": "results/g2_small_fit_q1_selection.csv",
+          "current_local_path": "archive/results/reports/g2_small_fit_q1_selection.csv"
+        },
+        {
+          "original_index_path": "results/g2_structure_path_q1_interventions.csv",
+          "current_local_path": "archive/results/reports/g2_structure_path_q1_interventions.csv"
+        },
+        {
+          "original_index_path": "results/g2_structure_path_q1_pairs.csv",
+          "current_local_path": "archive/results/reports/g2_structure_path_q1_pairs.csv"
+        },
+        {
+          "original_index_path": "results/g2_structure_path_q1_residuals.csv",
+          "current_local_path": "archive/results/reports/g2_structure_path_q1_residuals.csv"
+        },
+        {
+          "original_index_path": "results/g2_structure_path_q1_samples.csv",
+          "current_local_path": "archive/results/reports/g2_structure_path_q1_samples.csv"
+        },
+        {
+          "original_index_path": "results/g2_value_fit_q1_final_pairs.csv",
+          "current_local_path": "archive/results/reports/g2_value_fit_q1_final_pairs.csv"
+        },
+        {
+          "original_index_path": "results/g2_value_fit_q1_pair_history.csv",
+          "current_local_path": "archive/results/reports/g2_value_fit_q1_pair_history.csv"
+        },
+        {
+          "original_index_path": "results/g2_value_fit_q1_samples.csv",
+          "current_local_path": "archive/results/reports/g2_value_fit_q1_samples.csv"
+        },
+        {
+          "original_index_path": "results/g2_value_fit_q1_selection.csv",
+          "current_local_path": "archive/results/reports/g2_value_fit_q1_selection.csv"
+        },
+        {
+          "original_index_path": "results/h1_gamma_calibration_q1_valid_samples.csv",
+          "current_local_path": "archive/results/reports/h1_gamma_calibration_q1_valid_samples.csv"
+        },
+        {
+          "original_index_path": "results/joint_content_pilot_q1_valid_composition_pairs.csv",
+          "current_local_path": "archive/results/reports/joint_content_pilot_q1_valid_composition_pairs.csv"
+        },
+        {
+          "original_index_path": "results/joint_content_pilot_q1_valid_control_samples.csv",
+          "current_local_path": "archive/results/reports/joint_content_pilot_q1_valid_control_samples.csv"
+        },
+        {
+          "original_index_path": "results/joint_content_pilot_q1_valid_joint_samples.csv",
+          "current_local_path": "archive/results/reports/joint_content_pilot_q1_valid_joint_samples.csv"
+        },
+        {
+          "original_index_path": "results/joint_content_pilot_q1_valid_radial_samples.csv",
+          "current_local_path": "archive/results/reports/joint_content_pilot_q1_valid_radial_samples.csv"
+        },
+        {
+          "original_index_path": "results/periodic_geometry_q1_r6_20261003/full_record_contracts.csv",
+          "current_local_path": "archive/results/reports/periodic_geometry_q1_r6_20261003/full_record_contracts.csv"
+        },
+        {
+          "original_index_path": "results/periodic_geometry_q1_r6_20261003_v2/full_record_contracts.csv",
+          "current_local_path": "results/runs/evidence/periodic_geometry_q1_r6_20261003_v2/full_record_contracts.csv"
+        },
+        {
+          "original_index_path": "results/periodic_manybody_edge_audit_q1.csv",
+          "current_local_path": "archive/results/reports/periodic_manybody_edge_audit_q1.csv"
+        },
+        {
+          "original_index_path": "results/periodic_manybody_q1_valid_pairs.csv",
+          "current_local_path": "archive/results/reports/periodic_manybody_q1_valid_pairs.csv"
+        },
+        {
+          "original_index_path": "results/periodic_manybody_q1_valid_samples.csv",
+          "current_local_path": "archive/results/reports/periodic_manybody_q1_valid_samples.csv"
+        },
+        {
+          "original_index_path": "results/periodic_neighbor_radius_q1_20261003/atoms.csv.gz",
+          "current_local_path": "results/runs/evidence/periodic_neighbor_radius_q1_20261003/atoms.csv.gz"
+        },
+        {
+          "original_index_path": "results/periodic_neighbor_radius_q1_20261003/structures.csv.gz",
+          "current_local_path": "results/runs/evidence/periodic_neighbor_radius_q1_20261003/structures.csv.gz"
+        },
+        {
+          "original_index_path": "results/samples_m1_apdossum_blind_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_apdossum_blind_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_apdossum_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_apdossum_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_c5ctl_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_c5ctl_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_c5tok_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_c5tok_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_e10ctl_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_e10ctl_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_e10macro_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_e10macro_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_e9ctl_blind_test.csv",
+          "current_local_path": "results/runs/evidence/samples_m1_e9ctl_blind_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_e9ctl_test.csv",
+          "current_local_path": "results/runs/evidence/samples_m1_e9ctl_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_g2ctl_blind_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_g2ctl_blind_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_g2ctl_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_g2ctl_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_g2edge_blind_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_g2edge_blind_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_g2edge_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_g2edge_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_r1actl_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_r1actl_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_r1apoint_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_r1apoint_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_r1bcoord_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_r1bcoord_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_r1bctl_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_r1bctl_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_r2a3_blind_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_r2a3_blind_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_r2a3_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_r2a3_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_r2a6ctl_blind_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_r2a6ctl_blind_test.csv"
+        },
+        {
+          "original_index_path": "results/samples_m1_r2a6ctl_test.csv",
+          "current_local_path": "archive/results/reports/samples_m1_r2a6ctl_test.csv"
+        }
+      ]
+    },
+    "prospective_index": {
+      "status": "pass",
+      "mode": "isolated prospective index; no layout/source files staged in real index",
+      "policy": {
+        "status": "pass",
+        "checked": "index",
+        "max_blob_bytes": 2097152
+      },
+      "real_index_unchanged_by_simulation": true
+    },
+    "git_state": {
+      "status": "pass",
+      "actual_pre_push_hook_simulation_rejected_historical_payloads": true,
+      "network_push_attempted": false,
+      "only_reviewed_payload_removals_staged": 90,
+      "other_index_identities_unchanged": true,
+      "local_hooks_path": "tools/checks"
+    },
+    "clean_prospective_checkout": {
+      "path": "/tmp/uniarpat-round2-cold-worktree",
+      "prospective_files_copied": 675,
+      "raw_arrays_or_weights_copied": false,
+      "source": "current nonignored files; clean prospective checkout simulation, not a remote clone"
+    },
+    "source_snapshots_physically_retained": 80,
+    "redundant_metadata_files_retired": 21,
+    "reproducible_cache_files_removed": 3,
+    "verified_git_restore_cache_files_removed": 217,
+    "initial_migration_failures_resolved": "split valence basename; bare imports/root bootstrap; compound historical paths/report prefixes; temporary historical report fixtures; clean checkout test must not require ignored raw table",
+    "markdown_links": {
+      "checked": 434,
+      "editable_links_valid": true,
+      "retained_original_report_link": [
+        {
+          "file": "results/reports/eid_diagnosis_s42/20261002T095909Z/report.md",
+          "line": 3,
+          "target": "../../../docs/design/design-element-identity-diagnosis.md"
+        }
+      ],
+      "navigation_file": "results/reports/eid_diagnosis_s42/20261002T095909Z/README.md"
+    },
+    "registered_current_source_hashes_verified": 337,
+    "registered_physical_original_source_hashes_verified": 87,
+    "final_editable_whitespace_check": {
+      "status": "pass",
+      "scope": "all final diffs except authenticated original snapshots",
+      "original_snapshot_whitespace_retained": true,
+      "edited_source_ast_unchanged": true
+    }
+  },
+  "scope": "repository organization and evidence consistency; no new training, no commit/push or Git history rewrite",
+  "limitations": [
+    "No new science training, full historical training rerun or new GPU neural execution; fixed CPU outputs and saved evidence consistency were checked.",
+    "Git history still contains raw payloads; local pre-push hook rejects transmitting them. History rewrite requires a separate approved plan.",
+    "Hooks can be deliberately bypassed and are not cloned automatically; CI checks every blob in the current committed tree.",
+    "Thirty pre-existing broken grid links and ten pre-existing unresolved source identities remain explicitly recorded.",
+    "Shared legacy switches in the current Transformer remain for checkpoint compatibility; independent retired modules were moved and lazy-loaded.",
+    "Historical thermo batch entrypoint still has missing original default inputs; current pure calculation library is retained.",
+    "Clean prospective checkout omits ignored arrays/weights and skips one local-Q1-dependent check; it is a copy simulation, not a remote clone."
+  ],
+  "git_actions": {
+    "commit": false,
+    "push": false,
+    "checkout_or_switch": false,
+    "history_rewrite": false,
+    "checkpoint_deletion": false,
+    "only_reviewed_payload_entries_removed_from_index": 90,
+    "local_hooks_path": "tools/checks"
+  },
+  "publication_preflight": {
+    "date": "2026-10-04",
+    "user_authorized_commit_and_push": true,
+    "status": "pass",
+    "registered_source_hashes_unchanged": 337,
+    "static_contract_tests": 226,
+    "static_skipped": 0,
+    "repository_policy_tests": 9,
+    "reviewed_actual_outgoing_objects": "shared remote historical blobs excluded; final trees and new intermediate blobs still checked",
+    "remote_main_before": "60acc7452620cf733ec7260f16227a8eb2888955",
+    "cleanup_parent_before": "a6a3a0ea406745fde6fa9bae12949af4c61d4b01",
+    "preexisting_untracked_draft_excluded": true,
+    "history_rewrite": false,
+    "new_remote_history_still_rejected": true,
+    "commit_hash": "query Git history; omitted to avoid a self-reference",
+    "push_status": "performed after this preflight record is committed; verify remote branch and thread result"
+  }
+}

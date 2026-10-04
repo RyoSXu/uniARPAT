@@ -30,7 +30,7 @@
 
 ```bash
 CUDA_VISIBLE_DEVICES=-1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
-  PYTHONWARNINGS=ignore::DeprecationWarning bash tools/ci/check-static.sh
+  PYTHONWARNINGS=ignore::DeprecationWarning bash tools/checks/check-static.sh
 ```
 
 结果为 Ruff 通过、所有受版本控制的 Python 文件编译通过，**182 项契约测试通过**，

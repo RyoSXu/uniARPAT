@@ -1,12 +1,12 @@
 """z_only_proj 对齐初始化：Z100 未训练参考、共享参数复制、单位投影与训练随机状态对齐。
 
-本模块是该流程的唯一实现，由 ``run_ablation_experiments.py``（训练进程内执行）与
-``tools/eval/eid_zproj_preflight.py``（训练前模拟与核对）共用，保证训练实际执行的
-步骤与检查模拟的步骤一致。设计见 ``docs/design/design-element-identity-zonlyproj.md``。
+本模块是该流程的唯一实现，由 ``tools/train.py``（训练进程内执行）与
+``archive/code/tools/eval/eid_zproj_preflight.py``（训练前模拟与核对）共用，保证训练实际执行的
+步骤与检查模拟的步骤一致。设计见 ``archive/docs/design/design-2026-10-02-element-identity-zonlyproj.md``。
 
 这是历史 ZP100 实验协议：固定 512 维投影和 Z100 seed-42 初始指纹。ZP 的元素编码
 本身不依赖参考模型；新 seed 或新 encoder 不应直接套用本协议的历史指纹。
-当前模块职责与研究基线见 ``docs/design/design-element-initialization.md``。
+当前模块职责与研究基线见 ``docs/design/design-2026-10-02-element-initialization.md``。
 
 步骤与随机数口径
 ----------------
@@ -160,7 +160,7 @@ def sample_order_hashes(loader) -> list[dict]:
 def valid_batch(data_dir, batch_size: int = 4):
     """训练前数值检查用的 Q1 valid 小批次（与训练 valid loader 同口径）。"""
     from torch.utils.data import DataLoader
-    from datasets.dataset import Dos_Dataset
+    from utils.dataset import Dos_Dataset
 
     dataset = Dos_Dataset(data_dir=str(data_dir), split="valid", dos_minmax=True,
                           dos_sumnorm=True)

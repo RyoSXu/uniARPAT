@@ -155,7 +155,7 @@ def per_sample_spectral_metrics(p, t, eps=1e-8):
     p, t: [B, L] tensors in TRUE PHYSICAL space (already denormalized).
     Returns dict of [B] tensors: mae, mse, r2.
     Formula frozen to match legacy implementations in model.test_one_step
-    and run_ablation_experiments.evaluate_split (bit-identical math).
+    and tools.train.evaluate_split (bit-identical math).
     """
     mae = torch.mean(torch.abs(p - t), dim=-1)
     mse = torch.mean((p - t) ** 2, dim=-1)

@@ -2,17 +2,17 @@
 
 日期：2026-10-03。结论：**通过，限于下述已执行的几何与表达检查**。
 完整模型未执行，最终 eDOS/phDOS 的 E(3) 不变性及全链架构保证尚未验收。
-目标见 [`design-e3-output-invariance.md`](../design/design-e3-output-invariance.md)，
-记录契约见 [`design-periodic-neighbor-records.md`](../design/design-periodic-neighbor-records.md)。
+目标见 [`design-2026-10-04-e3-output-invariance.md`](../design/design-2026-10-04-e3-output-invariance.md)，
+记录契约见 [`design-2026-10-03-periodic-neighbor-records.md`](../design/design-2026-10-03-periodic-neighbor-records.md)。
 
 ## 范围和实际执行
 
 - 仅加载 Q1 train 18,706、valid 2,313 个结构的元素、位置与编号；不加载 test、谱标签或
   checkpoint，不构造或运行模型，不执行训练。blind/oracle 指标不适用于几何验收。
 - CPU 单线程，PyTorch 2.2.1。所有调用显式传入 `R=6.0 Å`，仍严格保留 `d<R`。
-  [`build_g2_edges`](../../utils/g2_periodic_edges.py)、
-  [`periodic_edge_vectors`](../../model/periodic_manybody.py)、
-  [`g2_indegrees`](../../utils/g2_periodic_edges.py) 及模型代码均未改变。
+  [`build_g2_edges`](../../utils/periodic_neighbors.py)、
+  [`periodic_edge_vectors`](../../archive/code/model/periodic_manybody.py)、
+  [`g2_indegrees`](../../utils/periodic_neighbors.py) 及模型代码均未改变。
 - 全量 float32 记录检查：字段形状/类型、有限性、填充排除、无重复、反向键/向量/距离、
   位移范数及独立坐标公式对应、入度总数、空邻域；逐结构计数对照上轮 6.0 Å 明细。
 - 每个划分固定等间隔 64 个结构，另加入原子数最多/最少、最小奇异值、最大条件数、最多
@@ -23,12 +23,12 @@
 
 入口：[`periodic_geometry_acceptance.py`](../../tools/eval/periodic_geometry_acceptance.py)。
 正式执行共 **176.33 秒**，进程峰值内存 **629.95 MiB**。正式产物为
-[`periodic_geometry_q1_r6_20261003_v2`](../../results/periodic_geometry_q1_r6_20261003_v2/)。
+[`periodic_geometry_q1_r6_20261003_v2`](../../results/reports/periodic_geometry_q1_r6_20261003_v2)。
 
 首次运行在完成全量记录检查、进入 valid 样本前，因空额外索引列表导致整数索引被提升为
 float 而中断。这是诊断入口错误；已显式转回整数、增加回归测试及逐项 JSONL 保存，并完整
-重跑。首次[中断记录](../../results/periodic_geometry_q1_r6_20261003/interruption.json)及
-[执行源码](../../results/periodic_geometry_q1_r6_20261003/interrupted_execution_source.py)保留，
+重跑。首次[中断记录](../../archive/results/reports/periodic_geometry_q1_r6_20261003/interruption.json)及
+[执行源码](../../archive/results/reports/periodic_geometry_q1_r6_20261003/interrupted_execution_source.py)保留，
 首次目录不作为完成证据。两次全量记录明细独立核对完全一致。
 
 ## 独立性与判据
@@ -78,7 +78,7 @@ E(3) 检查从显式笛卡尔晶格和原子位置出发，同时做 `A'=AQ`、`
 共 **3,352 项通过**。E(3) 组 float64 的距离最大误差为 9.638e-8 Å，物理框架内向量最大
 误差为 6.128e-14 Å；正交映射的最大分量误差为 9.117e-7（无量纲）。
 
-[`test_periodic_geometry_acceptance.py`](../../tests/test_periodic_geometry_acceptance.py) 的
+[`test_periodic_geometry_acceptance.py`](../../tests/data/test_periodic_geometry_acceptance.py) 的
 13 项 CPU 回归测试通过：解析立方胞、斜胞/长宽比/未折回坐标的独立枚举、两种 dtype 的
 E(3) 变换、固定框架误判的反例、逐记录表达对应、超胞中心副本、混合批次/非连续填充、
 空邻域/全填充/零槽字段、严格截止、输入拒绝、故意漏边/反向错误/重复、临界受限报告与索引
@@ -86,21 +86,21 @@ E(3) 变换、固定框架误判的反例、逐记录表达对应、超胞中心
 
 ## 产物与复核
 
-- [摘要](../../results/periodic_geometry_q1_r6_20261003_v2/summary.json)、
-  [执行口径与哈希](../../results/periodic_geometry_q1_r6_20261003_v2/manifest.json)。
-- [全量记录检查明细](../../results/periodic_geometry_q1_r6_20261003_v2/full_record_contracts.csv)：
-  21,019 行；[逐项 CSV](../../results/periodic_geometry_q1_r6_20261003_v2/cases.csv)、
-  [JSON](../../results/periodic_geometry_q1_r6_20261003_v2/cases.json)及
-  [增量 JSONL](../../results/periodic_geometry_q1_r6_20261003_v2/cases.jsonl)：各 3,352 项。
-- [独立复核记录](../../results/periodic_geometry_q1_r6_20261003_v2/verification.json)：输入、源码、
+- [摘要](../../results/reports/periodic_geometry_q1_r6_20261003_v2/summary.json)、
+  [执行口径与哈希](../../results/reports/periodic_geometry_q1_r6_20261003_v2/manifest.json)。
+- [全量记录检查明细](../../results/runs/evidence/periodic_geometry_q1_r6_20261003_v2/full_record_contracts.csv)：
+  21,019 行；[逐项 CSV](../../results/reports/periodic_geometry_q1_r6_20261003_v2/cases.csv)、
+  [JSON](../../results/reports/periodic_geometry_q1_r6_20261003_v2/cases.json)及
+  [增量 JSONL](../../results/reports/periodic_geometry_q1_r6_20261003_v2/cases.jsonl)：各 3,352 项。
+- [独立复核记录](../../results/reports/periodic_geometry_q1_r6_20261003_v2/verification.json)：输入、源码、
   先前计数及产物哈希一致；CSV/JSON/JSONL 身份与项数一致；分组误差与全量汇总从明细重算
   一致；每个固定样本均覆盖两种 dtype 和规定操作。
 
 复现须使用新的目录，入口拒绝覆盖已有产物：
 
 ```sh
-python -B -m unittest tests.test_periodic_geometry_acceptance tests.test_periodic_neighbor_radius_audit -v
-python -B tools/eval/periodic_geometry_acceptance.py --radius 6.0 --out-dir results/periodic_geometry_q1_r6_recheck
+python -B -m unittest tests.data.test_periodic_geometry_acceptance tests.data.test_neighbor_radius_audit -v
+python -B tools/eval/periodic_geometry_acceptance.py --radius 6.0 --out-dir results/reports/periodic_geometry_q1_r6_recheck
 ```
 
 ## 未验证范围与后续

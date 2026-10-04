@@ -13,8 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.eval.element_identity_preflight import sha256_file
+from utils.paths import historical_path, input_path
+
+from archive.code.tools.eval.element_identity_preflight import sha256_file
 from tools.eval.periodic_geometry_acceptance import write_json
+from utils.paths import repository_path
 
 
 def verify(directory, controls, data_dir):
@@ -29,11 +32,11 @@ def verify(directory, controls, data_dir):
     assert manifest["initial_state_sha256"] == manifest["final_state_sha256"]
     assert manifest["parameter_counts"] == {"invariant": 261568, "equivariant": 180676}
     for relative, digest in manifest["source_sha256"].items():
-        assert sha256_file(ROOT/relative) == digest, relative
+        assert sha256_file(historical_path(relative, digest)) == digest, relative
     for relative, digest in manifest["input_sha256"].items():
         assert sha256_file(data_dir/relative) == digest, relative
     for relative, digest in manifest["prior_artifact_sha256"].items():
-        assert sha256_file(ROOT/relative) == digest, relative
+        assert sha256_file(historical_path(relative, digest)) == digest, relative
     for name, digest in manifest["artifacts_sha256"].items():
         assert sha256_file(directory/name) == digest, name
     rows = json.loads((directory/"cases.json").read_text())
@@ -93,7 +96,7 @@ def verify(directory, controls, data_dir):
         assert data["precheck_manifest_sha256"] == protected_manifest
         assert data["optimizer_created"] is False and data["parameter_updates"] == 0
         for relative, digest in data["source_sha256"].items():
-            assert sha256_file(ROOT/relative) == digest
+            assert sha256_file(historical_path(relative, digest)) == digest
         assert data["peak_rss_MiB"] < 2048
         runtime += data["elapsed_seconds"]
         control_hashes[name] = sha256_file(path)
@@ -120,19 +123,19 @@ def verify(directory, controls, data_dir):
                        "angle identity controls, near-cutoff weakness, low-order blind spot", "resource limits"],
             "scope": "artifact and protocol consistency only; does not rerun neural forwards or prove DOS accuracy",
             "verifier_source_sha256": sha256_file(Path(__file__)),
-            "additional_test_source_sha256": sha256_file(ROOT/"tests/test_periodic_message_precheck.py")}
+            "additional_test_source_sha256": sha256_file(repository_path(ROOT/"archive/code/tests/test_periodic_message_precheck.py", root=ROOT))}
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--precheck-dir", type=Path, required=True)
     parser.add_argument("--controls-dir", type=Path, required=True)
-    parser.add_argument("--data-dir", type=Path, default=ROOT/"data/train4ARPAT")
+    parser.add_argument("--data-dir", type=Path, default=repository_path(ROOT/"data/train4ARPAT", root=ROOT))
     args = parser.parse_args(argv)
-    path = args.precheck_dir/"verification.json"
+    path = input_path(args.precheck_dir)/"verification.json"
     if path.exists():
         raise FileExistsError(f"refusing to overwrite {path}")
-    result = verify(args.precheck_dir, args.controls_dir, args.data_dir)
+    result = verify(input_path(args.precheck_dir), input_path(args.controls_dir), input_path(args.data_dir))
     write_json(path, result)
     print(json.dumps({key: result[key] for key in ("status", "cases", "control_cases", "main_and_control_seconds")}))
 
