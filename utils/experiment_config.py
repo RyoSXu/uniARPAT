@@ -104,6 +104,12 @@ class ExperimentConfig:
     g2_content_mode: str = "radial"
     # Approved periodic many-body local/global encoder candidate (fixed design).
     use_periodic_manybody: bool = False
+
+    # Current local/global comparison. Explicit layout/depth; legacy stays off.
+    local_route: str = "none"
+    local_layout: Optional[str] = None
+    local_depth: Optional[int] = None
+    selection_metric: Optional[str] = None
     
     # --- Optional coordinate-conditioned output trunks ---
     q1_coord: bool = False

@@ -3,7 +3,7 @@
 本索引只列入口，不枚举每份历史设计和实验文件。历史材料统一保留在 `archive/` 的 `docs/code/data/results` 分类下，不默认构成当前执行指令。
 
 当前先读 `status.md`，再按记录规范、候选公式、模块边界定位接口；执行证据按阶段查下方日志。
-局部 CPU/GPU 验收已通过，完整模型接入和训练仍待另定方案。
+局部与完整模型的有限 CPU/GPU 检查已通过，四组对照代码已落地；路线/编排选型与具体训练预算仍待决定。
 
 | 目的 | 文档 |
 |---|---|
@@ -16,6 +16,7 @@
 | 最终谱输出的 E(3) 目标、两条 Encoder 路线与证据边界 | [`design/design-2026-10-04-e3-output-invariance.md`](design/design-2026-10-04-e3-output-invariance.md) |
 | 6.0 Å A/B 与增强 B+ 的公式、实际原型接口与取舍 | [`design/design-2026-10-04-periodic-message-candidates.md`](design/design-2026-10-04-periodic-message-candidates.md) |
 | 已提取的物理记录/A/B+ 接口、职责边界与后续验收 | [`design/design-2026-10-04-periodic-message-module-boundaries.md`](design/design-2026-10-04-periodic-message-module-boundaries.md) |
+| 已实施的局部—全局 Encoder、共同初值与路线×编排对照入口 | [`design/design-2026-10-04-local-global-encoder.md`](design/design-2026-10-04-local-global-encoder.md) |
 | 协作与实验流程 | [`workflow.md`](workflow.md) |
 | 长期决策和评估约定 | [`decisions.md`](decisions.md) |
 | 数据、缓存及标签口径 | [`data.md`](data.md)；[`data/reference/edos-label-audit.md`](../data/reference/edos-label-audit.md) |
@@ -24,6 +25,8 @@
 
 ## 当前路线相关证据
 
+- 外部审核反馈核查、回归覆盖补齐、共同配置和最终复查：[2026-10-05 审核收尾](logs/log-2026-10-05-local-global-review-followup.md)
+- 完整 Encoder 与四组对照代码、全链 E(3)、CPU/GPU 无更新检查与固定批次成本：[2026-10-05 接入日志](logs/log-2026-10-05-local-global-encoder.md)
 - 周期消息工作按阶段归档、正式/中断目录与提交边界：[2026-10-04 归档记录](logs/log-2026-10-04-periodic-message-archive.md)
 - A/B+ 的 GPU 数值、局部对称性、梯度与固定 batch CPU/GPU 成本：[2026-10-03 GPU 验收](logs/log-2026-10-03-periodic-message-gpu.md)
 - A/B+ 核心提取、共同接口与梯度/依赖验收：[2026-10-03 解耦验收](logs/log-2026-10-03-periodic-message-modules.md)

@@ -1,6 +1,6 @@
 # 目标：E(3) 不变的谱输出
 
-更新日期：2026-10-04。用户于 2026-10-03 明确最终目标；局部候选已比较，生产 Encoder 路线尚未选择，完整模型尚未验收。
+更新日期：2026-10-05。用户于 2026-10-03 明确最终目标；生产 Encoder 路线尚未选择，完整接入与有限数值检查见下节。
 6.0 Å 几何已在 [既定范围](../logs/log-2026-10-03-periodic-geometry-acceptance.md)内验收通过。
 两套 [独立局部原型](design-2026-10-04-periodic-message-candidates.md)已完成
 [CPU 预检](../logs/log-2026-10-03-periodic-message-precheck.md)，有已确认的表达与数值幅度限制。
@@ -9,8 +9,10 @@
 当前[独立 A/B+ 核心](design-2026-10-04-periodic-message-module-boundaries.md)已完成
 [CPU 迁移](../logs/log-2026-10-03-periodic-message-modules.md)与
 [GPU 局部验收](../logs/log-2026-10-03-periodic-message-gpu.md)，这些证据仅覆盖局部接口和所测案例。
-生产模型路线与接入方式尚未选定，完整谱输出仍未验收。
-本轮不启动训练。
+生产模型的[接入原则](design-2026-10-04-local-global-encoder.md)已由用户确认：
+几何只进入局部聚合，下游使用不变标量状态，旧几何注意力打分退出新调用链。
+A/B+ 路线、编排与深度仍待实验选型。完整调用链已实施，有限 CPU/GPU 输出检查见
+[接入日志](../logs/log-2026-10-05-local-global-encoder.md)；未启动正式训练。
 
 ## 目标与不同层次的证据
 
@@ -34,10 +36,34 @@
 - **数值证据：**固定权重、确定性推理时，对有限输入和变换实际测量输出误差、dtype 与边界。
   有限测试能发现违例，不构成对所有输入的证明；几何通过不代表完整模型通过。
 
-当前 `pos` 只保存长度、角度和分数坐标，
+历史张量 `pos` 只保存长度、角度和分数坐标，
 [`build_cell_from_lattice`](../../utils/relative_features.py) 重建固定三角晶格框架，并不保存任意
-外部旋转。几何验收需独立指定物理框架，映射重建的向量后比较 `r'=rQ`；仅看到旋转前后
+外部旋转。其几何验收需独立指定物理框架，映射重建的向量后比较 `r'=rQ`；仅看到旋转前后
 标量输入相同或原数组相同，不足以验证任意帧中的向量接口或整个模型。
+当前 [`CrystalGeometry`](../../utils/crystal.py) 显式保存完整行晶格矩阵与分数坐标，
+新 Encoder 使用这一原生入口进行物理变换检查，不将旋转后的晶格重新规范化为原框架。
+
+## 已实施新路径的全链论证
+
+以下论证限定为新 `local_route=A/B+` 路径、规定物理记录、理想实数运算，以及 eval 模式。
+对于半径边界，严格 `d<6.0 Å` 在理想正交变换下不变；浮点截止翻转需单独检查。
+
+1. ZP 仅由原子序号生成反射偶标量；相对位移消除平移。周期记录中的距离不变，向量按 `rQ` 变换。
+2. A 用距离、夹角点积、计数和对称聚合生成标量；B+ 的 O(3) 中间表示按奇偶性等变，
+   三/四阶统计和最终公开读出为反射偶标量。局部已有证明与表达限制继续适用。
+3. 外层 LN、标量残差、共享逐原子 FFN 保持不变性。标准 Q/K/V 作用于不变标量，
+   内容注意力权重与输出均不随物理框架变化；mask 与原子槽不变。新全局块无几何打分接口。
+4. 有效原子平均 pooling 保持不变性。谱查询来自学习参数与能量/频率标量，谱轴不是空间轴。
+   共享 decoder 的自注意力、跨注意力与 FFN 读取这些标量及不变 memory；新调用传入 `pos=None`。
+5. 两类谱 CNN 沿谱 bin 运算，eta/gamma MLP 与 sigmoid 读取不变 pooled state；
+   softmax、H1 的原子数/价电子数与固定 bin 宽度乘除保持不变性。因此 logits、谱形、尺度与 blind 谱均不变。
+   oracle 的诊断重建使用同一标签总量，也保持此性质。
+
+依据代码为 [`LocalGlobalEncoder`](../../model/local_global_encoder.py)、
+[`Transformer.forward`](../../model/transformer.py)、[`heads.py`](../../model/heads.py) 与
+[`reconstruct_h1_spectra`](../../utils/spectral_inference.py)。旧 `RPEncoding/rp_proj` 不参与新路径；
+历史路径不能据此宣称满足新保证。训练中的 dropout 具有与空间框架无关的随机规则，
+本轮确定性数值验收使用 eval；不将两次独立随机前向的差异当作对称性违例。
 
 ## Encoder 的两条路线与当前候选
 

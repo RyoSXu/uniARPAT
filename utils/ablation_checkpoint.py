@@ -13,7 +13,8 @@ def build_ablation_checkpoint(epoch, model_name, seed, use_amp, transformer,
                               optimizer, best_val_score, scaler=None,
                               edos_slope_ratio=None, edos_slope_lambda=None,
                               pair_aux_arm=None, pair_ratio=None,
-                              pair_lambda=None, pair_plan_hash=None, data_contract=None):
+                              pair_lambda=None, pair_plan_hash=None, data_contract=None,
+                              model_contract=None, training_rng=None):
     """Build the exact runner checkpoint payload for one completed epoch."""
     payload = {
         "epoch": int(epoch),
@@ -26,6 +27,11 @@ def build_ablation_checkpoint(epoch, model_name, seed, use_amp, transformer,
     }
     if data_contract is not None:
         payload["data_contract"] = data_contract
+    if model_contract is not None:
+        if training_rng is None:
+            raise ValueError("comparison checkpoint needs its training RNG state")
+        payload["model_contract"] = model_contract
+        payload["training_rng"] = training_rng
     if use_amp:
         if scaler is None:
             raise ValueError("AMP checkpoint needs a GradScaler")
@@ -69,13 +75,24 @@ def build_ablation_checkpoint(epoch, model_name, seed, use_amp, transformer,
 def restore_ablation_checkpoint(checkpoint, transformer, optimizer, use_amp,
                                 scaler=None, edos_slope_ratio=None,
                                 pair_aux_arm=None, pair_ratio=None,
-                                pair_lambda=None, pair_plan_hash=None, data_contract=None):
+                                pair_lambda=None, pair_plan_hash=None, data_contract=None,
+                                model_contract=None):
     """Restore model and best-effort optimizer state, returning metadata.
 
     Pre-AMP checkpoints have no ``use_amp`` and are FP32 by definition.
-    Optimizer mismatch remains deliberately non-fatal, matching the original
-    runner behavior for compatible model-only recovery.
+    Legacy optimizer mismatch remains non-fatal. Comparison runs require the
+    optimizer and RNG streams so a restart cannot silently change the trial.
     """
+    saved_model_contract = checkpoint.get("model_contract") if isinstance(checkpoint, dict) else None
+    if saved_model_contract != model_contract:
+        raise ValueError("cannot resume a checkpoint with a different model contract")
+    if model_contract is not None and not isinstance(checkpoint.get("training_rng"), dict):
+        raise ValueError("comparison checkpoint is missing its training RNG state")
+    if model_contract is not None:
+        if not {"python", "numpy", "torch_cpu", "torch_cuda"} <= checkpoint["training_rng"].keys():
+            raise ValueError("comparison checkpoint has incomplete training RNG state")
+        if "optimizer" not in checkpoint:
+            raise ValueError("comparison checkpoint is missing its optimizer state")
     saved_contract = checkpoint.get("data_contract") if isinstance(checkpoint, dict) else None
     if saved_contract != data_contract:
         raise ValueError("cannot resume a checkpoint with a different data contract")
@@ -133,7 +150,8 @@ def restore_ablation_checkpoint(checkpoint, transformer, optimizer, use_amp,
             optimizer.load_state_dict(checkpoint["optimizer"])
             optimizer_restored = True
         except Exception:
-            pass
+            if model_contract is not None:
+                raise ValueError("comparison checkpoint has incompatible optimizer state")
     return {
         "epoch": int(checkpoint.get("epoch", 0)) if isinstance(checkpoint, dict) else 0,
         "best_val_score": float(checkpoint.get("best_val_score", float("inf")))

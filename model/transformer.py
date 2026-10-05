@@ -148,8 +148,21 @@ class Transformer(nn.Module):
                   use_atom_additive_phdos=False,
                   macro_lattice_mean=(2.96373232, 1.22763338),
                   macro_lattice_std=(0.41023959, 0.51526549),
-                  g2_content_mode="radial", use_periodic_manybody=False):
+                  g2_content_mode="radial", use_periodic_manybody=False,
+                  local_route="none", local_layout=None, local_depth=None):
         super().__init__()
+        self.local_route = local_route
+        if local_route not in ("none", "A", "B+"):
+            raise ValueError("local_route must be none, A or B+")
+        if local_route == "none" and (local_layout is not None or local_depth is not None):
+            raise ValueError("local layout/depth require an A/B+ route")
+        if local_route != "none":
+            # Atomic numbers 1..118 plus padding 0 require at least 119 rows.
+            token_num = max(token_num, 119)
+            if atom_feat_mode != "z_only_proj":
+                raise ValueError("local/global encoder requires the fixed ZP atom entrance")
+            if use_g1 or use_g2 or use_periodic_manybody or use_macro_lattice:
+                raise ValueError("local/global geometry must enter only through A/B+ local messages")
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
         self.head_type = head_type
@@ -289,7 +302,13 @@ class Transformer(nn.Module):
             # Fusion projection
             self.fuse_proj = nn.Linear(d_model * 2, d_model)
 
-        if self.use_periodic_manybody:
+        if self.local_route != "none":
+            from model.local_global_encoder import LocalGlobalEncoder
+
+            self.encoder = LocalGlobalEncoder(
+                local_route, local_layout, local_depth, d_model=d_model, nhead=nhead,
+                dim_feedforward=dim_feedforward, dropout=dropout, activation=activation)
+        elif self.use_periodic_manybody:
             from archive.code.model.periodic_manybody import PeriodicManyBodyEncoder
 
             self.encoder = PeriodicManyBodyEncoder(
@@ -477,6 +496,11 @@ class Transformer(nn.Module):
             atom_idx = src[:, 2:]
         if atom_idx.shape != mask_atom.shape:
             raise ValueError("atomic numbers and geometry slots differ")
+        if self.local_route != "none":
+            valid_numbers = atom_idx[~mask_atom]
+            if ((valid_numbers < 1) | (valid_numbers > 118)).any():
+                raise ValueError("valid atomic numbers must lie in [1,118]")
+            atom_idx = atom_idx.masked_fill(mask_atom, 0)
         atom_src = self._encode_atoms(atom_idx)
 
         if self.use_macro_lattice:
@@ -488,7 +512,14 @@ class Transformer(nn.Module):
             atom_src = atom_src + self.macro_lattice_alpha * self.macro_lattice_mlp(macro).unsqueeze(1)
 
         # Compute relative geometry features
-        if self.use_periodic_manybody:
+        if self.local_route != "none":
+            from model.local_global_encoder import LOCAL_RADIUS
+            from utils.periodic_geometry import build_periodic_records
+
+            records = build_periodic_records(pos, mask_atom, radius=LOCAL_RADIUS)
+            records = records.to(device=atom_src.device, dtype=atom_src.dtype)
+            memory = self.encoder(atom_src, records, mask_atom)
+        elif self.use_periodic_manybody:
             memory = self.encoder(atom_src, mask_atom, pos)
         elif self.use_g1:
             # Sparse periodic graph and one global hub token.
@@ -543,6 +574,21 @@ class Transformer(nn.Module):
                 g2_edges=g2_edges,
             )
 
+        # New scalar encoder: a zero dummy memory token defines finite decoder
+        # priors for empty structures. Original masks still govern pooling/counts.
+        decoder_memory, decoder_mask = memory, mask_atom
+        decoder_pos = pos
+        if self.local_route != "none":
+            decoder_pos = None
+            if memory.shape[1] == 0:
+                decoder_memory = memory.new_zeros((B, 1, self.d_model))
+                decoder_mask = torch.zeros(B, 1, dtype=torch.bool, device=memory.device)
+            else:
+                empty = mask_atom.all(-1)
+                if empty.any():
+                    decoder_mask = mask_atom.clone()
+                    decoder_mask[empty, 0] = False
+
         results = {}
 
         # Decoder queries
@@ -583,31 +629,31 @@ class Transformer(nn.Module):
 
         if self.decoupled_decoder:
             hs_edos, _ = self.edos_decoder(
-                edos_tgt_input, memory,
-                memory_key_padding_mask=mask_atom,
-                pos=pos,
+                edos_tgt_input, decoder_memory,
+                memory_key_padding_mask=decoder_mask,
+                pos=decoder_pos,
                 query_pos=edos_query
             )
             hs_phdos, _ = self.phdos_decoder(
-                phdos_tgt_input, memory,
-                memory_key_padding_mask=mask_atom,
-                pos=pos,
+                phdos_tgt_input, decoder_memory,
+                memory_key_padding_mask=decoder_mask,
+                pos=decoder_pos,
                 query_pos=phdos_query
             )
         else:
             hs_edos, _ = self.decoder(
-                edos_tgt_input, memory,
-                memory_key_padding_mask=mask_atom,
-                pos=pos,
+                edos_tgt_input, decoder_memory,
+                memory_key_padding_mask=decoder_mask,
+                pos=decoder_pos,
                 query_pos=edos_query
             )
             c5_balance_edos = self.decoder.last_c5_moe_balance
             c5_load_edos = self.decoder.last_c5_moe_load
             if not hasattr(self, "atom_phdos_head"):
                 hs_phdos, _ = self.decoder(
-                    phdos_tgt_input, memory,
-                    memory_key_padding_mask=mask_atom,
-                    pos=pos,
+                    phdos_tgt_input, decoder_memory,
+                    memory_key_padding_mask=decoder_mask,
+                    pos=decoder_pos,
                     query_pos=phdos_query
                 )
                 c5_balance_phdos = self.decoder.last_c5_moe_balance
