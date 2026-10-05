@@ -5,6 +5,8 @@
 旧几何打分退出新调用链，历史源码与 checkpoint 复核路径保留；具体训练队列与预算尚未获批准。
 已有模块接口见[模块边界](design-2026-10-04-periodic-message-module-boundaries.md)，
 局部验收与表达限制见[候选设计](design-2026-10-04-periodic-message-candidates.md)。
+后续[实现提速与资源短测](../logs/log-2026-10-05-local-message-speedup.md)保持本页的模型结构、
+共同初值及实验契约；采用 A 的跨中心分块和等价线性项复用，未据大 batch 探针改变训练配置。
 
 ## 已确认的接入原则
 

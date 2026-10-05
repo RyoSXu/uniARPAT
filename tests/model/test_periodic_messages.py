@@ -10,13 +10,16 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 import unittest
 
 import numpy as np
 import torch
 from torch import nn
 
-from model.periodic_messages import PeriodicLocalMessage, _prepare_message_geometry, high_order_pair_features
+from model.periodic_messages import (
+    PeriodicLocalMessage, _prepare_message_geometry, _unordered_pairs, high_order_pair_features,
+)
 from tools.eval.periodic_geometry_acceptance import e3_operations, pack_cell
 from archive.code.tools.eval.periodic_message_high_order_compare import create_models, low_moment_pair
 from tools.eval.periodic_message_module_check import aligned_local_models
@@ -164,6 +167,64 @@ else:
                 torch.testing.assert_close(results[0][0], results[1][0], atol=atol, rtol=rtol)
                 for a, b in zip(results[0][1], results[1][1]):
                     torch.testing.assert_close(a, b, atol=atol, rtol=rtol)
+
+    def test_vectorized_pairs_match_explicit_triangles_with_shuffled_records(self):
+        # Includes empty/singleton centers, a 4095-pair boundary and centers
+        # spanning multiple chunks. Record identities, not just counts, matter.
+        for counts in ([0, 1, 2, 50, 91, 257, 3, 5], [0, 0, 0]):
+            degree = torch.tensor(counts, dtype=torch.long)
+            receiver = torch.repeat_interleave(torch.arange(len(degree)), degree)
+            permutation = torch.randperm(len(receiver), generator=torch.Generator().manual_seed(11))
+            receiver = receiver[permutation]
+            geometry = SimpleNamespace(degree=degree.reshape(1, -1),
+                pair_count=(degree * (degree - 1) // 2).reshape(1, -1),
+                order=torch.argsort(receiver, stable=True))
+            actual = _unordered_pairs(geometry)
+            left, right = [], []
+            for center in range(len(degree)):
+                group = torch.where(receiver == center)[0]
+                pairs = torch.triu_indices(len(group), len(group), offset=1)
+                left.append(group[pairs[0]])
+                right.append(group[pairs[1]])
+            torch.testing.assert_close(actual[0], torch.cat(left), atol=0, rtol=0)
+            torch.testing.assert_close(actual[1], torch.cat(right), atol=0, rtol=0)
+
+    def test_A_chunk_and_checkpoint_choices_preserve_output_and_all_gradients(self):
+        from archive.code.tools.eval.periodic_message_prototypes import prepare_geometry
+
+        for dtype in (torch.float32, torch.float64):
+            _, pos, mask, _ = synthetic_cases(dtype)[1]
+            source = geometry_from_pos(pos, mask)
+            chosen = torch.cat([torch.where(source.edges['dst'] == i)[0][:count]
+                                for i, count in enumerate((1, 3, 4))]).flip(0)
+            edges = {**source.edges, **{key: source.edges[key][chosen]
+                     for key in ('batch', 'dst', 'src', 'shifts', 'distances')}}
+            vectors = source.vectors[chosen]
+            for chunk in (2, 7, 4096):
+                for recompute in (False, True):
+                    with self.subTest(dtype=dtype, chunk=chunk, recompute=recompute):
+                        models = [copy.deepcopy(self.references[dtype]['A']),
+                                  copy.deepcopy(self.models[dtype]['A'])]
+                        results = []
+                        for index, model in enumerate(models):
+                            for block in model.blocks:
+                                block.pair_chunk, block.recompute_angles = chunk, recompute
+                            h = self.atoms(mask, dtype).requires_grad_()
+                            r = vectors.clone().requires_grad_()
+                            d = edges['distances'].clone().requires_grad_()
+                            supplied = dict(edges, distances=d)
+                            if index:
+                                records = PeriodicNeighborRecords.from_edges(supplied, r, mask, 6.)
+                                output = model(h, records, mask)
+                            else:
+                                output = model(h, mask, prepare_geometry(supplied, r, mask, 6.))
+                            grads = torch.autograd.grad(output.square().mean(), (h, r, d) + tuple(model.parameters()))
+                            self.assertTrue(all(torch.isfinite(g).all() for g in grads))
+                            results.append((output, grads))
+                        atol, rtol = (2e-6, 2e-5) if dtype == torch.float32 else (2e-12, 2e-10)
+                        torch.testing.assert_close(results[0][0], results[1][0], atol=atol, rtol=rtol)
+                        for expected, actual in zip(results[0][1], results[1][1]):
+                            torch.testing.assert_close(actual, expected, atol=atol, rtol=rtol)
 
     def test_shared_interface_in_registered_pipeline_backpropagates_to_zp(self):
         class Pipeline(nn.Module):

@@ -25,6 +25,7 @@
 
 ## 当前路线相关证据
 
+- A 的等价实现提速、同权重输出/梯度与全链 E(3) 复查、大 batch/重计算资源探针：[2026-10-05 提速日志](logs/log-2026-10-05-local-message-speedup.md)
 - 外部审核反馈核查、回归覆盖补齐、共同配置和最终复查：[2026-10-05 审核收尾](logs/log-2026-10-05-local-global-review-followup.md)
 - 完整 Encoder 与四组对照代码、全链 E(3)、CPU/GPU 无更新检查与固定批次成本：[2026-10-05 接入日志](logs/log-2026-10-05-local-global-encoder.md)
 - 周期消息工作按阶段归档、正式/中断目录与提交边界：[2026-10-04 归档记录](logs/log-2026-10-04-periodic-message-archive.md)

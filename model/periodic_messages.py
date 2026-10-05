@@ -10,11 +10,12 @@ implementations remain frozen numerical references, not dependencies.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import torch
 from e3nn import o3
 from torch import nn
+from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
 from utils.periodic_neighbors import (
@@ -43,10 +44,17 @@ class _MessageGeometry:
     pair_count: torch.Tensor
     receiver: torch.Tensor
     sender: torch.Tensor
-    groups: tuple[torch.Tensor, ...]
+    order: torch.Tensor
+    pairs: tuple[torch.Tensor, torch.Tensor] | None = None
+
+    @property
+    def groups(self):
+        """Explicit groups for diagnostics; normal forwards need no CPU list."""
+        counts = torch.unique_consecutive(self.receiver[self.order], return_counts=True)[1]
+        return tuple(self.order.split(counts.tolist())) if self.order.numel() else ()
 
 
-def _prepare_message_geometry(records: PeriodicNeighborRecords) -> _MessageGeometry:
+def _prepare_message_geometry(records: PeriodicNeighborRecords, *, angle_pairs=False) -> _MessageGeometry:
     B, L = records.padding_mask.shape
     vectors, distances = records.vectors, records.distances
     unit = vectors / vectors.norm(dim=-1)[:, None]
@@ -58,10 +66,29 @@ def _prepare_message_geometry(records: PeriodicNeighborRecords) -> _MessageGeome
     receiver, sender = records.batch * L + records.dst, records.batch * L + records.src
     effective = vectors.new_zeros(B * L).index_add(0, receiver, cut).view(B, L)
     order = torch.argsort(receiver, stable=True)
-    counts = torch.unique_consecutive(receiver[order], return_counts=True)[1]
-    groups = tuple(order.split(counts.tolist())) if distances.numel() else ()
-    return _MessageGeometry(unit, radial, cut, degree, effective,
-                            degree * (degree - 1) // 2, receiver, sender, groups)
+    geometry = _MessageGeometry(unit, radial, cut, degree, effective,
+                                degree * (degree - 1) // 2, receiver, sender, order)
+    if angle_pairs:
+        geometry = replace(geometry, pairs=_unordered_pairs(geometry))
+    return geometry
+
+
+def _unordered_pairs(geometry):
+    """All same-center pairs in the original upper-triangle record order.
+
+    Invert triangular row offsets in float64, then use integer indices. No
+    padded neighbor square, sampled pairs, or per-center GPU launches are used.
+    """
+    degree = geometry.degree.reshape(-1)
+    counts = geometry.pair_count.reshape(-1)
+    nodes = torch.repeat_interleave(torch.arange(len(degree), device=degree.device), counts)
+    local = torch.arange(len(nodes), device=degree.device) - (counts.cumsum(0) - counts)[nodes]
+    widths = 2 * degree[nodes] - 1
+    row = ((widths.double() - (widths.square() - 8 * local).double().sqrt()) * .5).floor().long()
+    row_start = row * (2 * degree[nodes] - row - 1) // 2
+    column = row + 1 + local - row_start
+    offset = (degree.cumsum(0) - degree)[nodes]
+    return geometry.order[offset + row], geometry.order[offset + column]
 
 
 def mlp(input_channels, output_channels):
@@ -88,15 +115,19 @@ class InvariantMessageBlock(nn.Module):
         self.update = mlp(194, 64)
         self.norm = nn.LayerNorm(64)
 
-    def _angle_sum(self, state, radial, unit, cut, sender, receiver, left, right):
+    def _angle_chunk(self, center_projection, first_projection, second_projection,
+                     unit, cut, receiver, left, right):
         q = (unit[left] * unit[right]).sum(-1).clamp(-1, 1)
         angular = torch.stack((q, q.square(), q**3, q**4), dim=-1)
-        center = state[receiver[left]]
-        first, second = state[sender[left]], state[sender[right]]
-        forward = torch.cat((center, first, second, radial[left], radial[right], angular), -1)
-        backward = torch.cat((center, second, first, radial[right], radial[left], angular), -1)
-        message = (self.angle_mlp(forward) + self.angle_mlp(backward)) * .5
-        return (message * (cut[left] * cut[right])[:, None]).sum(0)
+        shared = center_projection[receiver[left]] + F.linear(angular, self.angle_mlp[0].weight[:, 224:])
+        forward = shared + first_projection[left] + second_projection[right]
+        backward = shared + first_projection[right] + second_projection[left]
+        # The nonlinearity stays after the complete original affine sum.
+        message = (self.angle_mlp[2](self.angle_mlp[1](forward))
+                   + self.angle_mlp[2](self.angle_mlp[1](backward))) * .5
+        message = message * (cut[left] * cut[right])[:, None]
+        return message.new_zeros((len(center_projection), SCALAR_CHANNELS)).index_add(
+            0, receiver[left], message)
 
     def forward(self, scalar, geometry):
         shape = scalar.shape
@@ -106,27 +137,22 @@ class InvariantMessageBlock(nn.Module):
         message = self.edge_mlp(edge_input) * g.cutoff[:, None]
         radial = flat.new_zeros(flat.shape).index_add(0, g.receiver, message)
         radial = radial.view(shape) / g.degree.to(scalar.dtype).clamp(min=1).sqrt()[..., None]
-        centers, totals = [], []
-        for group in g.groups:
-            if len(group) < 2:
-                continue
-            pairs = torch.triu_indices(len(group), len(group), offset=1, device=group.device)
-            total = flat.new_zeros(64)
-            for start in range(0, pairs.shape[1], self.pair_chunk):
-                left = group[pairs[0, start:start+self.pair_chunk]]
-                right = group[pairs[1, start:start+self.pair_chunk]]
-                arguments = (flat, g.radial, g.unit, g.cutoff, g.sender, g.receiver, left, right)
+        angular = flat.new_zeros(flat.shape)
+        left_all, right_all = g.pairs if g.pairs is not None else _unordered_pairs(g)
+        if left_all.numel():
+            weight, bias = self.angle_mlp[0].weight, self.angle_mlp[0].bias
+            center = F.linear(flat, weight[:, :64], bias)
+            first = F.linear(flat, weight[:, 64:128])[g.sender] + F.linear(g.radial, weight[:, 192:208])
+            second = F.linear(flat, weight[:, 128:192])[g.sender] + F.linear(g.radial, weight[:, 208:224])
+            for start in range(0, len(left_all), self.pair_chunk):
+                left, right = left_all[start:start+self.pair_chunk], right_all[start:start+self.pair_chunk]
+                arguments = (center, first, second, g.unit, g.cutoff, g.receiver, left, right)
                 if self.recompute_angles and torch.is_grad_enabled():
-                    pooled = checkpoint(self._angle_sum, *arguments, use_reentrant=False,
+                    pooled = checkpoint(self._angle_chunk, *arguments, use_reentrant=False,
                                         preserve_rng_state=False)
                 else:
-                    pooled = self._angle_sum(*arguments)
-                total = total + pooled
-            centers.append(g.receiver[group[0]])
-            totals.append(total)
-        angular = flat.new_zeros(flat.shape)
-        if centers:
-            angular = angular.index_add(0, torch.stack(centers), torch.stack(totals))
+                    pooled = self._angle_chunk(*arguments)
+                angular = angular + pooled
         angular = angular.view(shape) / g.pair_count.to(scalar.dtype).clamp(min=1).sqrt()[..., None]
         update_input = torch.cat((scalar, radial, angular, count_features(g, scalar.dtype)), -1)
         return self.norm(scalar + self.update(update_input))
@@ -255,7 +281,7 @@ class PeriodicLocalMessage(nn.Module):
             raise ValueError("atom features and module must share a dtype")
         if not torch.isfinite(h[~padding_mask]).all():
             raise ValueError("finite scalars required on valid atom slots")
-        g = _prepare_message_geometry(records)
+        g = _prepare_message_geometry(records, angle_pairs=(self.route == "A"))
         atoms = h.masked_fill(padding_mask[..., None], 0)
         scalar = self.local_input(atoms).masked_fill(padding_mask[..., None], 0)
         states, angular_states = [scalar], []
