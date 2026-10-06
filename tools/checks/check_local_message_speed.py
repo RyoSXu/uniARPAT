@@ -149,6 +149,11 @@ def verify(out, *, precision='fp32'):
                 current.to(device).eval()
                 with patch('model.local_global_encoder.PeriodicLocalMessage', old.PeriodicLocalMessage):
                     reference = Transformer(**params).to(device).eval()
+                reference.encoder.shared_geometry = False
+                for layer in reference.encoder.local_layers:
+                    for block in layer.message.blocks:
+                        if hasattr(block, 'pair_chunk'):
+                            block.pair_chunk = 4096
                 reference.load_state_dict(current.state_dict(), strict=True)
                 if state_hash(reference.state_dict()) != init['state_sha256']:
                     raise AssertionError('reference did not receive identical complete weights')
@@ -238,10 +243,14 @@ def check(out, *, mode, batch_sizes=(32,), repeats=5, recompute_angles=True):
                               local_layout=layout, local_depth=2)
                 model = Transformer(**params)
                 init = initialize_comparison_model(model, params, 42)
+                if mode == 'reference':
+                    model.encoder.shared_geometry = False
                 if route == 'A':
                     for layer in model.encoder.local_layers:
                         for block in layer.message.blocks:
                             block.recompute_angles = recompute_angles
+                            if mode == 'reference':
+                                block.pair_chunk = 4096
                 model.to(device)
                 wrapped = _WithSpectralGrids(model, grids)
                 initial = state_hash(model.state_dict())

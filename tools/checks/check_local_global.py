@@ -43,7 +43,7 @@ class _WithSpectralGrids(torch.nn.Module):
         return self.core(atoms, mask, geometry, *self.grids)
 
 
-def check(out, *, depth, repeats=3, precision='fp32', include_largest=False):
+def check(out, *, depth, repeats=3, precision='fp32', include_largest=False, geometry_cache=False):
     if depth < 1 or repeats < 1:
         raise ValueError('positive depth and repeat count required')
     out = Path(out)
@@ -76,6 +76,7 @@ def check(out, *, depth, repeats=3, precision='fp32', include_largest=False):
     report = {'hardware': torch.cuda.get_device_name(device), 'torch': torch.__version__,
               'dtype': precision, 'amp': False, 'tf32': False, 'depth': depth,
               'updates': 0, 'training': False, 'split': 'train', 'labels_read': False,
+              'geometry_cache': geometry_cache,
               'manifest_sha256': file_sha256(CRYSTAL_Q1_DATA_ROOT / 'manifest.json'),
               'samples': [{'index': i, 'id': str(store.material_ids[i]), 'n_atoms': int(store.n_atoms[i])}
                           for i in indices],
@@ -83,6 +84,7 @@ def check(out, *, depth, repeats=3, precision='fp32', include_largest=False):
               'nearest_inside_cutoff_A': float((6. - base_records.distances).amin()),
               'source_sha256': {name: file_sha256(ROOT / name) for name in (
                   'model/transformer.py', 'model/local_global_encoder.py', 'model/periodic_messages.py',
+                  'model/periodic_geometry_cache.py',
                   'utils/local_global_experiment.py', 'utils/spectral_inference.py',
                   'utils/periodic_geometry.py', 'tools/checks/check_local_global.py')}, 'arms': []}
     batches = [[atoms, geometry]]
@@ -104,6 +106,8 @@ def check(out, *, depth, repeats=3, precision='fp32', include_largest=False):
                 model = Transformer(**params)
                 init = initialize_comparison_model(model, params, 42)
                 model.to(device).eval()
+                if geometry_cache:
+                    model.enable_local_geometry_cache()
                 wrapped = _WithSpectralGrids(model, grids)
                 arm = {'route': route, 'layout': layout, 'init': init,
                        'parameters': sum(p.numel() for p in model.parameters()),
@@ -155,6 +159,9 @@ def check(out, *, depth, repeats=3, precision='fp32', include_largest=False):
                 if state_hash(model.state_dict()) != initial:
                     raise AssertionError('preflight changed model parameters or buffers')
                 arm['weights_unchanged'] = True
+                if geometry_cache:
+                    arm['cache_configuration'] = model._local_geometry_cache.configuration()
+                    arm['cache_statistics'] = model._local_geometry_cache.statistics()
                 report['arms'].append(arm)
                 print(f'{precision} {route}/{layout}: full outputs, E(3), gradients and weights passed', flush=True)
                 wrapped.zero_grad(set_to_none=True)
@@ -178,9 +185,11 @@ def main():
     parser.add_argument('--repeats', type=int, default=3)
     parser.add_argument('--precision', choices=('fp32', 'fp64'), default='fp32')
     parser.add_argument('--include-largest', action='store_true')
+    parser.add_argument('--geometry-cache', action='store_true')
     args = parser.parse_args()
     check(args.out, depth=args.depth, repeats=args.repeats,
-          precision=args.precision, include_largest=args.include_largest)
+          precision=args.precision, include_largest=args.include_largest,
+          geometry_cache=args.geometry_cache)
 
 
 if __name__ == '__main__':

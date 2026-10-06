@@ -9,12 +9,13 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-from model.periodic_messages import PeriodicLocalMessage
+from model.periodic_messages import PeriodicLocalMessage, prepare_shared_message_geometry
 from utils.periodic_geometry import PeriodicNeighborRecords
 
 LOCAL_ROUTES = ("A", "B+")
 LOCAL_LAYOUTS = ("staged", "alternating")
 LOCAL_RADIUS = 6.0
+LOCAL_PAIR_CHUNK = 65536
 
 
 class LocalResidualLayer(nn.Module):
@@ -25,10 +26,16 @@ class LocalResidualLayer(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         # Full-model A keeps angle activations instead of recomputing them.
         # This execution choice adds no parameters or checkpoint keys.
-        self.message = PeriodicLocalMessage(route, d_model=d_model, recompute_angles=False)
+        self.message = PeriodicLocalMessage(route, d_model=d_model, pair_chunk=LOCAL_PAIR_CHUNK,
+                                            recompute_angles=False)
 
-    def forward(self, h, records, padding_mask):
-        branch = self.message(self.norm(h), records, padding_mask)
+    def forward(self, h, records, padding_mask, prepared_geometry=None):
+        normalized = self.norm(h)
+        if prepared_geometry is None:
+            branch = self.message(normalized, records, padding_mask)
+        else:
+            branch = self.message(normalized, records, padding_mask,
+                                  prepared_geometry=prepared_geometry)
         return (h + branch).masked_fill(padding_mask[..., None], 0)
 
 
@@ -85,6 +92,7 @@ class LocalGlobalEncoder(nn.Module):
             raise ValueError("local_depth must be a positive integer")
         self.route, self.layout, self.depth = route, layout, depth
         self.d_model = d_model
+        self.shared_geometry = True
         self.local_layers = nn.ModuleList(LocalResidualLayer(route, d_model) for _ in range(depth))
         self.global_layers = nn.ModuleList(
             ScalarGlobalLayer(d_model, nhead, dim_feedforward, dropout, activation)
@@ -102,17 +110,19 @@ class LocalGlobalEncoder(nn.Module):
         return tuple((kind, i) for i in range(self.depth) for kind in ("local", "global"))
 
     def forward(self, h: torch.Tensor, records: PeriodicNeighborRecords,
-                padding_mask: torch.Tensor):
+                padding_mask: torch.Tensor, *, prepared_geometry=None):
         if h.shape != (*padding_mask.shape, self.d_model):
             raise ValueError("atom state does not match the local/global atom layout")
         if padding_mask.dtype != torch.bool or padding_mask.device != h.device:
             raise ValueError("boolean atom mask must share the state device")
         if records.radius != LOCAL_RADIUS:
             raise ValueError("current local/global design requires radius 6.0 Angstrom")
+        if prepared_geometry is None and self.shared_geometry:
+            prepared_geometry = prepare_shared_message_geometry(records, self.route)
         h = h.masked_fill(padding_mask[..., None], 0)
         for kind, i in self.execution_order:
             if kind == "local":
-                h = self.local_layers[i](h, records, padding_mask)
+                h = self.local_layers[i](h, records, padding_mask, prepared_geometry)
             else:
                 h = self.global_layers[i](h, padding_mask)
         return h

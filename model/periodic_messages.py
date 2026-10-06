@@ -46,12 +46,26 @@ class _MessageGeometry:
     sender: torch.Tensor
     order: torch.Tensor
     pairs: tuple[torch.Tensor, torch.Tensor] | None = None
+    angular_basis: torch.Tensor | None = None
+    pair_cutoff: torch.Tensor | None = None
+    pair_receiver: torch.Tensor | None = None
+    harmonics: torch.Tensor | None = None
+    record_context: tuple | None = None
+    prepared_route: str | None = None
 
     @property
     def groups(self):
         """Explicit groups for diagnostics; normal forwards need no CPU list."""
         counts = torch.unique_consecutive(self.receiver[self.order], return_counts=True)[1]
         return tuple(self.order.split(counts.tolist())) if self.order.numel() else ()
+
+
+def _record_context(records):
+    fields = (records.batch, records.dst, records.src, records.shifts,
+              records.vectors, records.distances, records.padding_mask)
+    return (records.radius, tuple(records.padding_mask.shape),
+            tuple((t.data_ptr(), None if t.is_inference() else t._version,
+                   t.requires_grad, t.dtype, t.device) for t in fields))
 
 
 def _prepare_message_geometry(records: PeriodicNeighborRecords, *, angle_pairs=False) -> _MessageGeometry:
@@ -67,10 +81,28 @@ def _prepare_message_geometry(records: PeriodicNeighborRecords, *, angle_pairs=F
     effective = vectors.new_zeros(B * L).index_add(0, receiver, cut).view(B, L)
     order = torch.argsort(receiver, stable=True)
     geometry = _MessageGeometry(unit, radial, cut, degree, effective,
-                                degree * (degree - 1) // 2, receiver, sender, order)
+                                degree * (degree - 1) // 2, receiver, sender, order,
+                                record_context=_record_context(records))
     if angle_pairs:
         geometry = replace(geometry, pairs=_unordered_pairs(geometry))
     return geometry
+
+
+def prepare_shared_message_geometry(records, route, *, pair_receivers=True):
+    """Prepare structure-only features once, retaining any geometry gradients."""
+    if route not in ("A", "B+"):
+        raise ValueError("shared geometry requires A or B+")
+    g = _prepare_message_geometry(records, angle_pairs=(route == "A"))
+    if route == "A":
+        left, right = g.pairs
+        q = (g.unit[left] * g.unit[right]).sum(-1).clamp(-1, 1)
+        return replace(g, angular_basis=torch.stack((q, q.square(), q**3, q**4), -1),
+                       pair_cutoff=g.cutoff[left] * g.cutoff[right],
+                       pair_receiver=g.receiver[left] if pair_receivers else None,
+                       prepared_route=route)
+    harmonics = o3.spherical_harmonics(list(range(5)), g.unit, normalize=False,
+                                     normalization="component")
+    return replace(g, harmonics=harmonics, prepared_route=route)
 
 
 def _unordered_pairs(geometry):
@@ -116,18 +148,22 @@ class InvariantMessageBlock(nn.Module):
         self.norm = nn.LayerNorm(64)
 
     def _angle_chunk(self, center_projection, first_projection, second_projection,
-                     unit, cut, receiver, left, right):
-        q = (unit[left] * unit[right]).sum(-1).clamp(-1, 1)
-        angular = torch.stack((q, q.square(), q**3, q**4), dim=-1)
-        shared = center_projection[receiver[left]] + F.linear(angular, self.angle_mlp[0].weight[:, 224:])
+                     unit, cut, receiver, left, right, angular=None, pair_cutoff=None,
+                     pair_receiver=None):
+        if angular is None:
+            q = (unit[left] * unit[right]).sum(-1).clamp(-1, 1)
+            angular = torch.stack((q, q.square(), q**3, q**4), dim=-1)
+        centers = receiver[left] if pair_receiver is None else pair_receiver
+        shared = center_projection[centers] + F.linear(angular, self.angle_mlp[0].weight[:, 224:])
         forward = shared + first_projection[left] + second_projection[right]
         backward = shared + first_projection[right] + second_projection[left]
         # The nonlinearity stays after the complete original affine sum.
         message = (self.angle_mlp[2](self.angle_mlp[1](forward))
                    + self.angle_mlp[2](self.angle_mlp[1](backward))) * .5
-        message = message * (cut[left] * cut[right])[:, None]
+        cutoff = cut[left] * cut[right] if pair_cutoff is None else pair_cutoff
+        message = message * cutoff[:, None]
         return message.new_zeros((len(center_projection), SCALAR_CHANNELS)).index_add(
-            0, receiver[left], message)
+            0, centers, message)
 
     def forward(self, scalar, geometry):
         shape = scalar.shape
@@ -147,6 +183,10 @@ class InvariantMessageBlock(nn.Module):
             for start in range(0, len(left_all), self.pair_chunk):
                 left, right = left_all[start:start+self.pair_chunk], right_all[start:start+self.pair_chunk]
                 arguments = (center, first, second, g.unit, g.cutoff, g.receiver, left, right)
+                if g.angular_basis is not None:
+                    part = slice(start, start+self.pair_chunk)
+                    arguments += (g.angular_basis[part], g.pair_cutoff[part],
+                                  g.pair_receiver[part] if g.pair_receiver is not None else None)
                 if self.recompute_angles and torch.is_grad_enabled():
                     pooled = checkpoint(self._angle_chunk, *arguments, use_reentrant=False,
                                         preserve_rng_state=False)
@@ -266,7 +306,8 @@ class PeriodicLocalMessage(nn.Module):
             self.blocks = nn.ModuleList(HighOrderEquivariantBlock(gate_direction=(i == 0)) for i in range(2))
 
     def forward(self, h: torch.Tensor, records: PeriodicNeighborRecords,
-                padding_mask: torch.Tensor, *, return_debug: bool = False):
+                padding_mask: torch.Tensor, *, return_debug: bool = False,
+                prepared_geometry: _MessageGeometry | None = None):
         if not isinstance(records, PeriodicNeighborRecords):
             raise TypeError("physical PeriodicNeighborRecords required")
         if padding_mask.ndim != 2 or padding_mask.dtype != torch.bool:
@@ -281,15 +322,22 @@ class PeriodicLocalMessage(nn.Module):
             raise ValueError("atom features and module must share a dtype")
         if not torch.isfinite(h[~padding_mask]).all():
             raise ValueError("finite scalars required on valid atom slots")
-        g = _prepare_message_geometry(records, angle_pairs=(self.route == "A"))
+        if prepared_geometry is None:
+            g = _prepare_message_geometry(records, angle_pairs=(self.route == "A"))
+        else:
+            g = prepared_geometry
+            if g.record_context != _record_context(records) or g.prepared_route != self.route:
+                raise ValueError("prepared geometry differs from physical records or route")
         atoms = h.masked_fill(padding_mask[..., None], 0)
         scalar = self.local_input(atoms).masked_fill(padding_mask[..., None], 0)
         states, angular_states = [scalar], []
         if self.route == "B+":
             state = torch.cat((scalar, scalar.new_zeros((*padding_mask.shape, 44))), -1)
             states = [state]
-            harmonics = o3.spherical_harmonics(list(range(5)), g.unit, normalize=False,
-                                             normalization="component")
+            harmonics = g.harmonics
+            if harmonics is None:
+                harmonics = o3.spherical_harmonics(list(range(5)), g.unit, normalize=False,
+                                                 normalization="component")
             for block in self.blocks:
                 state, angular = block(state, g, harmonics, self.include_high_order)
                 state = state.masked_fill(padding_mask[..., None], 0)

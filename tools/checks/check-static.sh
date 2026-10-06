@@ -68,6 +68,7 @@ PY
     tests.data.test_periodic_neighbors \
     tests.data.test_crystal_input \
     tests.model.test_periodic_messages \
+    tests.model.test_periodic_geometry_cache \
     tests.model.test_local_global_encoder \
     tests.pipeline.test_local_global_comparison \
     tests.model.test_periodic_messages_gpu

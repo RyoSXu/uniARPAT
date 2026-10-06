@@ -9,6 +9,9 @@
 共同初值及实验契约；采用 A 的跨中心分块和等价线性项复用，未据大 batch 探针改变训练配置。
 2026-10-06 用户明确批准[关闭正式 A 的角度重计算](../logs/log-2026-10-06-local-global-no-recompute.md)：
 组装层显式选择保存激活，仍使用原分块与参数；运行时记录从哪一轮生效，科学契约及旧 checkpoint 保持兼容。
+随后用户批准[大分块与 GPU 几何缓存](../logs/log-2026-10-06-local-geometry-cache.md)：
+正式角度分块改为 65536，同次前向复用结构特征；固定 GPU 输入跨批次复用有预算上限的几何缓存。
+后者只保存结构量，可学习消息与投影每次重新计算。分块改变有 FP32 舍入差异，未承诺逐位相同或最终精度相同。
 
 ## 已确认的接入原则
 
@@ -95,6 +98,13 @@ G_i(h)=\widetilde h+\operatorname{FFN}_i(\operatorname{LN}^{F}_i(\widetilde h)).
 [`Transformer`](../../model/transformer.py) 通过 `local_route/local_layout/local_depth` 启用新路径；
 默认 `local_route="none"` 保持历史路径。新模型为 Z=1…118 加 padding=0 保留至少 119 行 embedding。
 物理记录在一次 forward 中构建一次，所有局部调用复用；全局与 decoder 都不接收晶胞或坐标。
+`prepare_shared_message_geometry` 在本次前向共享径向基、方向、计数、完整邻边对及角度基或球谐。
+`Transformer.enable_local_geometry_cache` 管理独立于 state_dict 的进程内缓存；
+`PeriodicGeometryCache.get` 以实际晶格与有效分数坐标内容匹配，并按当前 batch 重新映射原子槽。
+改变几何、dtype、设备或半径不会沿用失效条目；坐标求导走原可导路径。
+训练入口在 CUDA、无增强条件下启用，容量最多 16 GiB 且不超过设备显存的一半；LRU 与工作空间估算可继续释放条目。
+该估算控制缓存占用，不保证任意训练 batch 都能放入显存；缓存分配 OOM 时释放可选缓存后走普通路径。
+CPU、数据增强或几何与原子状态 dtype/设备不一致时使用普通路径，不改变输入契约。
 填充状态每次更新后置零，全空结构的 decoder 使用一个零记忆 token，原始掩码继续控制 pooling 和计数。
 
 新训练分支复用 M1 共享 decoder、两类独立谱 head、SumNorm 损失和 H1 尺度监督。
@@ -168,5 +178,5 @@ ZP100/B7 继续作为既定参考；它们的旧报告使用原 Q1，不能自�
 新模型不能当作历史 checkpoint 的续训；历史复核路径和已有产物继续保留。
 
 接入与无更新验证结果见实施日志。首轮已使用 K=2、35 epochs、batch=32、lr=5e-5、seed=42 和
-`balanced_oracle_mae`；A/staged 完成 21 轮后队列由用户暂停，关闭重计算的改动尚未用于后续正式训练。
+`balanced_oracle_mae`；A/staged 完成 21 轮后队列由用户暂停，关闭重计算、大分块与几何缓存尚未用于后续正式训练。
 最终路线/编排/深度、采用门槛和结果对应行动尚未选定；本次工程修改不自动批准恢复或扩展预算。

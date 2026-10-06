@@ -1,6 +1,6 @@
 # 训练前的周期几何与局部消息模块边界
 
-更新日期：2026-10-05。状态：**独立 A/B+ 与物理记录已接入完整新模型；局部接口与公式保持，未启动正式训练。**
+更新日期：2026-10-06。状态：**独立 A/B+ 与物理记录已接入完整新模型；基本接口与公式保持，首轮对照已暂停。**
 依据为 [ZP 约定](design-2026-10-02-element-initialization.md)、[A/B 候选](design-2026-10-04-periodic-message-candidates.md)
 及 [B+ 量化对照](../logs/log-2026-10-03-periodic-message-high-order.md)。
 本页不选择最终 Encoder 路线、局部/全局编排或训练预算。历史诊断包装器仅作复核参照，
@@ -51,6 +51,13 @@ A/B+、编排与深度仍待实验选型，不改变本页所记录的已实施�
 ```python
 h_local = local_message(h, records, padding_mask)
 ```
+
+2026-10-06 增加向后兼容的可选 `prepared_geometry`：
+`prepare_shared_message_geometry(records, route)` 生成结构量，同次前向的局部调用可共享。
+消息模块核对物理记录、路线与张量版本，再重新计算所有可学习消息；后续全局模块不接收此对象。
+固定结构的进程内 GPU 缓存位于组装调用链，按当前 batch 重组记录及其特征，不改变上述基本调用方式。
+坐标求导时仅共享本次可导几何，不使用持久缓存；失效、预算与验收见
+[几何缓存日志](../logs/log-2026-10-06-local-geometry-cache.md)。
 
 - 当前 `D=512`；`PeriodicLocalMessage("A")` / `PeriodicLocalMessage("B+")` 使用相同外部
   shape 和语义，内部 `512↔64` 投影属于局部模块。构造器可显式指定外部 `d_model`，

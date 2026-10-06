@@ -152,6 +152,7 @@ class Transformer(nn.Module):
                   local_route="none", local_layout=None, local_depth=None):
         super().__init__()
         self.local_route = local_route
+        self._local_geometry_cache = None
         if local_route not in ("none", "A", "B+"):
             raise ValueError("local_route must be none, A or B+")
         if local_route == "none" and (local_layout is not None or local_depth is not None):
@@ -480,6 +481,26 @@ class Transformer(nn.Module):
 
         return atom_src
 
+    def enable_local_geometry_cache(self, *, enabled=True, max_bytes=None):
+        """Configure optional runtime caching without adding checkpoint state."""
+        if self._local_geometry_cache is not None:
+            self._local_geometry_cache.clear()
+        self._local_geometry_cache = None
+        if enabled:
+            if self.local_route == "none":
+                raise ValueError("geometry caching requires a local/global encoder")
+            from model.periodic_geometry_cache import PeriodicGeometryCache
+
+            self._local_geometry_cache = PeriodicGeometryCache(
+                self.local_route, next(self.parameters()).device, max_bytes=max_bytes,
+                local_blocks=self.encoder.update_counts["internal_local_blocks"])
+
+    def _apply(self, fn, recurse=True):
+        cache = getattr(self, "_local_geometry_cache", None)
+        if cache is not None:
+            cache.clear()
+        return super()._apply(fn, recurse=recurse)
+
     def forward(self, src, mask, pos, edos_x=None, phdos_x=None):
         # src: [B, L] atom indices; pos carries lattice+coords
         # edos_x/phdos_x: [E] or [B,E] bin centers in task units, supplied by
@@ -516,9 +537,21 @@ class Transformer(nn.Module):
             from model.local_global_encoder import LOCAL_RADIUS
             from utils.periodic_geometry import build_periodic_records
 
-            records = build_periodic_records(pos, mask_atom, radius=LOCAL_RADIUS)
-            records = records.to(device=atom_src.device, dtype=atom_src.dtype)
-            memory = self.encoder(atom_src, records, mask_atom)
+            cached = None
+            if self._local_geometry_cache is not None:
+                # The normal path casts physical records after construction.
+                # Preserve that behavior when input and learned state differ.
+                if pos.dtype == atom_src.dtype and pos.device == atom_src.device:
+                    cached = self._local_geometry_cache.get(pos, mask_atom, radius=LOCAL_RADIUS)
+                else:
+                    self._local_geometry_cache.bypasses += 1
+            if cached is None:
+                records = build_periodic_records(pos, mask_atom, radius=LOCAL_RADIUS)
+                records = records.to(device=atom_src.device, dtype=atom_src.dtype)
+                memory = self.encoder(atom_src, records, mask_atom)
+            else:
+                records, prepared = cached
+                memory = self.encoder(atom_src, records, mask_atom, prepared_geometry=prepared)
         elif self.use_periodic_manybody:
             memory = self.encoder(atom_src, mask_atom, pos)
         elif self.use_g1:

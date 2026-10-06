@@ -363,6 +363,16 @@ def write_pair_aux_calibration(config_path, calibration, frozen_plan_hash, epoch
         yaml.safe_dump(config_used, stream, sort_keys=False)
 
 
+def configure_local_global_execution(transformer, *, augment=False):
+    """Enable GPU caching only for immutable structural comparison inputs."""
+    configure = getattr(transformer, "enable_local_geometry_cache", None)
+    if configure is not None:
+        cuda = next(transformer.parameters()).device.type == "cuda"
+        configure(enabled=cuda and not augment)
+        transformer._local_geometry_cache_disabled_reason = (
+            "augmentation" if augment else "cpu" if not cuda else None)
+
+
 def write_local_global_execution(config_path, transformer, start_epoch):
     """Record actual resource settings without changing the scientific contract.
 
@@ -371,9 +381,16 @@ def write_local_global_execution(config_path, transformer, start_epoch):
     """
     blocks = [block for layer in transformer.encoder.local_layers
               for block in layer.message.blocks] if transformer.local_route == "A" else []
+    cache = getattr(transformer, "_local_geometry_cache", None)
+    cache_config = cache.configuration() if cache is not None else {"enabled": False}
+    reason = getattr(transformer, "_local_geometry_cache_disabled_reason", None)
+    if reason is not None:
+        cache_config["reason"] = reason
     execution = {"from_epoch": start_epoch + 1, "route": transformer.local_route,
                  "recompute_angles": [block.recompute_angles for block in blocks],
-                 "pair_chunk": [block.pair_chunk for block in blocks]}
+                 "pair_chunk": [block.pair_chunk for block in blocks],
+                 "shared_geometry": getattr(transformer.encoder, "shared_geometry", False),
+                 "geometry_cache": cache_config}
     with open(config_path) as stream:
         config_used = yaml.safe_load(stream)
     history = config_used.setdefault("runtime", {}).setdefault("local_global_execution", [])
@@ -744,6 +761,7 @@ def train_and_eval(cfg: ExperimentConfig):
             default_flow_style =False )
 
     if comparison_init is not None and start_epoch < cfg.epochs:
+        configure_local_global_execution(model.model['transformer'], augment=cfg.augment)
         execution = write_local_global_execution(
             config_path, model.model['transformer'], start_epoch)
         logger.info("[%s] Local/global execution: %s", cfg.model_name, execution)

@@ -55,7 +55,7 @@ class TestLocalGlobalEncoder(unittest.TestCase):
                     model.train()
                     blocks = [block for layer in model.encoder.local_layers for block in layer.message.blocks]
                     self.assertTrue(all(not block.recompute_angles for block in blocks))
-                    self.assertTrue(all(block.pair_chunk == 4096 for block in blocks))
+                    self.assertTrue(all(block.pair_chunk == 65536 for block in blocks))
                     state = {key: value.clone() for key, value in model.state_dict().items()}
                     rng = torch.get_rng_state()
                     results = []

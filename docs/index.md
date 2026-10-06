@@ -25,6 +25,7 @@
 
 ## 当前路线相关证据
 
+- 正式采用 65536 角度分块与有预算的 GPU 结构缓存、层间几何复用、失效与 checkpoint 恢复检查：[2026-10-06 几何缓存](logs/log-2026-10-06-local-geometry-cache.md)
 - 正式 A 关闭角度重计算、真实第 21 轮状态只读恢复、数值波动诊断与含 optimizer 的成本：[2026-10-06 关闭重计算](logs/log-2026-10-06-local-global-no-recompute.md)
 - A 的等价实现提速、同权重输出/梯度与全链 E(3) 复查、大 batch/重计算资源探针：[2026-10-05 提速日志](logs/log-2026-10-05-local-message-speedup.md)
 - 外部审核反馈核查、回归覆盖补齐、共同配置和最终复查：[2026-10-05 审核收尾](logs/log-2026-10-05-local-global-review-followup.md)

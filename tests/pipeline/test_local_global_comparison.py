@@ -136,7 +136,9 @@ class TestLocalGlobalComparison(unittest.TestCase):
             torch.testing.assert_close(expected[2], actual[2], atol=0, rtol=0)
             self.assertEqual(new['from_epoch'], 22)
             self.assertEqual(new['recompute_angles'], [False] * 4)
-            self.assertEqual(new['pair_chunk'], [4096] * 4)
+            self.assertEqual(new['pair_chunk'], [65536] * 4)
+            self.assertTrue(new['shared_geometry'])
+            self.assertEqual(new['geometry_cache'], {'enabled': False})
             result = yaml.safe_load(path.read_text())
             self.assertEqual(result['cli'], saved['cli'])
             self.assertEqual(result['model_contract'], saved['model_contract'])
@@ -146,6 +148,21 @@ class TestLocalGlobalComparison(unittest.TestCase):
             unchanged = path.read_bytes()
             runner.write_local_global_execution(path, model, 21)
             self.assertEqual(path.read_bytes(), unchanged)
+
+    def test_execution_configuration_bypasses_augmentation_and_keeps_state_rng(self):
+        model = Transformer(**parameters())
+        initial = {k: v.clone() for k, v in model.state_dict().items()}
+        rng = torch.get_rng_state()
+        model.enable_local_geometry_cache(max_bytes=2**20)
+        runner.configure_local_global_execution(model, augment=True)
+        self.assertIsNone(model._local_geometry_cache)
+        self.assertEqual(model._local_geometry_cache_disabled_reason, 'augmentation')
+        runner.configure_local_global_execution(model)
+        self.assertIsNone(model._local_geometry_cache)
+        self.assertEqual(model._local_geometry_cache_disabled_reason, 'cpu')
+        torch.testing.assert_close(torch.get_rng_state(), rng, atol=0, rtol=0)
+        for key, value in model.state_dict().items():
+            torch.testing.assert_close(value, initial[key], atol=0, rtol=0)
 
     def test_h1_structure_only_reconstruction_and_full_evaluator_modes(self):
         outputs = {'edos': torch.zeros(2, 8), 'phdos': torch.zeros(2, 4),
