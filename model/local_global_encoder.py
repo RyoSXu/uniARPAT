@@ -23,7 +23,9 @@ class LocalResidualLayer(nn.Module):
     def __init__(self, route: str, d_model: int):
         super().__init__()
         self.norm = nn.LayerNorm(d_model)
-        self.message = PeriodicLocalMessage(route, d_model=d_model)
+        # Full-model A keeps angle activations instead of recomputing them.
+        # This execution choice adds no parameters or checkpoint keys.
+        self.message = PeriodicLocalMessage(route, d_model=d_model, recompute_angles=False)
 
     def forward(self, h, records, padding_mask):
         branch = self.message(self.norm(h), records, padding_mask)

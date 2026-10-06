@@ -31,17 +31,62 @@ class TestLocalGlobalEncoder(unittest.TestCase):
     def setUpClass(cls):
         torch.set_num_threads(1)
 
-    def create(self, route='A', layout='staged', depth=2, dtype=torch.float32, q1_coord=False):
+    def create(self, route='A', layout='staged', depth=2, dtype=torch.float32, q1_coord=False, dropout=0.):
         before = torch.get_default_dtype()
         torch.set_default_dtype(dtype)
         try:
             params = parameters(route, layout, depth)
             params['q1_coord'] = q1_coord
+            params['dropout'] = dropout
             model = Transformer(**params)
             info = initialize_comparison_model(model, params, 42)
         finally:
             torch.set_default_dtype(before)
         return model.eval(), info
+
+    def test_full_A_keeps_activations_with_equal_training_outputs_gradients_and_rng(self):
+        from model.periodic_messages import checkpoint
+
+        for dtype in (torch.float32, torch.float64):
+            z, geometry = fixture(dtype)
+            for layout in ('staged', 'alternating'):
+                with self.subTest(dtype=dtype, layout=layout):
+                    model, _ = self.create(layout=layout, dtype=dtype, dropout=.05)
+                    model.train()
+                    blocks = [block for layer in model.encoder.local_layers for block in layer.message.blocks]
+                    self.assertTrue(all(not block.recompute_angles for block in blocks))
+                    self.assertTrue(all(block.pair_chunk == 4096 for block in blocks))
+                    state = {key: value.clone() for key, value in model.state_dict().items()}
+                    rng = torch.get_rng_state()
+                    results = []
+                    for recompute in (True, False):
+                        for block in blocks:
+                            block.recompute_angles = recompute
+                        torch.set_rng_state(rng)
+                        model.zero_grad(set_to_none=True)
+                        with patch('model.periodic_messages.checkpoint', wraps=checkpoint) as calls:
+                            out = model(z, z.eq(0), geometry)
+                            sum(value.square().mean() for value in out.values()).backward()
+                            if recompute:
+                                self.assertGreater(calls.call_count, 0)
+                            else:
+                                calls.assert_not_called()
+                        grads = {name: p.grad.clone() if p.grad is not None else None
+                                 for name, p in model.named_parameters()}
+                        self.assertTrue(all(torch.isfinite(g).all() for g in grads.values() if g is not None))
+                        results.append((out, grads, torch.get_rng_state()))
+                    atol, rtol = (2e-6, 2e-5) if dtype == torch.float32 else (2e-12, 2e-10)
+                    for key in results[0][0]:
+                        torch.testing.assert_close(results[1][0][key], results[0][0][key], atol=atol, rtol=rtol)
+                    for key, expected in results[0][1].items():
+                        actual = results[1][1][key]
+                        if expected is None:
+                            self.assertIsNone(actual, key)
+                        else:
+                            torch.testing.assert_close(actual, expected, atol=atol, rtol=rtol)
+                    torch.testing.assert_close(results[1][2], results[0][2], atol=0, rtol=0)
+                    for key, value in model.state_dict().items():
+                        torch.testing.assert_close(value, state[key], atol=0, rtol=0)
 
     def test_all_routes_and_layouts_have_full_output_e3_invariance(self):
         for dtype in (torch.float32, torch.float64):

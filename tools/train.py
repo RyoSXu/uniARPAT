@@ -363,6 +363,27 @@ def write_pair_aux_calibration(config_path, calibration, frozen_plan_hash, epoch
         yaml.safe_dump(config_used, stream, sort_keys=False)
 
 
+def write_local_global_execution(config_path, transformer, start_epoch):
+    """Record actual resource settings without changing the scientific contract.
+
+    An old config may have no execution history. Append the setting effective
+    from the next epoch; do not infer settings for its earlier epochs.
+    """
+    blocks = [block for layer in transformer.encoder.local_layers
+              for block in layer.message.blocks] if transformer.local_route == "A" else []
+    execution = {"from_epoch": start_epoch + 1, "route": transformer.local_route,
+                 "recompute_angles": [block.recompute_angles for block in blocks],
+                 "pair_chunk": [block.pair_chunk for block in blocks]}
+    with open(config_path) as stream:
+        config_used = yaml.safe_load(stream)
+    history = config_used.setdefault("runtime", {}).setdefault("local_global_execution", [])
+    if not history or history[-1] != execution:
+        history.append(execution)
+        with open(config_path, "w") as stream:
+            yaml.safe_dump(config_used, stream, sort_keys=False)
+    return execution
+
+
 def maybe_get_pair_aux_loader(train_loader, cfg):
     """Build the label-free plan only for an explicitly active pair arm."""
     if cfg.pair_aux_arm == "none":
@@ -721,6 +742,11 @@ def train_and_eval(cfg: ExperimentConfig):
             'config':yaml_cfg, 'model_contract':model_contract,
             'runtime':({'local_global_init':comparison_init} if comparison_init is not None else {})},f ,indent =2 ,sort_keys =False ,
             default_flow_style =False )
+
+    if comparison_init is not None and start_epoch < cfg.epochs:
+        execution = write_local_global_execution(
+            config_path, model.model['transformer'], start_epoch)
+        logger.info("[%s] Local/global execution: %s", cfg.model_name, execution)
 
     if getattr(model, "pair_aux_calibration", None) is not None:
         write_pair_aux_calibration(

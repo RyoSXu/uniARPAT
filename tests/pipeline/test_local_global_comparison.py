@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 import random
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -14,6 +15,7 @@ import pandas as pd
 import yaml
 
 from model.model import basemodel
+from model.transformer import Transformer
 from tests.data.test_crystal_input import sample
 from tests.model.test_local_global_encoder import parameters
 from tests.pipeline import test_checkpoint_boundary as checkpoint_fixtures
@@ -111,6 +113,40 @@ class TestLocalGlobalComparison(unittest.TestCase):
         self.assertEqual(expected[0:2], actual[0:2])
         torch.testing.assert_close(expected[2], actual[2], atol=0, rtol=0)
 
+    def test_execution_history_preserves_contract_metadata_and_rng(self):
+        model = Transformer(**parameters())
+        blocks = [block for layer in model.encoder.local_layers for block in layer.message.blocks]
+        cfg = configuration()
+        saved = {'cli': asdict(cfg), 'model_contract': comparison_contract(cfg, parameters()),
+                 'runtime': {'local_global_init': {'protocol': 'unit'}, 'other_metadata': .125}}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'config_used.yaml'
+            path.write_text(yaml.safe_dump(saved))
+            for block in blocks:
+                block.recompute_angles = True
+            old = runner.write_local_global_execution(path, model, 0)
+            for block in blocks:
+                block.recompute_angles = False
+            rng = capture_training_rng()
+            expected = (random.random(), np.random.random(), torch.rand(3))
+            restore_training_rng(rng)
+            new = runner.write_local_global_execution(path, model, 21)
+            actual = (random.random(), np.random.random(), torch.rand(3))
+            self.assertEqual(expected[:2], actual[:2])
+            torch.testing.assert_close(expected[2], actual[2], atol=0, rtol=0)
+            self.assertEqual(new['from_epoch'], 22)
+            self.assertEqual(new['recompute_angles'], [False] * 4)
+            self.assertEqual(new['pair_chunk'], [4096] * 4)
+            result = yaml.safe_load(path.read_text())
+            self.assertEqual(result['cli'], saved['cli'])
+            self.assertEqual(result['model_contract'], saved['model_contract'])
+            self.assertEqual(result['runtime']['local_global_init'], saved['runtime']['local_global_init'])
+            self.assertEqual(result['runtime']['other_metadata'], .125)
+            self.assertEqual(result['runtime']['local_global_execution'], [old, new])
+            unchanged = path.read_bytes()
+            runner.write_local_global_execution(path, model, 21)
+            self.assertEqual(path.read_bytes(), unchanged)
+
     def test_h1_structure_only_reconstruction_and_full_evaluator_modes(self):
         outputs = {'edos': torch.zeros(2, 8), 'phdos': torch.zeros(2, 4),
                    'eta': torch.tensor([[.5, .25], [.3, .7]])}
@@ -158,6 +194,10 @@ class TestLocalGlobalComparison(unittest.TestCase):
         self.addCleanup(fixture.doCleanups)
         fixture.setUp()
         fixture.cfg = replace(configuration(), tag='_recovery_contract')
+        fixture.model.model['transformer'].local_route = 'A'
+        fixture.model.model['transformer'].encoder = SimpleNamespace(local_layers=[
+            SimpleNamespace(message=SimpleNamespace(blocks=[
+                SimpleNamespace(recompute_angles=False, pair_chunk=4096)]))])
         fixture.evaluate.return_value.update({
             'balanced_oracle_mae': .25, 'balanced_blind_mae': .4,
             'blind_r2_edos_median': .3, 'blind_r2_phdos_median': .4})
@@ -188,6 +228,9 @@ class TestLocalGlobalComparison(unittest.TestCase):
         self.assertEqual(list(history['balanced_score']), [.25, .25])
         self.assertIn('training_rng', saved[-1])
         self.assertEqual(saved[-1]['model_contract']['selection_metric'], 'balanced_oracle_mae')
+        execution = yaml.safe_load(fixture.config_path.read_text())['runtime']['local_global_execution']
+        self.assertEqual([item['from_epoch'] for item in execution], [1, 2])
+        self.assertTrue(all(item['recompute_angles'] == [False] for item in execution))
 
     def test_existing_history_without_configuration_is_explicitly_unverifiable(self):
         configs = comparison_configs(configuration(), depth=2, seeds=[42], tag_prefix='missing_config')
