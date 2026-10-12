@@ -28,6 +28,10 @@ def is_deep_depths(local_depth, global_depth) -> bool:
 
 
 def validate_local_global_config(cfg: ExperimentConfig) -> None:
+    if cfg.local_route == "G0":
+        from utils.global_only_experiment import validate_global_only_config
+        validate_global_only_config(cfg)
+        return
     if cfg.local_route == "none":
         if (cfg.local_layout is not None or cfg.local_depth is not None
                 or cfg.global_depth is not None):
@@ -269,6 +273,9 @@ def initialize_comparison_model(transformer, params: dict, seed: int) -> dict:
     """
     from utils.zproj_alignment import state_hash
 
+    if params.get("local_route") == "G0":
+        from utils.global_only_experiment import initialize_global_only_model
+        return initialize_global_only_model(transformer, params, seed)
     if params.get("local_route") in ("C0", "C1"):
         from utils.local_structure_experiment import initialize_structure_control
         return initialize_structure_control(transformer, params, seed)
@@ -301,6 +308,9 @@ def training_record(cfg: ExperimentConfig) -> dict:
 
 
 def comparison_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict | None:
+    if cfg.local_route == "G0":
+        from utils.global_only_experiment import global_only_contract
+        return global_only_contract(cfg, transformer_params)
     if cfg.local_route == "none":
         return None
     if cfg.local_route in ("C0", "C1"):

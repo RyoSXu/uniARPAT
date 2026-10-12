@@ -155,8 +155,8 @@ class Transformer(nn.Module):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
-        if local_route not in ("none", "A", "B+", "C0", "C1"):
-            raise ValueError("local_route must be none, A, B+, C0 or C1")
+        if local_route not in ("none", "A", "B+", "C0", "C1", "G0"):
+            raise ValueError("local_route must be none, A, B+, C0, C1 or G0")
         if local_route == "none" and (local_layout is not None or local_depth is not None
                                       or global_depth is not None):
             raise ValueError("local layout/depth require an A/B+ route")
@@ -500,7 +500,7 @@ class Transformer(nn.Module):
             self._local_geometry_cache.clear()
         self._local_geometry_cache = None
         if enabled:
-            if self.local_route in ("none", "C0"):
+            if self.local_route in ("none", "C0", "G0"):
                 raise ValueError("geometry caching requires a geometry-consuming local route")
             from model.periodic_geometry_cache import PeriodicGeometryCache
 
@@ -546,7 +546,7 @@ class Transformer(nn.Module):
             atom_src = atom_src + self.macro_lattice_alpha * self.macro_lattice_mlp(macro).unsqueeze(1)
 
         # Compute relative geometry features
-        if self.local_route == "C0":
+        if self.local_route in ("C0", "G0"):
             memory = self.encoder(atom_src, None, mask_atom)
         elif self.local_route != "none":
             from model.local_global_encoder import LOCAL_RADIUS

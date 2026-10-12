@@ -20,6 +20,7 @@
 | 6.0 Å A/B 与增强 B+ 的公式、实际原型接口与取舍 | [`design/design-2026-10-04-periodic-message-candidates.md`](design/design-2026-10-04-periodic-message-candidates.md) |
 | 已提取的物理记录/A/B+ 接口、职责边界与后续验收 | [`design/design-2026-10-04-periodic-message-module-boundaries.md`](design/design-2026-10-04-periodic-message-module-boundaries.md) |
 | 已实施的局部—全局 Encoder、共同初值与路线×编排对照入口 | [`design/design-2026-10-04-local-global-encoder.md`](design/design-2026-10-04-local-global-encoder.md) |
+| 当前整体 Encoder 归因：六层全局、无局部更新 G0 | [`无局部更新对照设计`](design/design-2026-10-12-global-only-attribution.md) |
 | 协作与实验流程 | [`workflow.md`](workflow.md) |
 | 长期决策和评估约定 | [`decisions.md`](decisions.md) |
 | 数据、缓存及标签口径 | [`data.md`](data.md)；[`data/reference/edos-label-audit.md`](../data/reference/edos-label-audit.md) |
@@ -28,6 +29,7 @@
 
 ## 当前路线相关证据
 
+- 当前下一组 G0 已实施并通过 341 项测试、共同初值/真实 GPU 梯度/E(3)/恢复预检；正式训练尚未启动：[2026-10-12 G0 预检日志](logs/log-2026-10-12-global-only-preflight.md)。
 - C1 联合损失与仅谱差损失的同材料/初值/预算短对照（train-only、seed 42、各 600 步）已完成：两对仍失败、整体充分拟合未过，单材料两类谱明显变差；当前预算下去掉联合监督不能修复困难对，根因未定：[2026-10-12 损失隔离日志](logs/log-2026-10-12-local-structure-loss-isolation.md)
 - C1 小样本拟合困难材料对诊断（train-only、seed 42、隔离复现 600 步＋参照对）：输入和完整表示可区分；阶段距离放大 sqrt(512) 的错误已更正，不能定位 decoder 瓶颈；梯度冲突是部分状态观察，control 的同对无冲突仍失败，根因未定；复现漂移来源未定位：[2026-10-12 困难对归因日志](logs/log-2026-10-12-hard-pair-attribution.md)
 - C1 小样本结构谱差拟合（train-only、seed 42、共同已训练起点、两组各 600 步）：显式监督降低配对误差，但单材料 eDOS 拟合变差；两组未过预设充分拟合门槛，未检验泛化：[2026-10-12 小样本拟合日志](logs/log-2026-10-12-local-structure-small-fit.md)

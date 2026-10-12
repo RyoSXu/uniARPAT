@@ -13,7 +13,7 @@ from model.periodic_messages import PeriodicLocalMessage, prepare_shared_message
 from model.local_structure_controls import CONTROL_ROUTES, ControlLocalMessage
 from utils.periodic_geometry import PeriodicNeighborRecords
 
-LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES)
+LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0")
 LOCAL_LAYOUTS = ("staged", "alternating")
 LOCAL_RADIUS = 6.0
 LOCAL_PAIR_CHUNK = 65536
@@ -93,7 +93,12 @@ class LocalGlobalEncoder(nn.Module):
         super().__init__()
         if route not in LOCAL_ROUTES or layout not in LOCAL_LAYOUTS:
             raise ValueError("explicit local route and staged/alternating layout required")
-        if isinstance(depth, bool) or not isinstance(depth, int) or depth < 1:
+        if route == "G0":
+            if isinstance(depth, bool) or depth != 0 or not isinstance(depth, int):
+                raise ValueError("G0 requires local_depth=0")
+            if layout != "staged" or global_depth is None:
+                raise ValueError("G0 requires staged layout and explicit global_depth")
+        elif isinstance(depth, bool) or not isinstance(depth, int) or depth < 1:
             raise ValueError("local_depth must be a positive integer")
         if global_depth is None:
             global_depth = depth
@@ -102,7 +107,7 @@ class LocalGlobalEncoder(nn.Module):
         self.route, self.layout, self.depth = route, layout, depth
         self.global_depth = global_depth
         self.d_model = d_model
-        self.shared_geometry = route != "C0"
+        self.shared_geometry = route not in ("C0", "G0")
         self.local_layers = nn.ModuleList(LocalResidualLayer(route, d_model) for _ in range(depth))
         self.global_layers = nn.ModuleList(
             ScalarGlobalLayer(d_model, nhead, dim_feedforward, dropout, activation)
@@ -131,9 +136,9 @@ class LocalGlobalEncoder(nn.Module):
             raise ValueError("atom state does not match the local/global atom layout")
         if padding_mask.dtype != torch.bool or padding_mask.device != h.device:
             raise ValueError("boolean atom mask must share the state device")
-        if self.route == "C0":
+        if self.route in ("C0", "G0"):
             if records is not None or prepared_geometry is not None:
-                raise ValueError("C0 must receive no geometry")
+                raise ValueError(f"{self.route} must receive no geometry")
         elif records is None or records.radius != LOCAL_RADIUS:
             raise ValueError("current local/global design requires radius 6.0 Angstrom")
         if prepared_geometry is None and self.shared_geometry:
