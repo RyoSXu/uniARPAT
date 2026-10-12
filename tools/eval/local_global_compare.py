@@ -58,7 +58,8 @@ def summarize(configs):
             saved = yaml.safe_load(stream)
         params = saved['config']['model']['params']['sub_model']['transformer']
         identity = {'local_route': cfg.local_route, 'local_layout': cfg.local_layout,
-                    'local_depth': cfg.local_depth, 'atom_feat_mode': cfg.atom_feat}
+                    'local_depth': cfg.local_depth, 'global_depth': cfg.global_depth,
+                    'atom_feat_mode': cfg.atom_feat}
         if any(params.get(key) != value for key, value in identity.items()) \
                 or saved.get('model_contract') != comparison_contract(cfg, params):
             raise ValueError(f'comparison configuration mismatch: {config_path}')

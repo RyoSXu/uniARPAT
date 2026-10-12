@@ -149,21 +149,33 @@ class Transformer(nn.Module):
                   macro_lattice_mean=(2.96373232, 1.22763338),
                   macro_lattice_std=(0.41023959, 0.51526549),
                   g2_content_mode="radial", use_periodic_manybody=False,
-                  local_route="none", local_layout=None, local_depth=None):
+                  local_route="none", local_layout=None, local_depth=None,
+                  global_depth=None,
+                  lg_baseline=False):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
-        if local_route not in ("none", "A", "B+"):
-            raise ValueError("local_route must be none, A or B+")
-        if local_route == "none" and (local_layout is not None or local_depth is not None):
+        if local_route not in ("none", "A", "B+", "C0", "C1"):
+            raise ValueError("local_route must be none, A, B+, C0 or C1")
+        if local_route == "none" and (local_layout is not None or local_depth is not None
+                                      or global_depth is not None):
             raise ValueError("local layout/depth require an A/B+ route")
-        if local_route != "none":
+        # The baseline comparison arm keeps the original encoder and its geometry
+        # scoring; only the matched initialization and the shared blind/oracle
+        # evaluation live outside this module. It is never a route value.
+        self.lg_baseline = bool(lg_baseline)
+        if self.lg_baseline and local_route != "none":
+            raise ValueError("lg_baseline is the old-encoder comparison arm and requires local_route='none'")
+        if local_route != "none" or self.lg_baseline:
             # Atomic numbers 1..118 plus padding 0 require at least 119 rows.
             token_num = max(token_num, 119)
+        if local_route != "none":
             if atom_feat_mode != "z_only_proj":
                 raise ValueError("local/global encoder requires the fixed ZP atom entrance")
             if use_g1 or use_g2 or use_periodic_manybody or use_macro_lattice:
                 raise ValueError("local/global geometry must enter only through A/B+ local messages")
+        if self.lg_baseline and atom_feat_mode != "z_only_proj":
+            raise ValueError("the baseline comparison arm requires the fixed ZP atom entrance")
         self.decoupled_decoder = decoupled_decoder
         self.use_gated_cross_attn = use_gated_cross_attn
         self.head_type = head_type
@@ -308,7 +320,8 @@ class Transformer(nn.Module):
 
             self.encoder = LocalGlobalEncoder(
                 local_route, local_layout, local_depth, d_model=d_model, nhead=nhead,
-                dim_feedforward=dim_feedforward, dropout=dropout, activation=activation)
+                dim_feedforward=dim_feedforward, dropout=dropout, activation=activation,
+                global_depth=global_depth)
         elif self.use_periodic_manybody:
             from archive.code.model.periodic_manybody import PeriodicManyBodyEncoder
 
@@ -487,8 +500,8 @@ class Transformer(nn.Module):
             self._local_geometry_cache.clear()
         self._local_geometry_cache = None
         if enabled:
-            if self.local_route == "none":
-                raise ValueError("geometry caching requires a local/global encoder")
+            if self.local_route in ("none", "C0"):
+                raise ValueError("geometry caching requires a geometry-consuming local route")
             from model.periodic_geometry_cache import PeriodicGeometryCache
 
             self._local_geometry_cache = PeriodicGeometryCache(
@@ -533,7 +546,9 @@ class Transformer(nn.Module):
             atom_src = atom_src + self.macro_lattice_alpha * self.macro_lattice_mlp(macro).unsqueeze(1)
 
         # Compute relative geometry features
-        if self.local_route != "none":
+        if self.local_route == "C0":
+            memory = self.encoder(atom_src, None, mask_atom)
+        elif self.local_route != "none":
             from model.local_global_encoder import LOCAL_RADIUS
             from utils.periodic_geometry import build_periodic_records
 

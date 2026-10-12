@@ -109,7 +109,16 @@ class ExperimentConfig:
     local_route: str = "none"
     local_layout: Optional[str] = None
     local_depth: Optional[int] = None
+    # Optional decoupling of the global stack from the local call count. None
+    # keeps the historical meaning (one global update per local call) and every
+    # existing checkpoint; a value must exceed local_depth, because the matched
+    # initialization protocol only extends the global stack.
+    global_depth: Optional[int] = None
     selection_metric: Optional[str] = None
+    # Independent baseline comparison arm: the original six-layer encoder with
+    # the ZP entrance, matched to the local/global trials outside the encoder.
+    # It keeps local_route="none" and is never a local/global route value.
+    lg_baseline: bool = False
     
     # --- Optional coordinate-conditioned output trunks ---
     q1_coord: bool = False

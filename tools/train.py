@@ -29,6 +29,9 @@ from utils.local_global_experiment import (
     SELECTION_METRICS, validate_local_global_config, initialize_comparison_model,
     comparison_contract, capture_training_rng, restore_training_rng,
 )
+from utils.lg_baseline_experiment import (
+    validate_baseline_config, initialize_baseline_model, baseline_contract,
+)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger('ablation')
@@ -131,7 +134,7 @@ def validate_zproj_config(cfg: ExperimentConfig) -> None:
     fingerprint; a new encoder or seed needs its own initialization protocol.
     See docs/design/design-2026-10-02-element-initialization.md.
     """
-    if cfg.atom_feat != "z_only_proj" or cfg.local_route != "none":
+    if cfg.atom_feat != "z_only_proj" or cfg.local_route != "none" or cfg.lg_baseline:
         return
     if cfg.init_ckpt:
         raise ValueError("z_only_proj initializes from the untrained Z100 reference; "
@@ -368,9 +371,10 @@ def configure_local_global_execution(transformer, *, augment=False):
     configure = getattr(transformer, "enable_local_geometry_cache", None)
     if configure is not None:
         cuda = next(transformer.parameters()).device.type == "cuda"
-        configure(enabled=cuda and not augment)
+        no_geometry = getattr(transformer, "local_route", None) == "C0"
+        configure(enabled=cuda and not augment and not no_geometry)
         transformer._local_geometry_cache_disabled_reason = (
-            "augmentation" if augment else "cpu" if not cuda else None)
+            "no_geometry" if no_geometry else "augmentation" if augment else "cpu" if not cuda else None)
 
 
 def write_local_global_execution(config_path, transformer, start_epoch):
@@ -427,6 +431,8 @@ def train_and_eval(cfg: ExperimentConfig):
     # Explicit early rejection of illegal G2 combinations: before save_dir is
     # created and before any data or config template is loaded.
     validate_local_global_config(cfg)
+    # Baseline comparison arm: old encoder, same frozen restrictions.
+    validate_baseline_config(cfg)
     validate_g2_config(cfg)
     # Same early boundary: an RNG reset without an init checkpoint is meaningless.
     validate_reset_rng_config(cfg)
@@ -507,11 +513,20 @@ def train_and_eval(cfg: ExperimentConfig):
     # and reaches the model through the same transformer params channel.
     yaml_cfg ['model']['params']['sub_model']['transformer']['g2_content_mode']=str (cfg.g2_content_mode )
     yaml_cfg ['model']['params']['sub_model']['transformer']['use_periodic_manybody']=bool (cfg.use_periodic_manybody )
+    if cfg.local_route != "none" or cfg.lg_baseline:
+        # The ZP entrance is shared with the comparison arms: 119 rows.
+        params = yaml_cfg['model']['params']['sub_model']['transformer']
+        params['token_num'] = max(params.get('token_num', 118), 119)
     if cfg.local_route != "none":
         yaml_cfg['model']['params']['sub_model']['transformer'].update(
             local_route=cfg.local_route, local_layout=cfg.local_layout, local_depth=cfg.local_depth)
-        params = yaml_cfg['model']['params']['sub_model']['transformer']
-        params['token_num'] = max(params.get('token_num', 118), 119)
+        if cfg.global_depth is not None:
+            # Absent when unset so historical configurations keep their exact keys.
+            yaml_cfg['model']['params']['sub_model']['transformer']['global_depth'] = cfg.global_depth
+    if cfg.lg_baseline:
+        # Old encoder with the original geometry scoring, matched outside it.
+        yaml_cfg['model']['params']['sub_model']['transformer'].update(
+            local_route='none', lg_baseline=True)
     # Optional coordinate-conditioned output trunks.
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_coord']=bool (cfg.q1_coord )
     yaml_cfg ['model']['params']['sub_model']['transformer']['q1_hidden']=int (cfg.q1_hidden )
@@ -555,7 +570,8 @@ def train_and_eval(cfg: ExperimentConfig):
 
     builder =ConfigBuilder (**yaml_cfg )
     transformer_params = yaml_cfg['model']['params']['sub_model']['transformer']
-    model_contract = comparison_contract(cfg, transformer_params)
+    model_contract = (baseline_contract(cfg, transformer_params) if cfg.lg_baseline
+                      else comparison_contract(cfg, transformer_params))
 
     train_loader =builder .get_dataloader (split ='train',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn ,use_bucket_batch =cfg .use_bucket_batch )
     pair_loader ,pair_sampler =maybe_get_pair_aux_loader (train_loader ,cfg )
@@ -566,7 +582,7 @@ def train_and_eval(cfg: ExperimentConfig):
     # 路径重建 Z100 未训练参考模型，并保存 Z100 训练开始时的随机状态。参考模型随后
     # 丢弃；流程与随机数口径见 utils/zproj_alignment.py。
     zproj_ref = None
-    if cfg.atom_feat == "z_only_proj" and cfg.local_route == "none":
+    if cfg.atom_feat == "z_only_proj" and cfg.local_route == "none" and not cfg.lg_baseline:
         from utils.zproj_alignment import prepare_reference
         latest_abs =os .path .abspath (os .path .join (save_dir ,'checkpoint_latest.pth'))
         if os .path .exists (latest_abs ):
@@ -579,7 +595,15 @@ def train_and_eval(cfg: ExperimentConfig):
 
     model =builder .get_model ()
     comparison_init = None
-    if cfg.local_route != "none":
+    baseline_init = None
+    if cfg.lg_baseline:
+        baseline_init = initialize_baseline_model(
+            model.model['transformer'], transformer_params, cfg.seed)
+        logger .info (f"[{cfg.model_name }] lg baseline init: {baseline_init['protocol']}, "
+        f"seed {baseline_init['seed']}, common {baseline_init['common_state_sha256'][:16]}…, "
+        f"encoder {baseline_init['encoder_state_sha256'][:16]}…, "
+        f"whole {baseline_init['state_sha256'][:16]}…")
+    elif cfg.local_route != "none":
         comparison_init = initialize_comparison_model(
             model.model['transformer'], transformer_params, cfg.seed)
     device =torch .device ('cuda'if torch .cuda .is_available ()else 'cpu')
@@ -748,7 +772,9 @@ def train_and_eval(cfg: ExperimentConfig):
             'g2_content_mode':cfg.g2_content_mode ,
             'use_periodic_manybody':cfg.use_periodic_manybody ,
             'local_route':cfg.local_route, 'local_layout':cfg.local_layout,
-            'local_depth':cfg.local_depth, 'selection_metric':cfg.selection_metric,
+            'local_depth':cfg.local_depth, 'global_depth':cfg.global_depth,
+            'selection_metric':cfg.selection_metric,
+            'lg_baseline':bool (cfg.lg_baseline ),
             'q1_coord':cfg.q1_coord ,'q1_hidden':cfg.q1_hidden ,
             'q2_fourier':cfg.q2_fourier ,
             'c5_moe':cfg.c5_moe ,'c5_moe_balance_w':cfg.c5_moe_balance_w ,
@@ -757,7 +783,8 @@ def train_and_eval(cfg: ExperimentConfig):
             'init_ckpt':cfg.init_ckpt ,'scale_sup_w':cfg.scale_sup_w ,
             'reset_rng_after_init':bool (cfg.reset_rng_after_init )},
             'config':yaml_cfg, 'model_contract':model_contract,
-            'runtime':({'local_global_init':comparison_init} if comparison_init is not None else {})},f ,indent =2 ,sort_keys =False ,
+            'runtime':({'local_global_init':comparison_init} if comparison_init is not None
+            else {'lg_baseline_init':baseline_init} if baseline_init is not None else {})},f ,indent =2 ,sort_keys =False ,
             default_flow_style =False )
 
     if comparison_init is not None and start_epoch < cfg.epochs:
@@ -821,6 +848,16 @@ def train_and_eval(cfg: ExperimentConfig):
             setup_ablation_seed(cfg.seed)
         else:
             restore_training_rng(comparison_resume_rng)
+        if cfg.local_route in ("C0", "C1") and start_epoch < cfg.epochs:
+            from utils.zproj_alignment import rng_digest, rng_snapshot
+            with open(config_path, encoding="utf-8") as stream:
+                record = yaml.safe_load(stream)
+            record.setdefault("runtime", {}).setdefault("structure_training_rng", []).append({
+                "from_epoch": start_epoch + 1, "seed": cfg.seed,
+                "method": "resume" if comparison_resume_rng is not None else "seed-reset-before-loop",
+                "state_sha256": rng_digest(rng_snapshot())})
+            with open(config_path, "w", encoding="utf-8") as stream:
+                yaml.safe_dump(record, stream, sort_keys=False)
 
     for epoch in range (start_epoch ,cfg.epochs ):
     # Advance the distributed sampler so each epoch receives a new order.
@@ -842,6 +879,9 @@ def train_and_eval(cfg: ExperimentConfig):
         sub_loss_accum ={}
         c5_load_accum =None
         n_batches =len (train_loader )
+        # Learning rate used by every step of this epoch; recorded per epoch so a
+        # budget comparison can read the trajectory from the history itself.
+        epoch_lr =float (optimizer .param_groups [0 ]['lr'])
         t_start =time .time ()
 
         for step ,batch in enumerate (train_loader ):
@@ -897,7 +937,7 @@ def train_and_eval(cfg: ExperimentConfig):
             # Validation reports blind metrics; older scale variants also report oracle metrics.
         val_metrics =evaluate_split (model ,val_loader ,is_m5 =(cfg.model_name =='M5'),ph_grid =_ph_grid_centers (cfg.phdos_num ),sumnorm =(cfg.norm =='sumnorm'),pair_budget=cfg.pair_budget)
         balanced =0.5 *val_metrics ['mae_edos_median']+0.5 *val_metrics ['mae_phdos_median']
-        if cfg.local_route != "none":
+        if cfg.local_route != "none" or cfg.lg_baseline:
             balanced = val_metrics[cfg.selection_metric]
 
         log_str =(
@@ -911,6 +951,12 @@ def train_and_eval(cfg: ExperimentConfig):
             log_str +=f" | Oracle eDOS R2: {val_metrics ['oracle_r2_edos_median']:.3f}, phDOS R2: {val_metrics ['oracle_r2_phdos_median']:.3f}"
         if cfg.local_route != "none":
             log_str += (f" | {cfg.local_route}/{cfg.local_layout}, K={cfg.local_depth}, "
+                        f"G={cfg.local_depth if cfg.global_depth is None else cfg.global_depth}, "
+                        f"selection={cfg.selection_metric}; displayed R2=oracle, "
+                        f"blind R2 e/p={val_metrics['blind_r2_edos_median']:.3f}/"
+                        f"{val_metrics['blind_r2_phdos_median']:.3f}")
+        elif cfg.lg_baseline:
+            log_str += (f" | lg_baseline/old-encoder, "
                         f"selection={cfg.selection_metric}; displayed R2=oracle, "
                         f"blind R2 e/p={val_metrics['blind_r2_edos_median']:.3f}/"
                         f"{val_metrics['blind_r2_phdos_median']:.3f}")
@@ -924,6 +970,7 @@ def train_and_eval(cfg: ExperimentConfig):
         history .append ({
         'epoch':epoch +1 ,
         'seed':cfg.seed ,
+        'lr':epoch_lr ,
         'epoch_time_s':ep_time ,
         'peak_vram_mb':peak_vram_mb ,
         'alpha_e':alpha_e ,
@@ -1006,14 +1053,23 @@ def train_and_eval(cfg: ExperimentConfig):
     logger .info ("="*70 )
     return test_metrics
 
-def evaluate_local_global_split(model, dataloader, return_sample_level=False, pair_budget=None):
-    """Report both scale modes on valid; aliases retain the historical oracle meaning."""
+def evaluate_local_global_split(model, dataloader, return_sample_level=False, pair_budget=None,
+                                sample_ids=None, return_spectra=False):
+    """Report both scale modes on valid; aliases retain the historical oracle meaning.
+
+    ``sample_ids`` is optional and only labels sample-level rows for paired
+    comparisons; the metric math is unchanged and the length must match.
+    ``return_spectra`` is optional and only attaches the sum-normalized shape
+    predictions and targets used by the metric math; without it the returned
+    summary is unchanged.
+    """
     from utils.crystal import atom_padding_mask
     from utils.metrics import per_sample_spectral_metrics
     from utils.spectral_inference import reconstruct_h1_spectra
 
     model.model['transformer'].eval()
     records = []
+    spectra_batches = []
     with torch.no_grad():
         for batch in iter_computation_batches(dataloader, pair_budget=pair_budget):
             (inp, pos, mask, e_target, p_target, _, _, e_min, e_max,
@@ -1036,10 +1092,33 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
                     metrics = per_sample_spectral_metrics(spectra[f'{mode}_{task}'], targets[task])
                     for metric in ('mae', 'mse', 'r2'):
                         measured[f'{mode}_{metric}_{task}'] = metrics[metric].cpu().tolist()
+            if return_spectra:
+                # Shape space is sum-normalized on both sides; blind/oracle keep
+                # the per-material totals so scale differences stay visible.
+                spectra_batches.append({
+                    'pred_shape_edos': spectra['shape_edos'].float().cpu(),
+                    'pred_shape_phdos': spectra['shape_phdos'].float().cpu(),
+                    'tgt_shape_edos': e_target.float().cpu(),
+                    'tgt_shape_phdos': p_target.float().cpu(),
+                    'pred_blind_edos': spectra['blind_edos'].float().cpu(),
+                    'pred_blind_phdos': spectra['blind_phdos'].float().cpu(),
+                    'pred_oracle_edos': spectra['oracle_edos'].float().cpu(),
+                    'pred_oracle_phdos': spectra['oracle_phdos'].float().cpu(),
+                    'tgt_edos': targets['edos'].float().cpu(),
+                    'tgt_phdos': targets['phdos'].float().cpu(),
+                })
             for i in range(len(inp)):
-                records.append({key: values[i] for key, values in measured.items()})
+                record = {key: values[i] for key, values in measured.items()}
+                if sample_ids is not None:
+                    if len(records) >= len(sample_ids):
+                        raise ValueError("sample_ids must label every evaluated sample")
+                    record['material_id'] = sample_ids[len(records)]
+                records.append(record)
     if not records:
         raise ValueError("cannot evaluate an empty local/global split")
+    if sample_ids is not None and len(sample_ids) != len(records):
+        raise ValueError(f"sample_ids must label every evaluated sample: "
+                         f"{len(sample_ids)} != {len(records)}")
     frame = pd.DataFrame(records)
     summary = {}
     for mode in ('blind', 'oracle'):
@@ -1054,16 +1133,28 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
     # Compatibility with existing history/log readers; explicit columns are authoritative.
     summary.update({key.removeprefix('oracle_'): value for key, value in list(summary.items())
                     if key.startswith('oracle_')})
+    if return_spectra:
+        summary['sample_spectra'] = {
+            key: torch.cat([chunk[key] for chunk in spectra_batches]).numpy()
+            for key in spectra_batches[0]}
     if return_sample_level:
         summary['sample_df'] = frame
     return summary
 
 
-def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :bool =False ,ph_grid =None ,sumnorm :bool =False, pair_budget=None ):
-    if getattr(model.model['transformer'], 'local_route', 'none') != 'none':
+def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :bool =False ,ph_grid =None ,sumnorm :bool =False, pair_budget=None, sample_ids=None , return_spectra=False ):
+    # The baseline arm shares the blind/oracle evaluator with the local/global
+    # arms so both scale modes and the selection formula stay one implementation.
+    if getattr(model.model['transformer'], 'local_route', 'none') != 'none' \
+            or getattr(model.model['transformer'], 'lg_baseline', False):
         if not sumnorm or is_m5:
             raise ValueError("local/global evaluation requires SumNorm/H1")
-        return evaluate_local_global_split(model, dataloader, return_sample_level, pair_budget)
+        return evaluate_local_global_split(model, dataloader, return_sample_level, pair_budget,
+                                          sample_ids, return_spectra)
+    if sample_ids is not None:
+        raise ValueError("sample_ids require the blind/oracle evaluator")
+    if return_spectra:
+        raise ValueError("return_spectra requires the blind/oracle evaluator")
     model .model ['transformer'].eval ()
     records =[]
     # Thermodynamic integration requires a uniform frequency grid. Skip it for
@@ -1252,14 +1343,20 @@ def build_arg_parser():
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
     parser.add_argument('--decoder_layers', type=int, default=6,
                         help='Shared Transformer decoder depth; 6 is the B7 default')
-    parser.add_argument('--local_route', choices=['none', 'A', 'B+'], default='none',
-                        help='Current geometry-only local message route; none preserves legacy')
+    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1'], default='none',
+                        help='Local message route; C0/C1 are frozen structure attribution controls')
     parser.add_argument('--local_layout', choices=['staged', 'alternating'], default=None,
                         help='Explicit local/global execution order')
     parser.add_argument('--local_depth', type=int, default=None,
                         help='K local calls (2K internal blocks) and K global updates')
+    parser.add_argument('--global_depth', type=int, default=None,
+                        help='Global attention/FFN updates; unset keeps one per local call')
     parser.add_argument('--selection_metric', choices=SELECTION_METRICS, default=None,
                         help='Explicit valid checkpoint criterion for new local/global trials')
+    parser.add_argument('--lg_baseline', action='store_true',
+                        help='Baseline comparison arm: original encoder with the original '
+                             'geometry scoring plus ZP, matched to the local/global trials '
+                             'outside the encoder')
     parser.add_argument('--use_atom_additive_phdos', action='store_true',
                         help='R2b: sum nonnegative fixed-grid phDOS contributions from atom tokens')
     parser.add_argument('--atom_feat', type=str, default='legacy3',

@@ -71,6 +71,15 @@ PY
     tests.model.test_periodic_geometry_cache \
     tests.model.test_local_global_encoder \
     tests.pipeline.test_local_global_comparison \
+    tests.pipeline.test_lg_baseline \
+    tests.pipeline.test_global_depth \
+    tests.pipeline.test_lg_structure_diagnosis \
+    tests.pipeline.test_local_structure_controls \
+    tests.pipeline.test_local_structure_diagnosis \
+    tests.pipeline.test_stage_readout_diagnosis \
+    tests.pipeline.test_local_structure_small_fit \
+    tests.pipeline.test_local_structure_hard_pair \
+    tests.pipeline.test_local_structure_loss_isolation \
     tests.model.test_periodic_messages_gpu
 
 "$python_bin" tools/checks/check_repository.py --worktree

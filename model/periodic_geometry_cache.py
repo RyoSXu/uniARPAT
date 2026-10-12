@@ -63,8 +63,8 @@ class PeriodicGeometryCache:
     """
 
     def __init__(self, route, device, *, max_bytes=None, local_blocks=4):
-        if route not in ("A", "B+"):
-            raise ValueError("geometry cache requires A or B+")
+        if route not in ("A", "B+", "C1"):
+            raise ValueError("geometry cache requires A, B+ or C1")
         self.route = route
         self.max_bytes = geometry_cache_budget(device) if max_bytes is None else max_bytes
         if isinstance(self.max_bytes, bool) or not isinstance(self.max_bytes, int) or self.max_bytes < 0:
@@ -225,4 +225,6 @@ class PeriodicGeometryCache:
             return records, replace(prepared, angular_basis=torch.cat([g.angular_basis for g in gs]),
                                     pair_cutoff=torch.cat([g.pair_cutoff for g in gs]),
                                     pair_receiver=receiver[pairs[0]])
+        if self.route == "C1":
+            return records, prepared
         return records, replace(prepared, harmonics=torch.cat([g.harmonics for g in gs]))

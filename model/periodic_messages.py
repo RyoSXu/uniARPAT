@@ -68,10 +68,11 @@ def _record_context(records):
                    t.requires_grad, t.dtype, t.device) for t in fields))
 
 
-def _prepare_message_geometry(records: PeriodicNeighborRecords, *, angle_pairs=False) -> _MessageGeometry:
+def _prepare_message_geometry(records: PeriodicNeighborRecords, *, angle_pairs=False,
+                              directions=True) -> _MessageGeometry:
     B, L = records.padding_mask.shape
     vectors, distances = records.vectors, records.distances
-    unit = vectors / vectors.norm(dim=-1)[:, None]
+    unit = vectors / vectors.norm(dim=-1)[:, None] if directions else vectors.new_empty((0, 3))
     centers, width = g2_rbf_params(records.radius, RADIAL_CHANNELS,
                                  device=vectors.device, dtype=vectors.dtype)
     radial = g2_rbf_features(distances, records.radius, centers, width)
@@ -90,9 +91,11 @@ def _prepare_message_geometry(records: PeriodicNeighborRecords, *, angle_pairs=F
 
 def prepare_shared_message_geometry(records, route, *, pair_receivers=True):
     """Prepare structure-only features once, retaining any geometry gradients."""
-    if route not in ("A", "B+"):
-        raise ValueError("shared geometry requires A or B+")
-    g = _prepare_message_geometry(records, angle_pairs=(route == "A"))
+    if route not in ("A", "B+", "C1"):
+        raise ValueError("shared geometry requires A, B+ or C1")
+    g = _prepare_message_geometry(records, angle_pairs=(route == "A"), directions=(route != "C1"))
+    if route == "C1":
+        return replace(g, prepared_route=route)
     if route == "A":
         left, right = g.pairs
         q = (g.unit[left] * g.unit[right]).sum(-1).clamp(-1, 1)
