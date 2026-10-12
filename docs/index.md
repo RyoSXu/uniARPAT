@@ -3,7 +3,10 @@
 本索引只列入口，不枚举每份历史设计和实验文件。历史材料统一保留在 `archive/` 的 `docs/code/data/results` 分类下，不默认构成当前执行指令。
 
 当前先读 `status.md`，再按记录规范、候选公式、模块边界定位接口；执行证据按阶段查下方日志。
-局部与完整模型的有限 CPU/GPU 检查已通过；四组首轮对照启动后由用户暂停，配置、完成状态与执行设置见状态页。
+当前主问题是整体 Encoder 归因：先补同骨架六层全局、关闭局部更新的对照，再按结果判断
+局部模块与插入顺序。此前困难材料对和线性读出诊断属于历史证据，不自动触发后续实验。
+局部与完整模型的有限 CPU/GPU 检查已通过；四组首轮对照（seed=42）、原六层 baseline 对照与全局深度
+解耦对照（B+ K=2、G=6 两组）已完成，路线/编排/深度选型未定，配置、完成状态与执行设置见状态页。
 
 | 目的 | 文档 |
 |---|---|
@@ -25,6 +28,16 @@
 
 ## 当前路线相关证据
 
+- C1 联合损失与仅谱差损失的同材料/初值/预算短对照（train-only、seed 42、各 600 步）已完成：两对仍失败、整体充分拟合未过，单材料两类谱明显变差；当前预算下去掉联合监督不能修复困难对，根因未定：[2026-10-12 损失隔离日志](logs/log-2026-10-12-local-structure-loss-isolation.md)
+- C1 小样本拟合困难材料对诊断（train-only、seed 42、隔离复现 600 步＋参照对）：输入和完整表示可区分；阶段距离放大 sqrt(512) 的错误已更正，不能定位 decoder 瓶颈；梯度冲突是部分状态观察，control 的同对无冲突仍失败，根因未定；复现漂移来源未定位：[2026-10-12 困难对归因日志](logs/log-2026-10-12-hard-pair-attribution.md)
+- C1 小样本结构谱差拟合（train-only、seed 42、共同已训练起点、两组各 600 步）：显式监督降低配对误差，但单材料 eDOS 拟合变差；两组未过预设充分拟合门槛，未检验泛化：[2026-10-12 小样本拟合日志](logs/log-2026-10-12-local-structure-small-fit.md)
+- 逐阶段结构谱差可读性诊断（冻结 C1/C2、完整 train 配对、无截距读出、decoder 保留能量位置，seed 42、train/valid）：valid 无阶段优于严格零响应，decoder 读出 train→valid 反号；结论限于所测试的线性读出，不能据此排除其他读出或定位整体性能差距：[2026-10-11 逐阶段读出诊断日志](logs/log-2026-10-11-stage-readout-diagnosis.md)
+- 结构响应泛化诊断（C0/C1/C2 best checkpoint、只读、seed 42、train/valid）：幅度不足成立但幅度校准在 valid 有害、方向错误支持最强、覆盖部分成立、pooled 探针不支持“后续利用不足”；[2026-10-10 泛化诊断日志](logs/log-2026-10-10-local-structure-attribution-diagnosis.md)
+- 局部结构贡献诊断（已有四模型、train/valid、无更新）：训练谱差改善而验证配对收益未分辨，角度路径影响预测；[诊断日志](logs/log-2026-10-09-local-structure-diagnosis.md)与[最小对照协议](design/design-2026-10-09-local-structure-attribution.md)。同骨架 C0/C1 seed=42 各 35 轮及三组配对分析已完成：简单径向有总体收益，B+ 的 eDOS 额外收益未分辨，同组成结构响应仍未显示 valid 收益；结果/成本/复核见[对照实施日志](logs/log-2026-10-09-local-structure-controls.md)。
+- 长预算对照（baseline／B+ 分段 G=6 各 100 轮，seed=42）：差距是否缩小、失败率、训练改善而验证停滞与选点规则张力：[2026-10-08 长预算对照](logs/log-2026-10-08-lg-long-budget-e100.md)
+- 全局深度解耦对照（B+ K=2、G=6 两组，seed=42、35 轮）、严格初值对齐、训练前验证与固定 train 子集无训练诊断：[2026-10-08 全局深度对照](logs/log-2026-10-08-lg-global-depth-q1v1.md)
+- 原六层 Encoder＋ZP baseline 对照（seed=42、35 轮）与逐样本配对 bootstrap 比较：[2026-10-08 baseline 对照](logs/log-2026-10-08-lg-baseline-q1v1.md)
+- A/B+ × staged/alternating 四组首轮对照（seed=42 各 35 轮）结果、口径与执行异常：[2026-10-07 四组对照](logs/log-2026-10-07-local-global-four-arm-s42.md)
 - 正式采用 65536 角度分块与有预算的 GPU 结构缓存、层间几何复用、失效与 checkpoint 恢复检查：[2026-10-06 几何缓存](logs/log-2026-10-06-local-geometry-cache.md)
 - 正式 A 关闭角度重计算、真实第 21 轮状态只读恢复、数值波动诊断与含 optimizer 的成本：[2026-10-06 关闭重计算](logs/log-2026-10-06-local-global-no-recompute.md)
 - A 的等价实现提速、同权重输出/梯度与全链 E(3) 复查、大 batch/重计算资源探针：[2026-10-05 提速日志](logs/log-2026-10-05-local-message-speedup.md)

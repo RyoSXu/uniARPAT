@@ -10,7 +10,7 @@
 | `utils/` | 可导入的支持库：数据集、配置、恢复、指标、几何、热力学和路径；不存数据载荷 |
 | `tools/` | 显式运行的入口；`train.py` 训练/评估，`infer_b7_cif.py` CIF 推理，`training-defaults.yaml` 默认配置 |
 | `tools/data/` | 8 个获取、划分及重建工具；执行前须确认输入、输出和数据契约 |
-| `tools/eval/` | 当前 ZP 诊断、周期几何/A/B+ 验收、证据复核与绘图，共 12 个脚本 |
+| `tools/eval/` | 对照实验、ZP/局部结构诊断、周期几何/A/B+ 验收、证据复核与绘图入口 |
 | `tools/checks/` | 静态检查、Git 文件与历史载荷检查，以及提交/推送钩子 |
 | `data/reference/` | 固定划分、元素表、价电子/截断表、排除清单、网格与审计 |
 | `data/train4ARPAT/` | 当前 Q1；`train/valid/test` 保留原数组与顺序，仅 manifest/stats 进入 Git |
