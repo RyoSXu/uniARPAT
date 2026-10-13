@@ -371,7 +371,7 @@ def configure_local_global_execution(transformer, *, augment=False):
     configure = getattr(transformer, "enable_local_geometry_cache", None)
     if configure is not None:
         cuda = next(transformer.parameters()).device.type == "cuda"
-        no_geometry = getattr(transformer, "local_route", None) in ("C0", "G0")
+        no_geometry = getattr(transformer, "local_route", None) in ("C0", "G0", "O0")
         configure(enabled=cuda and not augment and not no_geometry)
         transformer._local_geometry_cache_disabled_reason = (
             "no_geometry" if no_geometry else "augmentation" if augment else "cpu" if not cuda else None)
@@ -848,7 +848,7 @@ def train_and_eval(cfg: ExperimentConfig):
             setup_ablation_seed(cfg.seed)
         else:
             restore_training_rng(comparison_resume_rng)
-        if cfg.local_route in ("C0", "C1", "G0") and start_epoch < cfg.epochs:
+        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0") and start_epoch < cfg.epochs:
             from utils.zproj_alignment import rng_digest, rng_snapshot
             with open(config_path, encoding="utf-8") as stream:
                 record = yaml.safe_load(stream)
@@ -1343,12 +1343,12 @@ def build_arg_parser():
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
     parser.add_argument('--decoder_layers', type=int, default=6,
                         help='Shared Transformer decoder depth; 6 is the B7 default')
-    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0'], default='none',
-                        help='Local message route; C0/C1 are frozen controls, G0 disables local updates')
+    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0'], default='none',
+                        help='Frozen comparisons: G0 no local; O0/O1 old globals without geometry scoring')
     parser.add_argument('--local_layout', choices=['staged', 'alternating'], default=None,
                         help='Explicit local/global execution order')
     parser.add_argument('--local_depth', type=int, default=None,
-                        help='K local calls (2K internal blocks); G0 requires zero')
+                        help='K local calls (2K internal blocks); G0/O0 require zero')
     parser.add_argument('--global_depth', type=int, default=None,
                         help='Global attention/FFN updates; unset keeps one per local call')
     parser.add_argument('--selection_metric', choices=SELECTION_METRICS, default=None,

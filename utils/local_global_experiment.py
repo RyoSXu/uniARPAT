@@ -28,6 +28,22 @@ def is_deep_depths(local_depth, global_depth) -> bool:
 
 
 def validate_local_global_config(cfg: ExperimentConfig) -> None:
+    if cfg.local_route in ("I1", "I0"):
+        from utils.attention_projection_experiment import validate_attention_projection_config
+        validate_attention_projection_config(cfg)
+        return
+    if cfg.local_route == "D1":
+        from utils.attention_dropout_experiment import validate_attention_dropout_config
+        validate_attention_dropout_config(cfg)
+        return
+    if cfg.local_route == "N1":
+        from utils.global_norm_experiment import validate_global_norm_config
+        validate_global_norm_config(cfg)
+        return
+    if cfg.local_route in ("O0", "O1"):
+        from utils.legacy_backbone_experiment import validate_legacy_backbone_config
+        validate_legacy_backbone_config(cfg)
+        return
     if cfg.local_route == "G0":
         from utils.global_only_experiment import validate_global_only_config
         validate_global_only_config(cfg)
@@ -273,6 +289,18 @@ def initialize_comparison_model(transformer, params: dict, seed: int) -> dict:
     """
     from utils.zproj_alignment import state_hash
 
+    if params.get("local_route") in ("I1", "I0"):
+        from utils.attention_projection_experiment import initialize_attention_projection_model
+        return initialize_attention_projection_model(transformer, params, seed)
+    if params.get("local_route") == "D1":
+        from utils.attention_dropout_experiment import initialize_attention_dropout_model
+        return initialize_attention_dropout_model(transformer, params, seed)
+    if params.get("local_route") == "N1":
+        from utils.global_norm_experiment import initialize_global_norm_model
+        return initialize_global_norm_model(transformer, params, seed)
+    if params.get("local_route") in ("O0", "O1"):
+        from utils.legacy_backbone_experiment import initialize_legacy_backbone_model
+        return initialize_legacy_backbone_model(transformer, params, seed)
     if params.get("local_route") == "G0":
         from utils.global_only_experiment import initialize_global_only_model
         return initialize_global_only_model(transformer, params, seed)
@@ -308,6 +336,18 @@ def training_record(cfg: ExperimentConfig) -> dict:
 
 
 def comparison_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict | None:
+    if cfg.local_route in ("I1", "I0"):
+        from utils.attention_projection_experiment import attention_projection_contract
+        return attention_projection_contract(cfg, transformer_params)
+    if cfg.local_route == "D1":
+        from utils.attention_dropout_experiment import attention_dropout_contract
+        return attention_dropout_contract(cfg, transformer_params)
+    if cfg.local_route == "N1":
+        from utils.global_norm_experiment import global_norm_contract
+        return global_norm_contract(cfg, transformer_params)
+    if cfg.local_route in ("O0", "O1"):
+        from utils.legacy_backbone_experiment import legacy_backbone_contract
+        return legacy_backbone_contract(cfg, transformer_params)
     if cfg.local_route == "G0":
         from utils.global_only_experiment import global_only_contract
         return global_only_contract(cfg, transformer_params)

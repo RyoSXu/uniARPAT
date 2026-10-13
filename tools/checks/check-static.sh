@@ -81,6 +81,10 @@ PY
     tests.pipeline.test_local_structure_hard_pair \
     tests.pipeline.test_local_structure_loss_isolation \
     tests.pipeline.test_global_only \
+    tests.pipeline.test_legacy_backbone \
+    tests.pipeline.test_global_norm \
+    tests.pipeline.test_attention_dropout \
+    tests.pipeline.test_attention_projection \
     tests.model.test_periodic_messages_gpu
 
 "$python_bin" tools/checks/check_repository.py --worktree

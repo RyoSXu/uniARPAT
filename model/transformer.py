@@ -155,8 +155,8 @@ class Transformer(nn.Module):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
-        if local_route not in ("none", "A", "B+", "C0", "C1", "G0"):
-            raise ValueError("local_route must be none, A, B+, C0, C1 or G0")
+        if local_route not in ("none", "A", "B+", "C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0"):
+            raise ValueError("unknown local/global comparison route")
         if local_route == "none" and (local_layout is not None or local_depth is not None
                                       or global_depth is not None):
             raise ValueError("local layout/depth require an A/B+ route")
@@ -500,12 +500,12 @@ class Transformer(nn.Module):
             self._local_geometry_cache.clear()
         self._local_geometry_cache = None
         if enabled:
-            if self.local_route in ("none", "C0", "G0"):
+            if self.local_route in ("none", "C0", "G0", "O0"):
                 raise ValueError("geometry caching requires a geometry-consuming local route")
             from model.periodic_geometry_cache import PeriodicGeometryCache
 
             self._local_geometry_cache = PeriodicGeometryCache(
-                self.local_route, next(self.parameters()).device, max_bytes=max_bytes,
+                self.encoder.geometry_route, next(self.parameters()).device, max_bytes=max_bytes,
                 local_blocks=self.encoder.update_counts["internal_local_blocks"])
 
     def _apply(self, fn, recurse=True):
@@ -546,7 +546,7 @@ class Transformer(nn.Module):
             atom_src = atom_src + self.macro_lattice_alpha * self.macro_lattice_mlp(macro).unsqueeze(1)
 
         # Compute relative geometry features
-        if self.local_route in ("C0", "G0"):
+        if self.local_route in ("C0", "G0", "O0"):
             memory = self.encoder(atom_src, None, mask_atom)
         elif self.local_route != "none":
             from model.local_global_encoder import LOCAL_RADIUS
@@ -887,7 +887,8 @@ class TransformerDecoder(nn.Module):
 
 
 class TransformerEncoderLayer(nn.Module):
-    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1, activation="leaky_relu", normalize_before=False):
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1, activation="leaky_relu", normalize_before=False,
+                 geometry_scoring=True):
         super().__init__()
         self.activation = _get_activation_fn(activation)
         self.dim = d_model
@@ -898,7 +899,9 @@ class TransformerEncoderLayer(nn.Module):
         #   - rbf_encoder / rel_proj / dir_proj (defined, never called)
         # Per-layer RPEncoding hoisted to TransformerEncoder (shared, buffer-only).
         # rp_proj stays per-layer (learned); 576 = 64 radial * (1+3+5) spherical (lmax=2).
-        self.rp_proj = nn.Linear(64 * 9, d_model)
+        self.geometry_scoring = geometry_scoring
+        if geometry_scoring:
+            self.rp_proj = nn.Linear(64 * 9, d_model)
         
         # 用于前馈网络
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -924,15 +927,18 @@ class TransformerEncoderLayer(nn.Module):
         # geometry message. This is the baseline path, before optional G2.
         q, k, v = src, src, src
 
-        if rp_base is None:
-            # Fallback for direct layer calls without encoder context.
-            rp_base = torch.zeros(B, L, L, 64 * 9, device=src.device, dtype=src.dtype)
-        rp_emb = self.rp_proj(rp_base)  # [B, L, L, d_model]
         d_model_head = self.dim // self.nhead
-        rp_emb = rp_emb.view(B, L, L, self.nhead, d_model_head)
-        q_heads = q.view(B, L, self.nhead, d_model_head)
-        rp_scores = (q_heads.unsqueeze(2) * rp_emb).sum(-1)
-        rp_scores = rp_scores.permute(0, 3, 1, 2).reshape(B * self.nhead, L, L)
+        if self.geometry_scoring:
+            if rp_base is None:
+                # Fallback for direct layer calls without encoder context.
+                rp_base = torch.zeros(B, L, L, 64 * 9, device=src.device, dtype=src.dtype)
+            rp_emb = self.rp_proj(rp_base)  # [B, L, L, d_model]
+            rp_emb = rp_emb.view(B, L, L, self.nhead, d_model_head)
+            q_heads = q.view(B, L, self.nhead, d_model_head)
+            rp_scores = (q_heads.unsqueeze(2) * rp_emb).sum(-1)
+            rp_scores = rp_scores.permute(0, 3, 1, 2).reshape(B * self.nhead, L, L)
+        elif rp_base is not None or g1_adj is not None:
+            raise ValueError("geometry-free old global layer cannot receive geometry scoring or adjacency")
         
         q_scaled = q / (d_model_head ** 0.5)
         q_heads2 = q_scaled.view(B, L, self.nhead, d_model_head).permute(0, 2, 1, 3).reshape(B * self.nhead, L, d_model_head)
@@ -940,7 +946,7 @@ class TransformerEncoderLayer(nn.Module):
         base_scores = torch.bmm(q_heads2, k_heads.transpose(1, 2))
         
         # 新的总打分
-        total_scores = base_scores + rp_scores  # [B * nhead, L, L]
+        total_scores = base_scores + rp_scores if self.geometry_scoring else base_scores
 
         # 2. 将 src_key_padding_mask 正确注入重算打分中（阻断 padding 污染）
         if src_key_padding_mask is not None:

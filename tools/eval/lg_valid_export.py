@@ -60,8 +60,8 @@ def select_best(run_dir: Path, selection_metric: str, saved) -> dict:
     return {'checkpoint': checkpoint, 'row': chosen, 'history': history, 'tag': suffix}
 
 
-def export(run_dir: Path, out: Path, summary_out: Path) -> None:
-    if out.exists() or summary_out.exists():
+def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None = None) -> None:
+    if out.exists() or summary_out.exists() or spectra_out is not None and spectra_out.exists():
         raise FileExistsError(f'refusing existing export: {out} or {summary_out}')
     torch.set_num_threads(1)
     saved, params, contract = load_run(run_dir)
@@ -80,6 +80,7 @@ def export(run_dir: Path, out: Path, summary_out: Path) -> None:
     order = list(loader.sampler)
     material_ids = [str(value) for value in loader.dataset.material_ids]
     metrics = evaluate_split(model, loader, sumnorm=True, return_sample_level=True,
+                             return_spectra=spectra_out is not None,
                              sample_ids=[material_ids[index] for index in order])
     frame = metrics.pop('sample_df')
     if len(frame) != len(order) or frame['material_id'].duplicated().any():
@@ -89,6 +90,12 @@ def export(run_dir: Path, out: Path, summary_out: Path) -> None:
 
     out.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(out, index=False)
+    if spectra_out is not None:
+        spectra = metrics.pop('sample_spectra')
+        if any(not np.isfinite(values).all() for values in spectra.values()):
+            raise ValueError(f'non-finite exported spectra: {run_dir}')
+        spectra_out.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(spectra_out, material_ids=frame.material_id.to_numpy(dtype=str), **spectra)
     row = picked['row']
     summary = {
         'tag': picked['tag'], 'run_dir': str(run_dir), 'samples': len(frame),
