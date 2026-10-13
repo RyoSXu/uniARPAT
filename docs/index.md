@@ -3,8 +3,19 @@
 本索引只列入口，不枚举每份历史设计和实验文件。历史材料统一保留在 `archive/` 的 `docs/code/data/results` 分类下，不默认构成当前执行指令。
 
 当前先读 `status.md`，再按记录规范、候选公式、模块边界定位接口；执行证据按阶段查下方日志。
-当前主问题是整体 Encoder 归因：先补同骨架六层全局、关闭局部更新的对照，再按结果判断
-局部模块与插入顺序。此前困难材料对和线性读出诊断属于历史证据，不自动触发后续实验。
+用户已决定结束本轮整体 Encoder 骨架归因，暂不追加修正骨架有/无局部更新对照。
+保留局部更新，以修正三项全局设置后的 I1 为诊断参考，当前重点是：
+**为什么总体指标改善，同组成、不同结构材料的谱差预测却仍未改善？**
+优先分析总体收益的来源与组内结构谱差的训练到验证落差；尚未启动新的诊断或训练。
+以下为前一阶段证据：G0 同骨架六层全局、关闭局部更新的对照已完成，结果为
+「几何局部更新有净增益但综合表现未追平原 baseline、C0 未显示可分辨净效应」。
+O0/O1 旧全局骨架归因对照已完成训练与配对归因，结论与边界见下方证据与状态页。
+N1 归一化位置对照已完成训练与配对归因（只把 C1 全局 pre-norm 改为 post-norm）：
+phDOS 的 R²/MAE 与 eDOS oracle 失败率的收益可分辨，eDOS 中位 R² 未分辨；剩余骨架差距仍主要在 eDOS 失败率。
+D1 注意力概率 dropout 对照已完成训练、配对归因与 Codex 独立核验（在 N1 上只关闭六层全局注意力概率 dropout）：eDOS blind 失败率与 blind MAE 有可分辨改善（−0.95 pp、−0.031），eDOS R² 未分辨，phDOS 无可分辨退化；N1−O1 的 eDOS 失败率差距由 +2.03 pp 缩至 +1.08 pp，仍可分辨。随后投影初始化对照见下。
+I1/I0 投影初始化与学习能力对照已完成训练、配对归因与 Codex 独立核验（seed 42、35 轮，均在未训练 D1 上只改 Q/K/V/O 投影）：I1−D1 的 eDOS blind R²（+0.009）与失败率（−1.34 pp）、phDOS R² 有可分辨改善，eDOS MAE 与 phDOS 失败率未分辨；I0−I1 无可分辨净效应，但含可训练容量变化、不证明等价；I1−O1 的 eDOS 失败率差距已不可分辨。I1 相对原 baseline 的四项总体 R² 为正、区间不含零，但 eDOS blind 下界接近零，同组成结构谱差尚无改善。结论限单 seed；用户决定暂不追加局部开关对照，保留已有局部更新价值证据，转向同组成结构谱差研究。
+此前困难材料对和线性读出诊断属于历史证据，
+不自动触发后续实验。
 局部与完整模型的有限 CPU/GPU 检查已通过；四组首轮对照（seed=42）、原六层 baseline 对照与全局深度
 解耦对照（B+ K=2、G=6 两组）已完成，路线/编排/深度选型未定，配置、完成状态与执行设置见状态页。
 
@@ -21,6 +32,10 @@
 | 已提取的物理记录/A/B+ 接口、职责边界与后续验收 | [`design/design-2026-10-04-periodic-message-module-boundaries.md`](design/design-2026-10-04-periodic-message-module-boundaries.md) |
 | 已实施的局部—全局 Encoder、共同初值与路线×编排对照入口 | [`design/design-2026-10-04-local-global-encoder.md`](design/design-2026-10-04-local-global-encoder.md) |
 | 当前整体 Encoder 归因：六层全局、无局部更新 G0 | [`无局部更新对照设计`](design/design-2026-10-12-global-only-attribution.md) |
+| 旧/新骨架 × 局部更新 O0/O1 | [`旧骨架归因设计`](design/design-2026-10-12-legacy-backbone-attribution.md) |
+| 全局骨架拆分：归一化位置 N1 | [`N1 单因素设计`](design/design-2026-10-13-global-norm-attribution.md)；[执行日志](logs/log-2026-10-13-global-norm-run.md) |
+| 全局骨架拆分：注意力概率 dropout D1 | [`D1 单因素设计`](design/design-2026-10-13-attention-dropout-attribution.md)；[实施与准入](logs/log-2026-10-13-attention-dropout-preflight.md)；[执行日志](logs/log-2026-10-13-attention-dropout-run.md) |
+| 全局骨架拆分：恒等投影初值/学习 I1/I0 | [`投影对照设计`](design/design-2026-10-13-attention-projection-attribution.md)；[实施与准入](logs/log-2026-10-13-attention-projection-preflight.md)；[执行与核验](logs/log-2026-10-13-attention-projection-run.md) |
 | 协作与实验流程 | [`workflow.md`](workflow.md) |
 | 长期决策和评估约定 | [`decisions.md`](decisions.md) |
 | 数据、缓存及标签口径 | [`data.md`](data.md)；[`data/reference/edos-label-audit.md`](../data/reference/edos-label-audit.md) |
@@ -29,7 +44,13 @@
 
 ## 当前路线相关证据
 
-- 当前下一组 G0 已实施并通过 341 项测试、共同初值/真实 GPU 梯度/E(3)/恢复预检；正式训练尚未启动：[2026-10-12 G0 预检日志](logs/log-2026-10-12-global-only-preflight.md)。
+- I1/I0 投影初始化与学习能力对照已完成：共同未训练 D1、恒等映射，其中 I0 只固定 Q/K/V/O；初始化收益可分辨、固定投影净效应未分辨，整体恢复不等于同组成结构谱差改善。设计、验证和边界见[投影对照设计](design/design-2026-10-13-attention-projection-attribution.md)、[实施日志](logs/log-2026-10-13-attention-projection-preflight.md)、[执行日志](logs/log-2026-10-13-attention-projection-run.md)。
+- D1 直接对照保持 N1 的 post-norm 和全部初值，只关闭六层注意力概率 dropout；其余 dropout 保持。训练已完成（seed 42、35 轮，best 第 29 轮），D1−N1 的 eDOS blind 失败率 −0.95 pp 与 blind MAE −0.031 可分辨，eDOS R² 与 oracle 失败率未分辨，同组成谱差未见改善：[设计](design/design-2026-10-13-attention-dropout-attribution.md)、[实施日志](logs/log-2026-10-13-attention-dropout-preflight.md)、[2026-10-13 执行日志](logs/log-2026-10-13-attention-dropout-run.md)。
+- N1 单因素入口与训练前检查：保持完整 C1 未训练初值与 learned Q/K/V/O、概率 dropout，只改变六层全局归一化位置：[设计](design/design-2026-10-13-global-norm-attribution.md)、[实施日志](logs/log-2026-10-13-global-norm-preflight.md)。
+- N1 全局归一化位置对照已完成（seed 42、35 轮，复用 C1/O1/原 baseline 做 2,313 材料配对）：phDOS 的 R²/MAE 与 eDOS oracle 失败率的收益可分辨，eDOS 中位 R² 与 blind 失败率未分辨；N1−O1 的 eDOS 残差仍显著；同组成谱差未见改善：[2026-10-13 执行日志](logs/log-2026-10-13-global-norm-run.md)。
+- O0/O1 旧全局骨架归因对照已完成（seed=42、35 轮，复用 G0/C1/原 baseline 做 2,313 材料配对）：旧几何路径仅 phDOS 等小幅可分辨贡献，C1 收益两种骨架方向一致、骨架差距在有无局部时均存在、交互未分辨，同组成谱差未见可分辨改善：[2026-10-13 执行日志](logs/log-2026-10-13-legacy-backbone-run.md)。
+- 用户已确认 O0/O1 旧全局骨架归因：关闭旧几何打分，分别无局部 / 加当前 C1，复用 G0/C1/原 baseline；设计、实施与短测：[旧骨架归因设计](design/design-2026-10-12-legacy-backbone-attribution.md)、[预检日志](logs/log-2026-10-12-legacy-backbone-preflight.md)。
+- G0 无局部更新对照已完成（seed=42、35 轮，复用 C0/C1/C2/原 baseline 配对）：C0 未显示可分辨净效应、C1/C2 几何局部更新有净增益、与原 baseline 的差距在关闭局部后仍存在且更大；剩余差距仍未唯一定位：[2026-10-12 G0 执行日志](logs/log-2026-10-12-global-only-run.md)；训练前准入与预检证据：[2026-10-12 G0 预检日志](logs/log-2026-10-12-global-only-preflight.md)。
 - C1 联合损失与仅谱差损失的同材料/初值/预算短对照（train-only、seed 42、各 600 步）已完成：两对仍失败、整体充分拟合未过，单材料两类谱明显变差；当前预算下去掉联合监督不能修复困难对，根因未定：[2026-10-12 损失隔离日志](logs/log-2026-10-12-local-structure-loss-isolation.md)
 - C1 小样本拟合困难材料对诊断（train-only、seed 42、隔离复现 600 步＋参照对）：输入和完整表示可区分；阶段距离放大 sqrt(512) 的错误已更正，不能定位 decoder 瓶颈；梯度冲突是部分状态观察，control 的同对无冲突仍失败，根因未定；复现漂移来源未定位：[2026-10-12 困难对归因日志](logs/log-2026-10-12-hard-pair-attribution.md)
 - C1 小样本结构谱差拟合（train-only、seed 42、共同已训练起点、两组各 600 步）：显式监督降低配对误差，但单材料 eDOS 拟合变差；两组未过预设充分拟合门槛，未检验泛化：[2026-10-12 小样本拟合日志](logs/log-2026-10-12-local-structure-small-fit.md)
