@@ -9,14 +9,15 @@
 | `model/` | 当前模型、损失、输出头及独立 A/B+ 消息库；保留 checkpoint 参数键 |
 | `utils/` | 可导入的支持库：数据集、配置、恢复、指标、几何、热力学和路径；不存数据载荷 |
 | `tools/` | 显式运行的入口；`train.py` 训练/评估，`infer_b7_cif.py` CIF 推理，`training-defaults.yaml` 默认配置 |
-| `tools/data/` | 8 个获取、划分及重建工具；执行前须确认输入、输出和数据契约 |
+| `tools/data/` | 获取、划分及重建工具；执行前须确认输入、输出和数据契约 |
 | `tools/eval/` | 对照实验、ZP/局部结构诊断、周期几何/A/B+ 验收、证据复核与绘图入口 |
 | `tools/checks/` | 静态检查、Git 文件与历史载荷检查，以及提交/推送钩子 |
 | `data/reference/` | 固定划分、元素表、价电子/截断表、排除清单、网格与审计 |
-| `data/train4ARPAT/` | 当前 Q1；`train/valid/test` 保留原数组与顺序，仅 manifest/stats 进入 Git |
+| `data/crystal_q1_v1/` | 当前默认的完整结构修复版 Q1；字段及有效划分见 [data.md](data.md) |
+| `data/train4ARPAT/` | 原 Q1，仅用于历史模型复核；保留原数组与顺序 |
 | `data/quarantine_q1.json` | 指向参考清单的兼容链接；保留 Q1 原 manifest 的旧路径字段 |
 | `results/reports/` | 当前正式结论和有限证据；Git 仅允许已审查的完整路径 |
-| `results/runs/` | 当前 B7/ZP 权重、有效配置；`evidence/` 放数组、逐样本表和运行日志，全部本地保存 |
+| `results/runs/` | 模型权重、有效配置、数组、逐样本表和运行日志，本地保存 |
 | `results/figures/` | 当前正式图像位置；新增图像须审查体积和用途 |
 | `docs/` | 状态、导航、流程、数据、术语、决策、目录约定 |
 | `docs/design/`、`docs/logs/` | 当前设计和证据；各自保存 `template.md` |
@@ -37,7 +38,7 @@
 ## 输入、输出与历史复现
 
 默认仓库输入/输出按文件位置定位；显式自定义相对路径按调用者的启动目录解释。
-当前 Q1、归一化、数据划分、B7/ZP checkpoint 及当前科学结论未重建。
+当前默认输入为 `data/crystal_q1_v1/`；原 Q1 与历史 checkpoint 按各自数据及模型契约保留。
 训练摘要/历史进入 `results/reports/`，预测/目标数组及逐样本表进入对应 `results/runs/ablation_<model><tag>/`。
 CIF 推理默认写入 `results/runs/b7_cif_blind/`；`--output` 仍可指定其他目录。
 新的实验标签、模型接入或训练预算仍需独立批准。
@@ -84,6 +85,6 @@ Python 模块使用清楚的 `snake_case`；文档主题使用连字符；历史
 本机启用 `core.hooksPath=tools/checks`；新克隆需显式启用相同设置，钩子配置不会随 Git 克隆传播。
 自动检查还执行工作区文件边界检查；本地钩子可被手动绕过，服务器保护需另行配置。
 
-忽略规则不会自动移除已跟踪文件。已跟踪原始逐样本表应随本次迁移从后续版本控制中退出，
-本地数据仍保留。旧 Git 历史存在大原始表，当前方案通过推送钩子拦截，未重写历史；
+忽略规则不会自动移除已跟踪文件。原始逐样本文件仅本地保存；旧 Git 历史存在大原始表，
+当前方案通过推送钩子拦截，未重写历史；
 向新远端完整推送前需要独立决定如何清理历史。

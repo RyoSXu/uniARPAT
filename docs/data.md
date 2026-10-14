@@ -47,7 +47,7 @@
 ## 安全操作
 
 训练入口默认使用 `data/crystal_q1_v1/`，按原子对预算拆分计算并保留有效 batch 的样本权重。
-新 checkpoint 绑定 manifest 指纹及归一化，不自动复用历史权重。没有启动新正式训练。
+新 checkpoint 绑定 manifest 指纹及归一化，不自动复用历史权重。
 重建完整结构缓存使用 `tools/data/migrate_crystal_q1.py`，显式提供原 Q1、外部 raw 和全新目标目录；
 拒绝覆盖已有目录，不下载外部数据。历史 Q1 如确需重建，先阅读
 `tools/data/README.md`，再用 `tools/data/q1_rebuild.py` 并显式指定源和目标路径。

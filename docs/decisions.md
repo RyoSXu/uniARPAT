@@ -6,12 +6,13 @@
 ## 比较基准
 
 - 当前元素初始化固定 ZP：原子序号 → Embedding → LayerNorm → Linear。结构与规则固定，参数继续训练。
-  已训练研究基线为 Q1/M1 的 ZP100 `_eidzproj100_s42`（seed 42、100 轮、best epoch 89）。
-  用户指定 B7 `_e9ctl`（seed 42、35 轮、best epoch 33）为目前最优指标参考。
+  ZP100 `_eidzproj100_s42` 是旧 Q1/M1 的已训练研究基线（seed 42、100 轮、best epoch 89）。
+  B7 `_e9ctl`（旧 Q1、seed 42、35 轮、best epoch 33）是用户指定的历史最优指标参考。
   A100 为历史性能对照，B100/Z100 为元素入口对照。
-- 新实验同时报告相对 ZP100 的改进与相对 B7 的差距，统一使用 Q1 valid、各自 best checkpoint，
-  列出 eDOS/phDOS × oracle/blind 的中位 R²和失败率。B7 与 ZP100 的预算及学习率调度不同；
-  与 B7 的差异不能单独归因于元素入口或训练轮数。新候选的预算、选点与采用标准在执行前另定。
+- 修复版数据上的直接架构对照使用同数据重训的原 Encoder。ZP100/B7 仍分别作为历史改进与差距参考，
+  列出各自 valid、best checkpoint 的 eDOS/phDOS × oracle/blind 中位 R²和失败率。
+  跨数据版本、预算或学习率调度的差异须注明，不能解释为同数据或单因素因果对照。
+  新候选的预算、选点与采用标准在执行前另定。
 - 用户选择 ZP 用于后续结构研究，接受其已报告的性能代价；历史实验采用门槛和未达标结论继续保留。
   证据、初始化限制和后续范围见 [`design-2026-10-02-element-initialization.md`](design/design-2026-10-02-element-initialization.md)。
 - 当前默认训练目标为 SumNorm KL/W1/Huber；blind 尺度使用 H1 eta/gamma，生产网格为 E0/P0。
