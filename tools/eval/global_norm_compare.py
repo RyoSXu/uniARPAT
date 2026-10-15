@@ -96,6 +96,9 @@ def comparison_report(exports, draws=2000, *, labels=LABELS, scope=SCOPE):
         summary, frame = exports[reference]
         compared = compare(summary, frame, [(candidate, *exports[candidate])], draws, 20261013, scope=scope)
         result["contrasts"][f"{candidate}_minus_{reference}"] = compared["comparisons"][candidate]
+        if "joint_blind" in compared:
+            result["primary_metric"] = compared["primary_metric"]
+            result.setdefault("joint_blind", {})[f"{candidate}_minus_{reference}"] = compared["joint_blind"][candidate]
         result["pairing"] = compared["pairing"]
     return result
 

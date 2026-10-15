@@ -28,6 +28,8 @@ import pandas as pd
 import torch
 import yaml
 
+from utils.checkpoint_selection import selected_history_row
+
 from tools.checks.check_global_depth import RECIPE
 from tools.checks.check_lg_baseline import optimizer_difference, take
 import tools.train as runner
@@ -421,12 +423,12 @@ def verify_completed(arm: dict) -> dict:
     if checkpoints['checkpoint_latest']['epoch'] != BUDGET['epochs']:
         raise ValueError(f'{arm["tag"]} latest checkpoint is at epoch '
                          f'{checkpoints["checkpoint_latest"]["epoch"]}')
-    best = history.loc[history['balanced_score'].idxmin()]
+    best = selected_history_row(history, contract['selection_metric'])
     if int(checkpoints['checkpoint_best']['epoch']) != int(best.epoch):
         raise ValueError(f'{arm["tag"]} best checkpoint epoch {checkpoints["checkpoint_best"]["epoch"]} '
-                         f'!= history minimum {int(best.epoch)}')
+                         f'!= selected history epoch {int(best.epoch)}')
     if not np.isclose(checkpoints['checkpoint_best']['best_val_score'], float(best.balanced_score)):
-        raise ValueError(f'{arm["tag"]} best checkpoint score does not match the history minimum')
+        raise ValueError(f'{arm["tag"]} best checkpoint score does not match the selected history score')
     return {
         'arm': arm['label'], 'tag': arm['tag'],
         'epoch_records': len(history),

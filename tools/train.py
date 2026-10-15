@@ -25,6 +25,10 @@ from utils.ablation_checkpoint import (
 )
 from utils.crystal_cache import crystal_data_contract
 from utils.bucket_batch import iter_computation_batches
+from utils.checkpoint_selection import (
+    BLIND_R2_METRIC, blind_joint_score, initial_best_score, is_better_score,
+    selected_history_row, selection_mode, validation_score,
+)
 from utils.local_global_experiment import (
     SELECTION_METRICS, validate_local_global_config, initialize_comparison_model,
     comparison_contract, capture_training_rng, restore_training_rng,
@@ -384,7 +388,7 @@ def write_local_global_execution(config_path, transformer, start_epoch):
     from the next epoch; do not infer settings for its earlier epochs.
     """
     blocks = [block for layer in transformer.encoder.local_layers
-              for block in layer.message.blocks] if transformer.local_route == "A" else []
+              for block in layer.message.blocks] if transformer.local_route in ("A", "I3") else []
     cache = getattr(transformer, "_local_geometry_cache", None)
     cache_config = cache.configuration() if cache is not None else {"enabled": False}
     reason = getattr(transformer, "_local_geometry_cache_disabled_reason", None)
@@ -673,7 +677,7 @@ def train_and_eval(cfg: ExperimentConfig):
     from utils .builder import build_warmup_cosine_scheduler
     scheduler =build_warmup_cosine_scheduler (optimizer ,cfg.epochs )if _wu is None else build_warmup_cosine_scheduler (optimizer ,cfg.epochs ,warmup_epochs =int (_wu ))
 
-    best_val_score =float ('inf')
+    best_val_score =initial_best_score(cfg.selection_metric)
     best_epoch =0
     history =[]
     start_epoch =0
@@ -730,7 +734,7 @@ def train_and_eval(cfg: ExperimentConfig):
                 if start_epoch <=0 and len (dfh ):
                     start_epoch =int (dfh ['epoch'].max ())
                 if history :
-                    best_epoch =int (dfh .loc [dfh ['balanced_score'].idxmin (),'epoch'])
+                    best_epoch =int (selected_history_row(dfh, cfg.selection_metric).epoch)
                     # fast-forward cosine part of scheduler to start_epoch
             for _ in range (start_epoch ):
                 scheduler .step ()
@@ -848,7 +852,7 @@ def train_and_eval(cfg: ExperimentConfig):
             setup_ablation_seed(cfg.seed)
         else:
             restore_training_rng(comparison_resume_rng)
-        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0") and start_epoch < cfg.epochs:
+        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3") and start_epoch < cfg.epochs:
             from utils.zproj_alignment import rng_digest, rng_snapshot
             with open(config_path, encoding="utf-8") as stream:
                 record = yaml.safe_load(stream)
@@ -936,15 +940,17 @@ def train_and_eval(cfg: ExperimentConfig):
 
             # Validation reports blind metrics; older scale variants also report oracle metrics.
         val_metrics =evaluate_split (model ,val_loader ,is_m5 =(cfg.model_name =='M5'),ph_grid =_ph_grid_centers (cfg.phdos_num ),sumnorm =(cfg.norm =='sumnorm'),pair_budget=cfg.pair_budget)
-        balanced =0.5 *val_metrics ['mae_edos_median']+0.5 *val_metrics ['mae_phdos_median']
-        if cfg.local_route != "none" or cfg.lg_baseline:
-            balanced = val_metrics[cfg.selection_metric]
+        balanced =validation_score(val_metrics, cfg.selection_metric)
+        if cfg.selection_metric == BLIND_R2_METRIC:
+            val_metrics[BLIND_R2_METRIC] = balanced
+        display_prefix = 'blind_' if cfg.selection_metric == BLIND_R2_METRIC else ''
+        displayed_mode = 'blind' if cfg.selection_metric == BLIND_R2_METRIC else 'oracle'
 
         log_str =(
         f"[{cfg.model_name }] Epoch [{epoch +1 :03d}/{cfg.epochs :03d}] ({ep_time :.1f}s) | "
         f"Train Loss: {train_loss :.4f} | "
-        f"Val eDOS R2(med): {val_metrics ['r2_edos_median']:.3f} (MAE: {val_metrics ['mae_edos_median']:.3f}) | "
-        f"Val phDOS R2(med): {val_metrics ['r2_phdos_median']:.3f} (MAE: {val_metrics ['mae_phdos_median']:.4f}) | "
+        f"Val eDOS R2(med): {val_metrics [display_prefix+'r2_edos_median']:.3f} (MAE: {val_metrics [display_prefix+'mae_edos_median']:.3f}) | "
+        f"Val phDOS R2(med): {val_metrics [display_prefix+'r2_phdos_median']:.3f} (MAE: {val_metrics [display_prefix+'mae_phdos_median']:.4f}) | "
         f"Balanced Score: {balanced :.4f}"
         )
         if cfg.model_name =='M5':
@@ -952,12 +958,12 @@ def train_and_eval(cfg: ExperimentConfig):
         if cfg.local_route != "none":
             log_str += (f" | {cfg.local_route}/{cfg.local_layout}, K={cfg.local_depth}, "
                         f"G={cfg.local_depth if cfg.global_depth is None else cfg.global_depth}, "
-                        f"selection={cfg.selection_metric}; displayed R2=oracle, "
+                        f"selection={cfg.selection_metric}; displayed R2={displayed_mode}, "
                         f"blind R2 e/p={val_metrics['blind_r2_edos_median']:.3f}/"
                         f"{val_metrics['blind_r2_phdos_median']:.3f}")
         elif cfg.lg_baseline:
             log_str += (f" | lg_baseline/old-encoder, "
-                        f"selection={cfg.selection_metric}; displayed R2=oracle, "
+                        f"selection={cfg.selection_metric}; displayed R2={displayed_mode}, "
                         f"blind R2 e/p={val_metrics['blind_r2_edos_median']:.3f}/"
                         f"{val_metrics['blind_r2_phdos_median']:.3f}")
         if model .model ['transformer'].use_gated_cross_attn :
@@ -965,6 +971,10 @@ def train_and_eval(cfg: ExperimentConfig):
         if c5_load_metrics :
             load_text =','.join (f"{v :.2f}"for v in c5_load_metrics .values ())
             log_str +=f" | C5 load ({load_text})"
+        if cfg.selection_metric == BLIND_R2_METRIC:
+            log_str += (f" | selection_mode={selection_mode(cfg.selection_metric)}; blind fail e/p="
+                        f"{val_metrics['blind_fail_rate_edos']:.2f}%/"
+                        f"{val_metrics['blind_fail_rate_phdos']:.2f}%")
         logger .info (log_str )
 
         history .append ({
@@ -999,7 +1009,7 @@ def train_and_eval(cfg: ExperimentConfig):
                 data_contract=data_contract, model_contract=model_contract,
                 training_rng=(capture_training_rng() if model_contract is not None else None))
 
-        if balanced <best_val_score :
+        if is_better_score(balanced, best_val_score, cfg.selection_metric):
             best_val_score =balanced
             best_epoch =epoch +1
             atomic_torch_save (_ckpt (epoch +1 ,balanced ),os .path .join (save_dir ,'checkpoint_best.pth'))
@@ -1130,6 +1140,7 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
             summary[f'{mode}_fail_rate_{task}'] = float((frame[f'{mode}_r2_{task}'] < 0).mean() * 100)
         summary[f'balanced_{mode}_mae'] = .5 * (
             summary[f'{mode}_mae_edos_median'] + summary[f'{mode}_mae_phdos_median'])
+    summary[BLIND_R2_METRIC] = blind_joint_score(summary)
     # Compatibility with existing history/log readers; explicit columns are authoritative.
     summary.update({key.removeprefix('oracle_'): value for key, value in list(summary.items())
                     if key.startswith('oracle_')})
@@ -1343,7 +1354,7 @@ def build_arg_parser():
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
     parser.add_argument('--decoder_layers', type=int, default=6,
                         help='Shared Transformer decoder depth; 6 is the B7 default')
-    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0'], default='none',
+    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3'], default='none',
                         help='Frozen comparisons: G0 no local; O0/O1 old globals without geometry scoring')
     parser.add_argument('--local_layout', choices=['staged', 'alternating'], default=None,
                         help='Explicit local/global execution order')

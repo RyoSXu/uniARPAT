@@ -45,7 +45,7 @@ CODE_FILES = (
     "model/local_structure_controls.py", "model/local_global_encoder.py", "model/transformer.py",
     "model/periodic_messages.py", "model/periodic_geometry_cache.py", "model/model.py",
     "utils/local_structure_experiment.py", "utils/local_global_experiment.py", "utils/builder.py",
-    "utils/dataset.py", "utils/experiment_config.py", "utils/ablation_checkpoint.py",
+    "utils/dataset.py", "utils/experiment_config.py", "utils/ablation_checkpoint.py", "utils/checkpoint_selection.py",
     "utils/periodic_geometry.py", "utils/periodic_neighbors.py", "utils/crystal.py",
     "utils/crystal_cache.py", "utils/bucket_batch.py", "utils/spectral_inference.py",
     "tools/eval/lg_valid_export.py", "tools/eval/lg_paired_compare.py",

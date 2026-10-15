@@ -20,6 +20,7 @@ import yaml
 
 from tools.train import build_arg_parser, train_and_eval
 from utils.experiment_config import ExperimentConfig
+from utils.checkpoint_selection import selected_history_row, selection_mode
 from utils.local_global_experiment import comparison_configs, comparison_contract
 from utils.paths import repository_path
 
@@ -66,10 +67,9 @@ def summarize(configs):
         history = pd.read_csv(path)
         if history.empty or cfg.selection_metric not in history:
             raise ValueError(f'incomplete comparison metric schema: {path}')
-        if not (history['balanced_score'] == history[cfg.selection_metric]).all():
-            raise ValueError(f'comparison selection metric mismatch: {path}')
-        chosen = history.loc[history['balanced_score'].idxmin()]
+        chosen = selected_history_row(history, cfg.selection_metric)
         rows.append({**row, 'status': 'complete' if int(history.epoch.max()) >= cfg.epochs else 'partial',
+                     'selection_mode': selection_mode(cfg.selection_metric),
                      'completed_epochs': int(history.epoch.max()), 'best_epoch': int(chosen.epoch),
                      **{key: float(chosen[key]) for key in history.columns
                         if key.startswith(('blind_', 'oracle_')) or key in (

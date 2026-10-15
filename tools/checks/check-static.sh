@@ -57,6 +57,7 @@ PY
     archive.code.tests.test_c5_token_moe \
     tests.pipeline.test_amp \
     tests.pipeline.test_checkpoint_boundary \
+    tests.pipeline.test_checkpoint_selection \
     archive.code.tests.test_c2_1b_loss_attribution \
     tests.pipeline.test_b7_cif_inference \
     archive.code.tests.test_d4_phdos_spike_imaginary_audit \
@@ -85,6 +86,8 @@ PY
     tests.pipeline.test_global_norm \
     tests.pipeline.test_attention_dropout \
     tests.pipeline.test_attention_projection \
+    tests.pipeline.test_i1_bplus \
+    tests.pipeline.test_i1_a \
     tests.model.test_periodic_messages_gpu
 
 "$python_bin" tools/checks/check_repository.py --worktree

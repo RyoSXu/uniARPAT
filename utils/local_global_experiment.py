@@ -14,12 +14,12 @@ import numpy as np
 import torch
 
 from utils.experiment_config import ExperimentConfig
+from utils.checkpoint_selection import BLIND_R2_METRIC, SELECTION_METRICS, selection_contract
 
 INIT_PROTOCOL = "local-global-init-v1"
 # Decoupled-depth arms copy the K=2 reference and extend only the global stack.
 DEEP_INIT_PROTOCOL = "local-global-depth-init-v1"
 DEEP_CONTRACT_SCHEMA = "local-global-depth-model-v1"
-SELECTION_METRICS = ("balanced_oracle_mae", "balanced_blind_mae")
 
 
 def is_deep_depths(local_depth, global_depth) -> bool:
@@ -28,6 +28,19 @@ def is_deep_depths(local_depth, global_depth) -> bool:
 
 
 def validate_local_global_config(cfg: ExperimentConfig) -> None:
+    if cfg.selection_metric == BLIND_R2_METRIC:
+        # Keep frozen experiment factories intact: the architecture/training
+        # recipe is checked as before; only the selection protocol changes.
+        validate_local_global_config(replace(cfg, selection_metric="balanced_oracle_mae"))
+        return
+    if cfg.local_route == "I3":
+        from utils.i1_a_experiment import validate_i1_a_config
+        validate_i1_a_config(cfg)
+        return
+    if cfg.local_route == "I2":
+        from utils.i1_bplus_experiment import validate_i1_bplus_config
+        validate_i1_bplus_config(cfg)
+        return
     if cfg.local_route in ("I1", "I0"):
         from utils.attention_projection_experiment import validate_attention_projection_config
         validate_attention_projection_config(cfg)
@@ -289,6 +302,12 @@ def initialize_comparison_model(transformer, params: dict, seed: int) -> dict:
     """
     from utils.zproj_alignment import state_hash
 
+    if params.get("local_route") == "I3":
+        from utils.i1_a_experiment import initialize_i1_a_model
+        return initialize_i1_a_model(transformer, params, seed)
+    if params.get("local_route") == "I2":
+        from utils.i1_bplus_experiment import initialize_i1_bplus_model
+        return initialize_i1_bplus_model(transformer, params, seed)
     if params.get("local_route") in ("I1", "I0"):
         from utils.attention_projection_experiment import initialize_attention_projection_model
         return initialize_attention_projection_model(transformer, params, seed)
@@ -336,6 +355,18 @@ def training_record(cfg: ExperimentConfig) -> dict:
 
 
 def comparison_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict | None:
+    if cfg.selection_metric == BLIND_R2_METRIC:
+        contract = comparison_contract(replace(cfg, selection_metric="balanced_oracle_mae"), transformer_params)
+        if contract is None:
+            return None
+        return {**contract, "selection_metric": cfg.selection_metric, "training": training_record(cfg),
+                **selection_contract(cfg.selection_metric)}
+    if cfg.local_route == "I3":
+        from utils.i1_a_experiment import i1_a_contract
+        return i1_a_contract(cfg, transformer_params)
+    if cfg.local_route == "I2":
+        from utils.i1_bplus_experiment import i1_bplus_contract
+        return i1_bplus_contract(cfg, transformer_params)
     if cfg.local_route in ("I1", "I0"):
         from utils.attention_projection_experiment import attention_projection_contract
         return attention_projection_contract(cfg, transformer_params)

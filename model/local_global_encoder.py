@@ -13,7 +13,7 @@ from model.periodic_messages import PeriodicLocalMessage, prepare_shared_message
 from model.local_structure_controls import CONTROL_ROUTES, ControlLocalMessage
 from utils.periodic_geometry import PeriodicNeighborRecords
 
-LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0", "O0", "O1", "N1", "D1", "I1", "I0")
+LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3")
 LOCAL_LAYOUTS = ("staged", "alternating")
 LOCAL_RADIUS = 6.0
 LOCAL_PAIR_CHUNK = 65536
@@ -139,16 +139,17 @@ class LocalGlobalEncoder(nn.Module):
         self.route, self.layout, self.depth = route, layout, depth
         self.global_depth = global_depth
         self.d_model = d_model
-        self.geometry_route = "C1" if route in ("O1", "N1", "D1", "I1", "I0") else route
+        self.geometry_route = ("A" if route == "I3" else "B+" if route == "I2" else
+                               "C1" if route in ("O1", "N1", "D1", "I1", "I0") else route)
         self.shared_geometry = route not in ("C0", "G0", "O0")
         self.local_layers = nn.ModuleList(
             LocalResidualLayer(self.geometry_route, d_model) for _ in range(depth))
         global_layer = LegacyContentGlobalLayer if route in ("O0", "O1") else ScalarGlobalLayer
         self.global_layers = nn.ModuleList(
             global_layer(d_model, nhead, dim_feedforward, dropout, activation,
-                         **({"norm_first": False} if route in ("N1", "D1", "I1", "I0") else {}))
+                         **({"norm_first": False} if route in ("N1", "D1", "I1", "I0", "I2", "I3") else {}))
             for _ in range(global_depth))
-        if route in ("D1", "I1", "I0"):
+        if route in ("D1", "I1", "I0", "I2", "I3"):
             # Change attention probabilities only; residual/FFN dropout stays.
             for layer in self.global_layers:
                 layer.attn.dropout = 0.0

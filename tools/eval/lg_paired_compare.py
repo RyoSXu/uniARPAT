@@ -20,6 +20,8 @@ if str(ROOT) not in sys.path:
 import numpy as np
 import pandas as pd
 
+from utils.checkpoint_selection import BLIND_R2_METRIC, selection_contract
+
 METRICS = {
     'r2_median': lambda values: float(np.median(values)),
     'mae_median': lambda values: float(np.median(values)),
@@ -58,6 +60,52 @@ def bootstrap(base, other, column, draws, rng):
     return differences
 
 
+def joint_blind_comparison(base, other, base_summary, other_summary, per_task, draws, seed):
+    """Equal task weights; a material draw is shared by both tasks and models."""
+    if isinstance(draws, bool) or not isinstance(draws, int) or draws < 2:
+        raise ValueError("at least two integer bootstrap draws required")
+    columns = [f"blind_r2_{task}" for task in ("edos", "phdos")]
+    left, right = base[columns].to_numpy(float), other[columns].to_numpy(float)
+    if (not len(left) or not base.index.is_unique or not other.index.is_unique
+            or not base.index.equals(other.index) or left.shape != right.shape
+            or not np.isfinite(left).all() or not np.isfinite(right).all()):
+        raise ValueError("finite, unique, paired materials required for joint blind comparison")
+    statistic = lambda values: float(np.median(values, axis=0).mean())
+    baseline, candidate = statistic(left), statistic(right)
+    rng = np.random.default_rng(seed)
+    sampled = np.empty(draws)
+    for i in range(draws):
+        indices = rng.integers(0, len(left), len(left))
+        sampled[i] = statistic(right[indices]) - statistic(left[indices])
+    ci = np.percentile(sampled, [2.5, 97.5]).tolist()
+    expected = selection_contract(BLIND_R2_METRIC)["checkpoint_selection"]
+    compatible = all(summary.get("selection_metric") == BLIND_R2_METRIC
+                     and summary.get("checkpoint_selection") == expected
+                     for summary in (base_summary, other_summary))
+    protections = {}
+    for task in ("edos", "phdos"):
+        r2_delta = per_task[f"blind_{task}_r2_median"]["difference"]
+        failure_delta = per_task[f"blind_{task}_fail_rate_pct"]["difference"]
+        protections[task] = {"r2_delta": r2_delta, "fail_rate_delta_pp": failure_delta,
+                             "r2_drop_limit": .02, "fail_rate_increase_limit_pp": 1.,
+                             "passed": bool(r2_delta >= -.02 - 1e-12 and failure_delta <= 1. + 1e-12)}
+    reasons = []
+    if not compatible:
+        reasons.append("selection_protocol_mismatch_or_historical_selection")
+    if ci[0] <= 0:
+        reasons.append("joint_blind_improvement_not_detected")
+    reasons.extend(f"{task}_protection_failed" for task, values in protections.items() if not values["passed"])
+    return {"metric": BLIND_R2_METRIC, "mode": "max", "arm": candidate, "baseline": baseline,
+            "difference": candidate - baseline, "ci95": ci,
+            "ci95_contains_zero": bool(ci[0] <= 0 <= ci[1]),
+            "bootstrap": {"draws": draws, "seed": seed, "unit": "material",
+                          "same_indices_for_tasks_and_models": True},
+            "protections": protections, "selection_protocol_matched": compatible,
+            "eligible_for_adoption": not reasons, "reasons": reasons,
+            "scope": "selected-checkpoint uncertainty, not training-seed uncertainty; "
+                     "symmetric protection uses point estimates; no automatic baseline replacement"}
+
+
 def compare(baseline_summary, baseline_frame, arms, draws, seed, scope=SCOPE):
     rng = np.random.default_rng(seed)
     report = {'pairing': None, 'bootstrap': {'draws': draws, 'seed': seed,
@@ -77,6 +125,10 @@ def compare(baseline_summary, baseline_frame, arms, draws, seed, scope=SCOPE):
                 entry[f'{mode}_{task}_fail_rate_pct'] = from_r2['fail_rate_pct']
                 entry[f'{mode}_{task}_mae_median'] = from_mae['mae_median']
         report['comparisons'][label] = entry
+        if BLIND_R2_METRIC in (baseline_summary.get('selection_metric'), summary.get('selection_metric')):
+            report['primary_metric'] = BLIND_R2_METRIC
+            report.setdefault('joint_blind', {})[label] = joint_blind_comparison(
+                baseline_frame, frame, baseline_summary, summary, entry, draws, seed)
     report['pairing'] = {'materials': int(len(baseline_frame)),
                          'ids_identical': True,
                          'first': str(baseline_frame.index[0])}
@@ -91,7 +143,9 @@ def run_line(summary):
             'epoch_time_s_median': summary['epoch_time_s_median'],
             'epoch_time_s_sum': summary['epoch_time_s_sum'],
             'peak_vram_mb_median': summary['peak_vram_mb_median'],
-            'peak_vram_mb_max': summary['peak_vram_mb_max']}
+            'peak_vram_mb_max': summary['peak_vram_mb_max'],
+            **({'selection_metric': BLIND_R2_METRIC, **selection_contract(BLIND_R2_METRIC)}
+               if summary.get('selection_metric') == BLIND_R2_METRIC else {})}
 
 
 def main():

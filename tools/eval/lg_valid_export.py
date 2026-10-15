@@ -24,6 +24,7 @@ import yaml
 
 from tools.train import evaluate_split
 from utils.builder import ConfigBuilder
+from utils.checkpoint_selection import selected_history_row, selection_contract
 from utils.paths import repository_path
 
 
@@ -37,7 +38,7 @@ def load_run(run_dir: Path):
 
 
 def select_best(run_dir: Path, selection_metric: str, saved) -> dict:
-    """Re-derive the selected epoch with the established balanced_score rule."""
+    """Re-derive the selected epoch with the metric's recorded direction."""
     # config_used.yaml records no tag; the runner derives suffix = model+tag and
     # writes results/runs/ablation_{suffix} plus results/reports/history_{suffix}.
     suffix = run_dir.name.removeprefix('ablation_')
@@ -47,14 +48,16 @@ def select_best(run_dir: Path, selection_metric: str, saved) -> dict:
     history = pd.read_csv(history_path)
     if history.empty or 'balanced_score' not in history:
         raise ValueError(f'incomplete history for {suffix}')
-    if not (history['balanced_score'] == history[selection_metric]).all():
-        raise ValueError(f'history selection metric mismatch for {suffix}: {selection_metric}')
-    chosen = history.loc[history['balanced_score'].idxmin()]
+    contract = saved.get('model_contract', {})
+    if (contract.get('selection_metric') != selection_metric
+            or any(contract.get(key) != value for key, value in selection_contract(selection_metric).items())):
+        raise ValueError(f'checkpoint selection contract mismatch for {suffix}')
+    chosen = selected_history_row(history, selection_metric)
     checkpoint = torch.load(run_dir / 'checkpoint_best.pth', map_location='cpu')
     if int(checkpoint['epoch']) != int(chosen.epoch):
         raise ValueError(f'best checkpoint epoch {checkpoint["epoch"]} != history {chosen.epoch}')
     if not np.isclose(float(checkpoint['best_val_score']), float(chosen.balanced_score)):
-        raise ValueError(f'best checkpoint score does not match the history minimum: {suffix}')
+        raise ValueError(f'best checkpoint score does not match the selected history score: {suffix}')
     if checkpoint.get('model_contract') != saved.get('model_contract'):
         raise ValueError(f'checkpoint contract differs from the run configuration: {suffix}')
     return {'checkpoint': checkpoint, 'row': chosen, 'history': history, 'tag': suffix}
@@ -101,6 +104,7 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
         'tag': picked['tag'], 'run_dir': str(run_dir), 'samples': len(frame),
         'contract_schema': contract['schema'], 'init_protocol': contract['init_protocol'],
         'selection_metric': selection_metric,
+        **selection_contract(selection_metric),
         'best_epoch': int(row.epoch), 'best_score': float(row.balanced_score),
         'checkpoint_epoch': int(checkpoint['epoch']),
         'epoch_time_s_median': float(picked['history'].epoch_time_s.median()),

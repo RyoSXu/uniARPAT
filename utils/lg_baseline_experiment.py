@@ -23,6 +23,7 @@ from copy import deepcopy
 import torch
 
 from utils.experiment_config import ExperimentConfig
+from utils.checkpoint_selection import selection_contract
 from utils.local_global_experiment import (
     INIT_PROTOCOL, SELECTION_METRICS, _is_local_parameter, training_record,
     untrained_reference_state)
@@ -173,4 +174,4 @@ def baseline_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict:
             "seed": cfg.seed, "transformer": deepcopy(transformer_params),
             "reference": dict(REFERENCE_IDENTITY),
             "normalization": cfg.norm, "selection_metric": cfg.selection_metric,
-            "training": training_record(cfg)}
+            "training": training_record(cfg), **selection_contract(cfg.selection_metric)}
