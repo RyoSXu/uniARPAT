@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import gc
 import io
 import json
@@ -45,7 +45,13 @@ def code_fingerprints():
         ("utils/i1_a_experiment.py", "tools/checks/check_i1_a.py", "tools/eval/i1_a_compare.py")}}
 
 
-def check(out, reference_dir, tag_prefix):
+def check(out, reference_dir, tag_prefix, *, identity_loader=None, configuration_factory=None,
+          fingerprint_provider=None, report_schema="i1-a-preflight-v1", permutation_probe=None):
+    """Reuse the full A checks with an explicitly supplied comparison protocol.
+
+    Defaults retain the historical Oracle-selected experiment. New protocols
+    supply their own reference authentication, configuration and source gate.
+    """
     if out.exists():
         raise FileExistsError(f"refusing existing I3 preflight: {out}")
     if not sys.flags.utf8_mode or not torch.cuda.is_available():
@@ -53,11 +59,14 @@ def check(out, reference_dir, tag_prefix):
     torch.set_num_threads(1)
     setup_ablation_seed(42)
     started = time.monotonic()
-    saved, reference, identities = reference_identity(reference_dir)
-    cfg = i1_a_config(reference, tag_prefix)
+    load_identity = identity_loader or reference_identity
+    make_configuration = configuration_factory or i1_a_config
+    fingerprints_for_run = fingerprint_provider or code_fingerprints
+    saved, reference, identities = load_identity(reference_dir)
+    cfg = make_configuration(reference, tag_prefix)
     if list(run_directory(cfg).glob("*")) or repository_path(f"results/reports/history_m1{cfg.tag}.csv").exists():
         raise ValueError("I3 preflight requires a fresh candidate tag")
-    fingerprints = code_fingerprints()
+    fingerprints = fingerprints_for_run()
     assembled = captured_config(cfg)
     restored = deepcopy(assembled)
     restored["model"]["params"]["sub_model"]["transformer"].update(local_route="I2")
@@ -127,6 +136,11 @@ def check(out, reference_dir, tag_prefix):
                 if any(value > tolerance for value in worst.values()):
                     raise ValueError(f"I3 {dtype} E(3) check exceeded tolerance")
                 entry["e3_invariance"][str(dtype)] = worst
+                if permutation_probe is not None:
+                    permutation = permutation_probe(model, transformer, symmetry_batch, dtype)
+                    if any(value["max_rel"] > tolerance for value in permutation.values()):
+                        raise ValueError(f"I3 {dtype} permutation check exceeded tolerance")
+                    entry.setdefault("permutation_invariance", {})[str(dtype)] = permutation
     transformer.to(torch.float32)
     optimizer = model.optimizer["transformer"]
     payload = build_ablation_checkpoint(2, "M1", 42, False, transformer, optimizer, .5,
@@ -157,16 +171,29 @@ def check(out, reference_dir, tag_prefix):
             raise
     else:
         raise ValueError("I3 accepted an I2 checkpoint contract")
-    entry.update(checkpoint_roundtrip=True, i2_checkpoint_rejected=True)
+    alternate_metric = ("balanced_oracle_mae" if cfg.selection_metric == "balanced_blind_r2"
+                        else "balanced_blind_r2")
+    other_contract = comparison_contract(replace(cfg, selection_metric=alternate_metric), params)
+    try:
+        restore_ablation_checkpoint({**checkpoint, "model_contract": other_contract},
+            fresh.model["transformer"], fresh.optimizer["transformer"], False,
+            model_contract=entry["contract"], data_contract=saved["cli"]["data_contract"])
+    except ValueError as error:
+        if "different model contract" not in str(error):
+            raise
+    else:
+        raise ValueError("I3 accepted a different checkpoint selection protocol")
+    entry.update(checkpoint_roundtrip=True, i2_checkpoint_rejected=True,
+                 selection_checkpoint_rejected=True)
     del fresh, checkpoint, payload, buffer
     gc.collect()
     torch.cuda.empty_cache()
     entry["costs"] = [{"kind": "ordinary", **step_cost(model, batch)} for batch in train_batches]
     entry["costs"].append({"kind": "largest_structure", **step_cost(model, tail_batch)})
     entry["geometry_cache"] = transformer._local_geometry_cache.configuration()
-    if identities != reference_identity(reference_dir)[2] or fingerprints != code_fingerprints():
+    if identities != load_identity(reference_dir)[2] or fingerprints != fingerprints_for_run():
         raise ValueError("I2/I1 references or I3 source changed during preflight")
-    report = {"schema": "i1-a-preflight-v1", "passed": True,
+    report = {"schema": report_schema, "passed": True,
               "scope": "disposable real train-batch updates; train/valid only; no formal checkpoints",
               "references": identities, "code_sha256": fingerprints, "data_contract": saved["cli"]["data_contract"],
               "learning_rate_35": learning_rate_trace(35, cfg.lr), "controls": {"I3": entry},

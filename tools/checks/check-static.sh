@@ -89,6 +89,7 @@ PY
     tests.pipeline.test_i1_bplus \
     tests.pipeline.test_i1_a \
     tests.pipeline.test_local_readout \
+    tests.pipeline.test_local_module \
     tests.model.test_periodic_messages_gpu
 
 "$python_bin" tools/checks/check_repository.py --worktree

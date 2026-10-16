@@ -79,7 +79,7 @@ def verify_preflight(path, reference_dir, cfg):
     return report
 
 
-def comparison_report(exports, draws=2000, *, labels=LABELS, scope=SCOPE):
+def comparison_report(exports, draws=2000, *, labels=LABELS, scope=SCOPE, seed=20261013):
     if isinstance(draws, bool) or not isinstance(draws, int) or draws < 2:
         raise ValueError("at least two integer bootstrap draws required")
     if len(labels) < 2 or len(set(labels)) != len(labels) or set(exports) != set(labels):
@@ -90,11 +90,11 @@ def comparison_report(exports, draws=2000, *, labels=LABELS, scope=SCOPE):
                                 or not frame.index.equals(frames[0].index) for frame in frames)):
         raise ValueError("finite unique material-ID partitions must pair for all four runs")
     result = {"scope": scope, "runs": {label: run_line(exports[label][0]) for label in labels},
-              "bootstrap": {"draws": draws, "seed": 20261013, "unit": "material", "paired": True},
+              "bootstrap": {"draws": draws, "seed": seed, "unit": "material", "paired": True},
               "contrasts": {}}
     for reference in labels[1:]:
         summary, frame = exports[reference]
-        compared = compare(summary, frame, [(candidate, *exports[candidate])], draws, 20261013, scope=scope)
+        compared = compare(summary, frame, [(candidate, *exports[candidate])], draws, seed, scope=scope)
         result["contrasts"][f"{candidate}_minus_{reference}"] = compared["comparisons"][candidate]
         if "joint_blind" in compared:
             result["primary_metric"] = compared["primary_metric"]
