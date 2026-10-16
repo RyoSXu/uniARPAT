@@ -852,7 +852,7 @@ def train_and_eval(cfg: ExperimentConfig):
             setup_ablation_seed(cfg.seed)
         else:
             restore_training_rng(comparison_resume_rng)
-        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3") and start_epoch < cfg.epochs:
+        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4") and start_epoch < cfg.epochs:
             from utils.zproj_alignment import rng_digest, rng_snapshot
             with open(config_path, encoding="utf-8") as stream:
                 record = yaml.safe_load(stream)
@@ -975,6 +975,11 @@ def train_and_eval(cfg: ExperimentConfig):
             log_str += (f" | selection_mode={selection_mode(cfg.selection_metric)}; blind fail e/p="
                         f"{val_metrics['blind_fail_rate_edos']:.2f}%/"
                         f"{val_metrics['blind_fail_rate_phdos']:.2f}%")
+        local_readout_metrics = {}
+        if cfg.local_route == "I4":
+            gate = float(model.model['transformer'].encoder.local_readout_gate.detach())
+            local_readout_metrics['local_readout_gate'] = gate
+            log_str += f" | local_readout_gate={gate:.8g}"
         logger .info (log_str )
 
         history .append ({
@@ -987,6 +992,7 @@ def train_and_eval(cfg: ExperimentConfig):
         'alpha_p':alpha_p ,
         **avg_sub_losses ,
         **c5_load_metrics ,
+        **local_readout_metrics,
         **val_metrics ,
         'balanced_score':balanced
         })
@@ -1354,7 +1360,7 @@ def build_arg_parser():
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
     parser.add_argument('--decoder_layers', type=int, default=6,
                         help='Shared Transformer decoder depth; 6 is the B7 default')
-    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3'], default='none',
+    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3', 'I4'], default='none',
                         help='Frozen comparisons: G0 no local; O0/O1 old globals without geometry scoring')
     parser.add_argument('--local_layout', choices=['staged', 'alternating'], default=None,
                         help='Explicit local/global execution order')

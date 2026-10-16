@@ -13,7 +13,7 @@ from model.periodic_messages import PeriodicLocalMessage, prepare_shared_message
 from model.local_structure_controls import CONTROL_ROUTES, ControlLocalMessage
 from utils.periodic_geometry import PeriodicNeighborRecords
 
-LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3")
+LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4")
 LOCAL_LAYOUTS = ("staged", "alternating")
 LOCAL_RADIUS = 6.0
 LOCAL_PAIR_CHUNK = 65536
@@ -125,6 +125,8 @@ class LocalGlobalEncoder(nn.Module):
         super().__init__()
         if route not in LOCAL_ROUTES or layout not in LOCAL_LAYOUTS:
             raise ValueError("explicit local route and staged/alternating layout required")
+        if route == "I4" and layout != "staged":
+            raise ValueError("I4 local readout requires staged local-then-global updates")
         if route in ("G0", "O0"):
             if isinstance(depth, bool) or depth != 0 or not isinstance(depth, int):
                 raise ValueError(f"{route} requires local_depth=0")
@@ -139,7 +141,7 @@ class LocalGlobalEncoder(nn.Module):
         self.route, self.layout, self.depth = route, layout, depth
         self.global_depth = global_depth
         self.d_model = d_model
-        self.geometry_route = ("A" if route == "I3" else "B+" if route == "I2" else
+        self.geometry_route = ("A" if route == "I3" else "B+" if route in ("I2", "I4") else
                                "C1" if route in ("O1", "N1", "D1", "I1", "I0") else route)
         self.shared_geometry = route not in ("C0", "G0", "O0")
         self.local_layers = nn.ModuleList(
@@ -147,9 +149,9 @@ class LocalGlobalEncoder(nn.Module):
         global_layer = LegacyContentGlobalLayer if route in ("O0", "O1") else ScalarGlobalLayer
         self.global_layers = nn.ModuleList(
             global_layer(d_model, nhead, dim_feedforward, dropout, activation,
-                         **({"norm_first": False} if route in ("N1", "D1", "I1", "I0", "I2", "I3") else {}))
+                         **({"norm_first": False} if route in ("N1", "D1", "I1", "I0", "I2", "I3", "I4") else {}))
             for _ in range(global_depth))
-        if route in ("D1", "I1", "I0", "I2", "I3"):
+        if route in ("D1", "I1", "I0", "I2", "I3", "I4"):
             # Change attention probabilities only; residual/FFN dropout stays.
             for layer in self.global_layers:
                 layer.attn.dropout = 0.0
@@ -157,6 +159,10 @@ class LocalGlobalEncoder(nn.Module):
                     # Identity tensors are installed by the matched initializer.
                     # Freeze before the builder creates the optimizer.
                     layer.attn.requires_grad_(False)
+        if route == "I4":
+            # One shared scalar; creating it consumes no random numbers. All
+            # historical routes retain exactly their original state_dict keys.
+            self.local_readout_gate = nn.Parameter(torch.zeros(()))
 
     @property
     def update_counts(self):
@@ -189,9 +195,17 @@ class LocalGlobalEncoder(nn.Module):
         if prepared_geometry is None and self.shared_geometry:
             prepared_geometry = prepare_shared_message_geometry(records, self.geometry_route)
         h = h.masked_fill(padding_mask[..., None], 0)
+        if self.route == "I4":
+            initial = h
         for kind, i in self.execution_order:
             if kind == "local":
                 h = self.local_layers[i](h, records, padding_mask, prepared_geometry)
+                if self.route == "I4" and i == self.depth - 1:
+                    local_delta = h - initial
             else:
                 h = self.global_layers[i](h, padding_mask)
+        if self.route == "I4":
+            # Keep both paths differentiable. The returned memory feeds both
+            # task decoders and the pooled H1 head in Transformer.forward.
+            h = (h + self.local_readout_gate * local_delta).masked_fill(padding_mask[..., None], 0)
         return h

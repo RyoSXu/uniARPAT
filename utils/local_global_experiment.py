@@ -28,6 +28,10 @@ def is_deep_depths(local_depth, global_depth) -> bool:
 
 
 def validate_local_global_config(cfg: ExperimentConfig) -> None:
+    if cfg.local_route == "I4":
+        from utils.local_readout_experiment import validate_local_readout_config
+        validate_local_readout_config(cfg)
+        return
     if cfg.selection_metric == BLIND_R2_METRIC:
         # Keep frozen experiment factories intact: the architecture/training
         # recipe is checked as before; only the selection protocol changes.
@@ -302,6 +306,9 @@ def initialize_comparison_model(transformer, params: dict, seed: int) -> dict:
     """
     from utils.zproj_alignment import state_hash
 
+    if params.get("local_route") == "I4":
+        from utils.local_readout_experiment import initialize_local_readout_model
+        return initialize_local_readout_model(transformer, params, seed)
     if params.get("local_route") == "I3":
         from utils.i1_a_experiment import initialize_i1_a_model
         return initialize_i1_a_model(transformer, params, seed)
@@ -355,6 +362,9 @@ def training_record(cfg: ExperimentConfig) -> dict:
 
 
 def comparison_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict | None:
+    if cfg.local_route == "I4":
+        from utils.local_readout_experiment import local_readout_contract
+        return local_readout_contract(cfg, transformer_params)
     if cfg.selection_metric == BLIND_R2_METRIC:
         contract = comparison_contract(replace(cfg, selection_metric="balanced_oracle_mae"), transformer_params)
         if contract is None:
