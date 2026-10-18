@@ -62,7 +62,8 @@ class PeriodicGeometryCache:
     estimate can evict additional entries before the learned forward/backward.
     """
 
-    def __init__(self, route, device, *, max_bytes=None, local_blocks=4):
+    def __init__(self, route, device, *, max_bytes=None, local_blocks=4,
+                 scalar_channels=64, hidden_channels=128):
         if route not in ("A", "B+", "C1"):
             raise ValueError("geometry cache requires A, B+ or C1")
         self.route = route
@@ -72,6 +73,12 @@ class PeriodicGeometryCache:
         if isinstance(local_blocks, bool) or not isinstance(local_blocks, int) or local_blocks < 1:
             raise ValueError("positive local block count required")
         self.local_blocks = local_blocks
+        if any(isinstance(w, bool) or not isinstance(w, int) or w <= 0
+               for w in (scalar_channels, hidden_channels)):
+            raise ValueError("positive local widths required for cache workspace estimates")
+        if route != "A" and (scalar_channels, hidden_channels) != (64, 128):
+            raise ValueError("wider cache workspaces currently require full A")
+        self.scalar_channels, self.hidden_channels = scalar_channels, hidden_channels
         self._entries = OrderedDict()
         self._context = None
         self.nbytes = 0
@@ -84,9 +91,13 @@ class PeriodicGeometryCache:
         self.nbytes = 0
 
     def configuration(self):
-        return {"enabled": True, "key": "cell-frac-content-v1", "population": "lazy",
+        result = {"enabled": True, "key": "cell-frac-content-v1", "population": "lazy",
                 "max_bytes": self.max_bytes, "budget_policy": self._budget_policy,
                 "workspace_guard": "local-pairs-v1"}
+        if (self.scalar_channels, self.hidden_channels) != (64, 128):
+            result.update(workspace_guard="local-pairs-width-v1", scalar_channels=self.scalar_channels,
+                          hidden_channels=self.hidden_channels)
+        return result
 
     def statistics(self):
         return {"entries": len(self._entries), "tensor_bytes": self.nbytes,
@@ -180,7 +191,8 @@ class PeriodicGeometryCache:
         # Resource guard, not a claim that all batches fit. An intrinsically
         # oversized uncached batch still raises instead of changing its math.
         work = 4 * GIB * size // 4
-        work += (len(prepared.pairs[0]) * 1024 * size * self.local_blocks
+        pair_features = 4 * self.scalar_channels + 6 * self.hidden_channels
+        work += (len(prepared.pairs[0]) * pair_features * size * self.local_blocks
                  if prepared.pairs is not None else len(records.distances) * 2048 * size)
         self._reserve_workspace(geometry.device, work)
         return result

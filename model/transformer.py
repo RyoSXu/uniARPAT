@@ -151,12 +151,14 @@ class Transformer(nn.Module):
                   g2_content_mode="radial", use_periodic_manybody=False,
                   local_route="none", local_layout=None, local_depth=None,
                   global_depth=None,
-                  lg_baseline=False):
+                  lg_baseline=False, local_scalar_channels=None, local_hidden_channels=None):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
-        if local_route not in ("none", "A", "B+", "C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4"):
+        if local_route not in ("none", "A", "B+", "C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1"):
             raise ValueError("unknown local/global comparison route")
+        if local_route != "W1" and (local_scalar_channels is not None or local_hidden_channels is not None):
+            raise ValueError("explicit full-model local widths require W1")
         if local_route == "none" and (local_layout is not None or local_depth is not None
                                       or global_depth is not None):
             raise ValueError("local layout/depth require an A/B+ route")
@@ -321,7 +323,8 @@ class Transformer(nn.Module):
             self.encoder = LocalGlobalEncoder(
                 local_route, local_layout, local_depth, d_model=d_model, nhead=nhead,
                 dim_feedforward=dim_feedforward, dropout=dropout, activation=activation,
-                global_depth=global_depth)
+                global_depth=global_depth, local_scalar_channels=local_scalar_channels,
+                local_hidden_channels=local_hidden_channels)
         elif self.use_periodic_manybody:
             from archive.code.model.periodic_manybody import PeriodicManyBodyEncoder
 
@@ -506,7 +509,9 @@ class Transformer(nn.Module):
 
             self._local_geometry_cache = PeriodicGeometryCache(
                 self.encoder.geometry_route, next(self.parameters()).device, max_bytes=max_bytes,
-                local_blocks=self.encoder.update_counts["internal_local_blocks"])
+                local_blocks=self.encoder.update_counts["internal_local_blocks"],
+                scalar_channels=self.encoder.local_scalar_channels,
+                hidden_channels=self.encoder.local_hidden_channels)
 
     def _apply(self, fn, recurse=True):
         cache = getattr(self, "_local_geometry_cache", None)

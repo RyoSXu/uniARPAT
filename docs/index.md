@@ -7,6 +7,7 @@
 | 需要了解什么 | 入口 |
 |---|---|
 | 当前目标、参考模型、结论和下一步 | [status.md](status.md) |
+| 迁移到学校平台、实验断点与必带文件 | [2026-10-18迁移交接](logs/log-2026-10-18-platform-migration-handoff.md) |
 | 已确定的数据、评估和对称性规则 | [decisions.md](decisions.md) |
 | 数据版本、划分和字段 | [data.md](data.md) |
 | 研究与实施流程 | [workflow.md](workflow.md) |
@@ -23,6 +24,7 @@
 | 完整晶体输入与周期邻居 | [结构输入](design/design-2026-10-04-crystal-structure-input.md)、[物理记录](design/design-2026-10-03-periodic-neighbor-records.md) |
 | A/B+ 局部消息与接口 | [候选公式](design/design-2026-10-04-periodic-message-candidates.md)、[模块边界](design/design-2026-10-04-periodic-message-module-boundaries.md) |
 | 当前局部模块定型：共同参考与 A/B+ 选型 | [复用范围、判据与预算](design/design-2026-10-16-local-module-selection.md)、[入口与短检](logs/log-2026-10-16-local-module-preparation.md)、[正式运行与结果](logs/log-2026-10-16-local-module-run.md) |
+| 完整 A 内部容量 | [64/128与128/256方案](design/design-2026-10-16-local-a-width.md)、[实现、短检与交接](logs/log-2026-10-16-local-a-width-preparation.md) |
 | 局部—全局 Encoder 与当前 I1 对照 | [接入设计](design/design-2026-10-04-local-global-encoder.md)、[投影对照](design/design-2026-10-13-attention-projection-attribution.md) |
 | I1 开发基线上的完整 B+ 升级 | [实验设计](design/design-2026-10-14-i1-bplus-encoder.md)、[准备与短检](logs/log-2026-10-14-i1-bplus-preparation.md)、[运行与核验](logs/log-2026-10-14-i1-bplus-run.md) |
 | 修正联合骨架上的完整 A/B+ 比较 | [完整 A 设计](design/design-2026-10-15-i1-a-encoder.md)、[准备与成本](logs/log-2026-10-15-i1-a-preparation.md)、[运行与核验](logs/log-2026-10-15-i1-a-run.md) |

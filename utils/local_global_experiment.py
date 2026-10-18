@@ -28,6 +28,10 @@ def is_deep_depths(local_depth, global_depth) -> bool:
 
 
 def validate_local_global_config(cfg: ExperimentConfig) -> None:
+    if cfg.local_route == "W1":
+        from utils.local_width_experiment import validate_local_width_config
+        validate_local_width_config(cfg)
+        return
     if cfg.local_route == "I4":
         from utils.local_readout_experiment import validate_local_readout_config
         validate_local_readout_config(cfg)
@@ -306,6 +310,9 @@ def initialize_comparison_model(transformer, params: dict, seed: int) -> dict:
     """
     from utils.zproj_alignment import state_hash
 
+    if params.get("local_route") == "W1":
+        from utils.local_width_experiment import initialize_local_width_model
+        return initialize_local_width_model(transformer, params, seed)
     if params.get("local_route") == "I4":
         from utils.local_readout_experiment import initialize_local_readout_model
         return initialize_local_readout_model(transformer, params, seed)
@@ -362,6 +369,9 @@ def training_record(cfg: ExperimentConfig) -> dict:
 
 
 def comparison_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict | None:
+    if cfg.local_route == "W1":
+        from utils.local_width_experiment import local_width_contract
+        return local_width_contract(cfg, transformer_params)
     if cfg.local_route == "I4":
         from utils.local_readout_experiment import local_readout_contract
         return local_readout_contract(cfg, transformer_params)

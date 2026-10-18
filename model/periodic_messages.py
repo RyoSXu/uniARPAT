@@ -126,9 +126,9 @@ def _unordered_pairs(geometry):
     return geometry.order[offset + row], geometry.order[offset + column]
 
 
-def mlp(input_channels, output_channels):
-    return nn.Sequential(nn.Linear(input_channels, 128), nn.SiLU(),
-                         nn.Linear(128, output_channels))
+def mlp(input_channels, output_channels, hidden_channels=128):
+    return nn.Sequential(nn.Linear(input_channels, hidden_channels), nn.SiLU(),
+                         nn.Linear(hidden_channels, output_channels))
 
 
 def count_features(geometry, dtype):
@@ -139,16 +139,20 @@ def count_features(geometry, dtype):
 class InvariantMessageBlock(nn.Module):
     """A: all unordered same-center pairs, exchange-symmetric scalar messages."""
 
-    def __init__(self, pair_chunk=4096, recompute_angles=True):
+    def __init__(self, pair_chunk=4096, recompute_angles=True, *, scalar_channels=64, hidden_channels=128):
         super().__init__()
         if not isinstance(pair_chunk, int) or isinstance(pair_chunk, bool) or pair_chunk <= 0:
             raise ValueError("pair chunk must be a positive integer")
         self.pair_chunk = pair_chunk
         self.recompute_angles = recompute_angles
-        self.edge_mlp = mlp(144, 64)
-        self.angle_mlp = mlp(228, 64)
-        self.update = mlp(194, 64)
-        self.norm = nn.LayerNorm(64)
+        for width in (scalar_channels, hidden_channels):
+            if isinstance(width, bool) or not isinstance(width, int) or width <= 0:
+                raise ValueError("local widths must be positive integers")
+        self.scalar_channels, self.hidden_channels = scalar_channels, hidden_channels
+        self.edge_mlp = mlp(2 * scalar_channels + RADIAL_CHANNELS, scalar_channels, hidden_channels)
+        self.angle_mlp = mlp(3 * scalar_channels + 2 * RADIAL_CHANNELS + 4, scalar_channels, hidden_channels)
+        self.update = mlp(3 * scalar_channels + 2, scalar_channels, hidden_channels)
+        self.norm = nn.LayerNorm(scalar_channels)
 
     def _angle_chunk(self, center_projection, first_projection, second_projection,
                      unit, cut, receiver, left, right, angular=None, pair_cutoff=None,
@@ -157,7 +161,8 @@ class InvariantMessageBlock(nn.Module):
             q = (unit[left] * unit[right]).sum(-1).clamp(-1, 1)
             angular = torch.stack((q, q.square(), q**3, q**4), dim=-1)
         centers = receiver[left] if pair_receiver is None else pair_receiver
-        shared = center_projection[centers] + F.linear(angular, self.angle_mlp[0].weight[:, 224:])
+        angle_start = 3 * self.scalar_channels + 2 * RADIAL_CHANNELS
+        shared = center_projection[centers] + F.linear(angular, self.angle_mlp[0].weight[:, angle_start:])
         forward = shared + first_projection[left] + second_projection[right]
         backward = shared + first_projection[right] + second_projection[left]
         # The nonlinearity stays after the complete original affine sum.
@@ -165,12 +170,13 @@ class InvariantMessageBlock(nn.Module):
                    + self.angle_mlp[2](self.angle_mlp[1](backward))) * .5
         cutoff = cut[left] * cut[right] if pair_cutoff is None else pair_cutoff
         message = message * cutoff[:, None]
-        return message.new_zeros((len(center_projection), SCALAR_CHANNELS)).index_add(
+        return message.new_zeros((len(center_projection), self.scalar_channels)).index_add(
             0, centers, message)
 
     def forward(self, scalar, geometry):
         shape = scalar.shape
-        flat = scalar.reshape(-1, 64)
+        channels = self.scalar_channels
+        flat = scalar.reshape(-1, channels)
         g = geometry
         edge_input = torch.cat((flat[g.receiver], flat[g.sender], g.radial), -1)
         message = self.edge_mlp(edge_input) * g.cutoff[:, None]
@@ -180,9 +186,12 @@ class InvariantMessageBlock(nn.Module):
         left_all, right_all = g.pairs if g.pairs is not None else _unordered_pairs(g)
         if left_all.numel():
             weight, bias = self.angle_mlp[0].weight, self.angle_mlp[0].bias
-            center = F.linear(flat, weight[:, :64], bias)
-            first = F.linear(flat, weight[:, 64:128])[g.sender] + F.linear(g.radial, weight[:, 192:208])
-            second = F.linear(flat, weight[:, 128:192])[g.sender] + F.linear(g.radial, weight[:, 208:224])
+            radial_start = 3 * channels
+            center = F.linear(flat, weight[:, :channels], bias)
+            first = (F.linear(flat, weight[:, channels:2*channels])[g.sender]
+                     + F.linear(g.radial, weight[:, radial_start:radial_start+RADIAL_CHANNELS]))
+            second = (F.linear(flat, weight[:, 2*channels:3*channels])[g.sender]
+                      + F.linear(g.radial, weight[:, radial_start+RADIAL_CHANNELS:radial_start+2*RADIAL_CHANNELS]))
             for start in range(0, len(left_all), self.pair_chunk):
                 left, right = left_all[start:start+self.pair_chunk], right_all[start:start+self.pair_chunk]
                 arguments = (center, first, second, g.unit, g.cutoff, g.receiver, left, right)
@@ -285,7 +294,8 @@ class PeriodicLocalMessage(nn.Module):
     """A/B+ share ``forward(h, records, padding_mask) -> h_local``.
 
     h/h_local: invariant scalars [B,L,d_model], padding output exactly zero.
-    Internal 64/108-channel states and two blocks retain the accepted design.
+    A supports explicit scalar/MLP widths; defaults retain the accepted 64/128
+    initialization and parameter keys. B+ keeps its 108-component state.
     The module follows normal PyTorch ``.to(device, dtype)``; records must be
     moved explicitly too. FP32/FP64 are supported; AMP is not yet accepted.
     Local O(3) invariance assumes invariant input h and covariant input vectors;
@@ -293,18 +303,26 @@ class PeriodicLocalMessage(nn.Module):
     """
 
     def __init__(self, route: str, d_model: int = 512, pair_chunk: int = 4096,
-                 recompute_angles: bool = True, include_high_order: bool = True):
+                 recompute_angles: bool = True, include_high_order: bool = True,
+                 *, scalar_channels: int = 64, hidden_channels: int = 128):
         super().__init__()
         if route not in ("A", "B+"):
             raise ValueError("route must be A or B+")
         if not isinstance(d_model, int) or isinstance(d_model, bool) or d_model <= 0:
             raise ValueError("d_model must be a positive integer")
+        for width in (scalar_channels, hidden_channels):
+            if isinstance(width, bool) or not isinstance(width, int) or width <= 0:
+                raise ValueError("local widths must be positive integers")
+        if route == "B+" and (scalar_channels, hidden_channels) != (64, 128):
+            raise ValueError("B+ widths retain the accepted 64/128 configuration")
         self.route, self.d_model = route, d_model
+        self.scalar_channels, self.hidden_channels = scalar_channels, hidden_channels
         self.include_high_order = include_high_order
-        self.local_input = nn.Linear(d_model, 64)
-        self.local_output = nn.Linear(64, d_model)
+        self.local_input = nn.Linear(d_model, scalar_channels)
+        self.local_output = nn.Linear(scalar_channels, d_model)
         if route == "A":
-            self.blocks = nn.ModuleList(InvariantMessageBlock(pair_chunk, recompute_angles) for _ in range(2))
+            self.blocks = nn.ModuleList(InvariantMessageBlock(pair_chunk, recompute_angles,
+                scalar_channels=scalar_channels, hidden_channels=hidden_channels) for _ in range(2))
         else:
             self.blocks = nn.ModuleList(HighOrderEquivariantBlock(gate_direction=(i == 0)) for i in range(2))
 

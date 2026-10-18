@@ -388,7 +388,7 @@ def write_local_global_execution(config_path, transformer, start_epoch):
     from the next epoch; do not infer settings for its earlier epochs.
     """
     blocks = [block for layer in transformer.encoder.local_layers
-              for block in layer.message.blocks] if transformer.local_route in ("A", "I3") else []
+              for block in layer.message.blocks] if transformer.local_route in ("A", "I3", "W1") else []
     cache = getattr(transformer, "_local_geometry_cache", None)
     cache_config = cache.configuration() if cache is not None else {"enabled": False}
     reason = getattr(transformer, "_local_geometry_cache_disabled_reason", None)
@@ -527,6 +527,10 @@ def train_and_eval(cfg: ExperimentConfig):
         if cfg.global_depth is not None:
             # Absent when unset so historical configurations keep their exact keys.
             yaml_cfg['model']['params']['sub_model']['transformer']['global_depth'] = cfg.global_depth
+        if cfg.local_route == "W1":
+            from utils.local_width_experiment import WIDE_WIDTHS
+            yaml_cfg['model']['params']['sub_model']['transformer'].update(
+                local_scalar_channels=WIDE_WIDTHS[0], local_hidden_channels=WIDE_WIDTHS[1])
     if cfg.lg_baseline:
         # Old encoder with the original geometry scoring, matched outside it.
         yaml_cfg['model']['params']['sub_model']['transformer'].update(
@@ -852,7 +856,7 @@ def train_and_eval(cfg: ExperimentConfig):
             setup_ablation_seed(cfg.seed)
         else:
             restore_training_rng(comparison_resume_rng)
-        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4") and start_epoch < cfg.epochs:
+        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1") and start_epoch < cfg.epochs:
             from utils.zproj_alignment import rng_digest, rng_snapshot
             with open(config_path, encoding="utf-8") as stream:
                 record = yaml.safe_load(stream)
@@ -1360,7 +1364,7 @@ def build_arg_parser():
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
     parser.add_argument('--decoder_layers', type=int, default=6,
                         help='Shared Transformer decoder depth; 6 is the B7 default')
-    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3', 'I4'], default='none',
+    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3', 'I4', 'W1'], default='none',
                         help='Frozen comparisons: G0 no local; O0/O1 old globals without geometry scoring')
     parser.add_argument('--local_layout', choices=['staged', 'alternating'], default=None,
                         help='Explicit local/global execution order')
