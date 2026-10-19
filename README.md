@@ -18,6 +18,7 @@ python3 -c "import json; print(json.load(open('data/crystal_q1_v1/manifest.json'
 ```
 
 数据字段、有效划分和旧 Q1 的兼容边界见[数据约定](docs/data.md)。训练配方和预算按获准设计执行，使用新的唯一标签；不同归一化方案不共用 checkpoint。
+数据来源、处理流程、单位和发布说明见[中文数据卡](docs/dataset-card-zh.md)、[English](docs/dataset-card-en.md)及[来源与许可](docs/dataset-sources.md)。
 未经明确批准，不运行 `--model all --epochs 100`。实验只用 train/valid 选型，具体规则见[已确定约定](docs/decisions.md)。
 
 ## 代码与文件

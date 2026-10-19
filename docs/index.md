@@ -10,6 +10,7 @@
 | 迁移到学校平台、实验断点与必带文件 | [2026-10-18迁移交接](logs/log-2026-10-18-platform-migration-handoff.md) |
 | 已确定的数据、评估和对称性规则 | [decisions.md](decisions.md) |
 | 数据版本、划分和字段 | [data.md](data.md) |
+| 数据发布：中英文来源、处理、单位与许可 | [中文](dataset-card-zh.md)、[English](dataset-card-en.md)、[来源声明](dataset-sources.md) |
 | 研究与实施流程 | [workflow.md](workflow.md) |
 | 目录职责、兼容路径和 Git 边界 | [repository.md](repository.md) |
 | 指标、模型和实验术语 | [glossary.md](glossary.md) |

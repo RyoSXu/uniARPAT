@@ -16,6 +16,7 @@
 | `a6_split.py` | 为新数据版本创建冻结的分层划分。 |
 | `c2b_grids.py` | 生成已明确批准的网格变体。 |
 | `q1_rebuild.py` | 仅作为已批准恢复计划的一部分重建 Q1。 |
+| `export_release_provenance.py` | 为数据发布校验冻结谱/mask 与父处理表，导出逐材料来源和划分审计；只读输入，不重建数据。 |
 
 ## 规则
 
@@ -34,5 +35,6 @@
 - `c2b_grids.py --structure-cache ...` 必须显式给出与源池划分 ID/顺序及结构行数完全一致的缓存。
 - `q1_rebuild.py` 拒绝覆盖现有 Q1；它不自动恢复 `nvalence` 等全部训练 sidecar，不能代替完整恢复方案。
 - `download_phonondb.py --ref ... --dest ...` 可以显式指定下载清单和目标。
+- `export_release_provenance.py --cache ... --processed ... --out <新目录>` 只生成来源 CSV 和审计 JSON，不下载、重分划分或改谱；拒绝已有输出目录。Release 使用方无需父处理表。
 
 正式参考表位于 `data/reference/`，历史网格位于 `archive/data/grids_c2b/`；生成新数据不覆盖二者。

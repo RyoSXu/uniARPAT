@@ -3,6 +3,11 @@
 本页说明当前训练代码允许使用的数据。为保持简洁，获取过程保留在日志和 Git 历史中；可复现的
 缓存边界只在此处维护。
 
+对外数据说明见[中文数据卡](dataset-card-zh.md)、[English dataset card](dataset-card-en.md)及
+[来源、引用与许可](dataset-sources.md)，包含实际来源、处理流程、单位、划分限制和恢复方式。
+当前发布候选仅打包主线缓存与 8 个参考文件，共 42 个文件；不含历史元素性质表、旧缓存或权重。
+范围及恢复验证见[重新打包记录](logs/log-2026-10-19-mainline-data-repack.md)。
+
 ## 当前训练数据池
 
 当前默认输入是 **Q1 完整结构修复版 `crystal-q1-v1`**，位于 `data/crystal_q1_v1/`。
