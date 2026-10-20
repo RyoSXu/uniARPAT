@@ -14,3 +14,7 @@
 `local_readout_compare.py` 对应[局部状态直连读出](../../docs/design/design-2026-10-15-local-readout-interface.md)：
 默认打印 I1/I2/I4 三条命令；`--run` 校验新预检后依次训练并分析，`--summarize` 只读历史，
 `--analyze` 只分析完成的运行。三组都使用联合 blind R² 选点，Oracle 与组成谱差仅作诊断。
+
+迁移后只有源码与数据时，使用 `local_width_fresh_compare.py` 从头建立A64/W1两组容量对照，
+不依赖旧权重或预测。先运行 `tools/checks/check_local_width_fresh.py` 完成本机短检；
+配方、成本与交接见[迁移后容量对照](../../docs/logs/log-2026-10-19-local-width-fresh-preparation.md)。
