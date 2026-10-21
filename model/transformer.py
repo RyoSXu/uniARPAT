@@ -155,7 +155,7 @@ class Transformer(nn.Module):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
-        if local_route not in ("none", "A", "B+", "C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1"):
+        if local_route not in ("none", "A", "B+", "C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1"):
             raise ValueError("unknown local/global comparison route")
         if local_route != "W1" and (local_scalar_channels is not None or local_hidden_channels is not None):
             raise ValueError("explicit full-model local widths require W1")

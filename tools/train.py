@@ -388,7 +388,7 @@ def write_local_global_execution(config_path, transformer, start_epoch):
     from the next epoch; do not infer settings for its earlier epochs.
     """
     blocks = [block for layer in transformer.encoder.local_layers
-              for block in layer.message.blocks] if transformer.local_route in ("A", "I3", "W1") else []
+              for block in layer.message.blocks] if transformer.local_route in ("A", "I3", "W1", "LN1") else []
     cache = getattr(transformer, "_local_geometry_cache", None)
     cache_config = cache.configuration() if cache is not None else {"enabled": False}
     reason = getattr(transformer, "_local_geometry_cache_disabled_reason", None)
@@ -399,6 +399,8 @@ def write_local_global_execution(config_path, transformer, start_epoch):
                  "pair_chunk": [block.pair_chunk for block in blocks],
                  "shared_geometry": getattr(transformer.encoder, "shared_geometry", False),
                  "geometry_cache": cache_config}
+    if transformer.local_route == "LN1":
+        execution["internal_normalization"] = ["pre-norm" if block.norm_first else "post-norm" for block in blocks]
     with open(config_path) as stream:
         config_used = yaml.safe_load(stream)
     history = config_used.setdefault("runtime", {}).setdefault("local_global_execution", [])
@@ -856,7 +858,7 @@ def train_and_eval(cfg: ExperimentConfig):
             setup_ablation_seed(cfg.seed)
         else:
             restore_training_rng(comparison_resume_rng)
-        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1") and start_epoch < cfg.epochs:
+        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1") and start_epoch < cfg.epochs:
             from utils.zproj_alignment import rng_digest, rng_snapshot
             with open(config_path, encoding="utf-8") as stream:
                 record = yaml.safe_load(stream)
@@ -1364,7 +1366,7 @@ def build_arg_parser():
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
     parser.add_argument('--decoder_layers', type=int, default=6,
                         help='Shared Transformer decoder depth; 6 is the B7 default')
-    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3', 'I4', 'W1'], default='none',
+    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3', 'I4', 'W1', 'LN1'], default='none',
                         help='Frozen comparisons: G0 no local; O0/O1 old globals without geometry scoring')
     parser.add_argument('--local_layout', choices=['staged', 'alternating'], default=None,
                         help='Explicit local/global execution order')

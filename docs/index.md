@@ -26,6 +26,7 @@
 | A/B+ 局部消息与接口 | [候选公式](design/design-2026-10-04-periodic-message-candidates.md)、[模块边界](design/design-2026-10-04-periodic-message-module-boundaries.md) |
 | 当前局部模块定型：共同参考与 A/B+ 选型 | [复用范围、判据与预算](design/design-2026-10-16-local-module-selection.md)、[入口与短检](logs/log-2026-10-16-local-module-preparation.md)、[正式运行与结果](logs/log-2026-10-16-local-module-run.md) |
 | 完整 A 内部容量 | [64/128与128/256方案](design/design-2026-10-16-local-a-width.md)、[迁移后准备](logs/log-2026-10-19-local-width-fresh-preparation.md)、[两组结果与核验](logs/log-2026-10-20-local-width-fresh-run.md) |
+| 完整 A 内部归一化（已完成） | [pre/post-norm设计](design/design-2026-10-20-local-internal-norm.md)、[准备与短检](logs/log-2026-10-20-local-internal-norm-preparation.md)、[结果与独立核验](logs/log-2026-10-21-local-internal-norm-run.md) |
 | 局部—全局 Encoder 与当前 I1 对照 | [接入设计](design/design-2026-10-04-local-global-encoder.md)、[投影对照](design/design-2026-10-13-attention-projection-attribution.md) |
 | I1 开发基线上的完整 B+ 升级 | [实验设计](design/design-2026-10-14-i1-bplus-encoder.md)、[准备与短检](logs/log-2026-10-14-i1-bplus-preparation.md)、[运行与核验](logs/log-2026-10-14-i1-bplus-run.md) |
 | 修正联合骨架上的完整 A/B+ 比较 | [完整 A 设计](design/design-2026-10-15-i1-a-encoder.md)、[准备与成本](logs/log-2026-10-15-i1-a-preparation.md)、[运行与核验](logs/log-2026-10-15-i1-a-run.md) |

@@ -18,3 +18,8 @@
 迁移后只有源码与数据时，使用 `local_width_fresh_compare.py` 从头建立A64/W1两组容量对照，
 不依赖旧权重或预测。先运行 `tools/checks/check_local_width_fresh.py` 完成本机短检；
 配方、成本与交接见[迁移后容量对照](../../docs/logs/log-2026-10-19-local-width-fresh-preparation.md)。
+
+`local_norm_compare.py` 比较完整A内部pre/post-norm：仅新增训练LN1，复用迁移后的A64权重与train/valid导出。
+先用 `tools/checks/check_local_norm.py` 认证历史Git源码、参考产物及当前默认行为，再完成GPU短检；
+默认打印命令，`--run`才训练，`--summarize`只读进度。方案及边界见
+[局部内部归一化](../../docs/design/design-2026-10-20-local-internal-norm.md)。

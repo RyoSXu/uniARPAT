@@ -13,7 +13,7 @@ from model.periodic_messages import PeriodicLocalMessage, prepare_shared_message
 from model.local_structure_controls import CONTROL_ROUTES, ControlLocalMessage
 from utils.periodic_geometry import PeriodicNeighborRecords
 
-LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1")
+LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1")
 LOCAL_LAYOUTS = ("staged", "alternating")
 LOCAL_RADIUS = 6.0
 LOCAL_PAIR_CHUNK = 65536
@@ -22,16 +22,20 @@ LOCAL_PAIR_CHUNK = 65536
 class LocalResidualLayer(nn.Module):
     """Keep the full-width atom state around a pre-normalized local branch."""
 
-    def __init__(self, route: str, d_model: int, *, scalar_channels=64, hidden_channels=128):
+    def __init__(self, route: str, d_model: int, *, scalar_channels=64, hidden_channels=128,
+                 norm_first=False):
         super().__init__()
         if route in CONTROL_ROUTES and (scalar_channels, hidden_channels) != (64, 128):
             raise ValueError("control messages retain their original widths")
+        if route in CONTROL_ROUTES and norm_first:
+            raise ValueError("control messages retain their original normalization")
         self.norm = nn.LayerNorm(d_model)
         # Full-model A keeps angle activations instead of recomputing them.
         # This execution choice adds no parameters or checkpoint keys.
         self.message = (ControlLocalMessage(route, d_model=d_model) if route in CONTROL_ROUTES
                         else PeriodicLocalMessage(route, d_model=d_model, pair_chunk=LOCAL_PAIR_CHUNK,
-                            recompute_angles=False, scalar_channels=scalar_channels, hidden_channels=hidden_channels))
+                            recompute_angles=False, scalar_channels=scalar_channels, hidden_channels=hidden_channels,
+                            norm_first=norm_first))
 
     def forward(self, h, records, padding_mask, prepared_geometry=None):
         normalized = self.norm(h)
@@ -152,18 +156,19 @@ class LocalGlobalEncoder(nn.Module):
         self.route, self.layout, self.depth = route, layout, depth
         self.global_depth = global_depth
         self.d_model = d_model
-        self.geometry_route = ("A" if route in ("I3", "W1") else "B+" if route in ("I2", "I4") else
+        self.geometry_route = ("A" if route in ("I3", "W1", "LN1") else "B+" if route in ("I2", "I4") else
                                "C1" if route in ("O1", "N1", "D1", "I1", "I0") else route)
         self.shared_geometry = route not in ("C0", "G0", "O0")
         self.local_layers = nn.ModuleList(
             LocalResidualLayer(self.geometry_route, d_model,
-                scalar_channels=widths[0], hidden_channels=widths[1]) for _ in range(depth))
+                scalar_channels=widths[0], hidden_channels=widths[1], norm_first=route == "LN1")
+            for _ in range(depth))
         global_layer = LegacyContentGlobalLayer if route in ("O0", "O1") else ScalarGlobalLayer
         self.global_layers = nn.ModuleList(
             global_layer(d_model, nhead, dim_feedforward, dropout, activation,
-                         **({"norm_first": False} if route in ("N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1") else {}))
+                         **({"norm_first": False} if route in ("N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1") else {}))
             for _ in range(global_depth))
-        if route in ("D1", "I1", "I0", "I2", "I3", "I4", "W1"):
+        if route in ("D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1"):
             # Change attention probabilities only; residual/FFN dropout stays.
             for layer in self.global_layers:
                 layer.attn.dropout = 0.0

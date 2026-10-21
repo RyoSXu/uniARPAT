@@ -139,12 +139,16 @@ def count_features(geometry, dtype):
 class InvariantMessageBlock(nn.Module):
     """A: all unordered same-center pairs, exchange-symmetric scalar messages."""
 
-    def __init__(self, pair_chunk=4096, recompute_angles=True, *, scalar_channels=64, hidden_channels=128):
+    def __init__(self, pair_chunk=4096, recompute_angles=True, *, scalar_channels=64, hidden_channels=128,
+                 norm_first=False):
         super().__init__()
         if not isinstance(pair_chunk, int) or isinstance(pair_chunk, bool) or pair_chunk <= 0:
             raise ValueError("pair chunk must be a positive integer")
         self.pair_chunk = pair_chunk
         self.recompute_angles = recompute_angles
+        if not isinstance(norm_first, bool):
+            raise ValueError("local norm_first must be boolean")
+        self.norm_first = norm_first
         for width in (scalar_channels, hidden_channels):
             if isinstance(width, bool) or not isinstance(width, int) or width <= 0:
                 raise ValueError("local widths must be positive integers")
@@ -174,6 +178,11 @@ class InvariantMessageBlock(nn.Module):
             0, centers, message)
 
     def forward(self, scalar, geometry):
+        residual = scalar
+        if self.norm_first:
+            # Normalize the complete message/update branch, retaining the raw
+            # scalar state on the internal identity connection.
+            scalar = self.norm(scalar)
         shape = scalar.shape
         channels = self.scalar_channels
         flat = scalar.reshape(-1, channels)
@@ -207,7 +216,8 @@ class InvariantMessageBlock(nn.Module):
                 angular = angular + pooled
         angular = angular.view(shape) / g.pair_count.to(scalar.dtype).clamp(min=1).sqrt()[..., None]
         update_input = torch.cat((scalar, radial, angular, count_features(g, scalar.dtype)), -1)
-        return self.norm(scalar + self.update(update_input))
+        updated = residual + self.update(update_input)
+        return updated if self.norm_first else self.norm(updated)
 
 
 def high_order_pair_features(geometry, weights, harmonics):
@@ -304,7 +314,7 @@ class PeriodicLocalMessage(nn.Module):
 
     def __init__(self, route: str, d_model: int = 512, pair_chunk: int = 4096,
                  recompute_angles: bool = True, include_high_order: bool = True,
-                 *, scalar_channels: int = 64, hidden_channels: int = 128):
+                 *, scalar_channels: int = 64, hidden_channels: int = 128, norm_first: bool = False):
         super().__init__()
         if route not in ("A", "B+"):
             raise ValueError("route must be A or B+")
@@ -315,14 +325,18 @@ class PeriodicLocalMessage(nn.Module):
                 raise ValueError("local widths must be positive integers")
         if route == "B+" and (scalar_channels, hidden_channels) != (64, 128):
             raise ValueError("B+ widths retain the accepted 64/128 configuration")
+        if not isinstance(norm_first, bool) or route == "B+" and norm_first:
+            raise ValueError("internal pre-norm is supported only for A; norm_first must be boolean")
         self.route, self.d_model = route, d_model
+        self.norm_first = norm_first
         self.scalar_channels, self.hidden_channels = scalar_channels, hidden_channels
         self.include_high_order = include_high_order
         self.local_input = nn.Linear(d_model, scalar_channels)
         self.local_output = nn.Linear(scalar_channels, d_model)
         if route == "A":
             self.blocks = nn.ModuleList(InvariantMessageBlock(pair_chunk, recompute_angles,
-                scalar_channels=scalar_channels, hidden_channels=hidden_channels) for _ in range(2))
+                scalar_channels=scalar_channels, hidden_channels=hidden_channels,
+                norm_first=norm_first) for _ in range(2))
         else:
             self.blocks = nn.ModuleList(HighOrderEquivariantBlock(gate_direction=(i == 0)) for i in range(2))
 
