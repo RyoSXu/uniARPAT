@@ -12,7 +12,8 @@
 | **Z0 / N_valence** | Z0 是价电子数审计；`N_valence` 是原胞价电子数，用于 eDOS 尺度相关处理。详见 `data/reference/edos-label-audit.md`。 |
 | **oracle / blind** | oracle 使用从真实目标推导的尺度信息，主要看谱形；blind 只使用结构预测量，对应可部署评估。 |
 | **中位 R² / 失败率** | 主要汇总指标；失败率为 `R² < 0` 的样本比例。 |
-| **联合 blind 分数** | `balanced_blind_r2`，两类谱各自 blind 中位 R² 的等权平均；新实验 checkpoint 取最大值，单项指标和失败率仍单独报告。 |
+| **联合 blind R²分数（历史协议）** | `balanced_blind_r2`，两类谱各自 blind 中位 R² 的等权平均，checkpoint取最大值；已有实验保留此定义。 |
+| **联合 blind 全谱误差（新协议）** | `balanced_blind_energy`，每原子blind平方误差除以各任务train谱能量后，按材料平均、两任务等权；先过双任务失败率/R²保护，再取最小。1只表示train全零预测的平均参照，不是单材料R²的零线。 |
 | **TV** | 总变差距离；本项目用它描述归一化谱形之间的差异。 |
 | **coverage mask** | 标记原始谱可靠支持的区间，用于数据筛选和评估，不参与当前损失。 |
 

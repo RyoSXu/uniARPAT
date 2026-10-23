@@ -28,6 +28,12 @@ def is_deep_depths(local_depth, global_depth) -> bool:
 
 
 def validate_local_global_config(cfg: ExperimentConfig) -> None:
+    if cfg.spectral_balance_config:
+        from utils.spectral_balance_experiment import validate_balance_config
+        validate_balance_config(cfg)
+        return
+    if cfg.scale_mode == "per_atom" or cfg.selection_metric == "balanced_blind_energy":
+        raise ValueError("per-atom balanced spectra require --spectral_balance_config")
     if cfg.local_route == "LR2":
         from utils.local_residual_experiment import validate_residual_config
         validate_residual_config(cfg)
@@ -326,6 +332,9 @@ def initialize_comparison_model(transformer, params: dict, seed: int) -> dict:
     """
     from utils.zproj_alignment import state_hash
 
+    if params.get("scale_mode") == "per_atom":
+        from utils.spectral_balance_experiment import initialize_balance_model
+        return initialize_balance_model(transformer, params, seed)
     if params.get("local_route") == "LR2":
         from utils.local_residual_experiment import initialize_residual_model
         return initialize_residual_model(transformer, params, seed)
@@ -393,10 +402,14 @@ def training_record(cfg: ExperimentConfig) -> dict:
     """
     return {key: value for key, value in asdict(cfg).items()
             if key not in ('tag', 'skip_existing')
+            and (key != 'spectral_balance_config' or value)
             and (key != 'global_depth' or value is not None)}
 
 
 def comparison_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict | None:
+    if cfg.spectral_balance_config:
+        from utils.spectral_balance_experiment import balance_model_contract
+        return balance_model_contract(cfg, transformer_params)
     if cfg.local_route == "LR2":
         from utils.local_residual_experiment import residual_contract
         return residual_contract(cfg, transformer_params)

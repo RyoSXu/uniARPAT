@@ -67,7 +67,11 @@ def summarize(configs):
         history = pd.read_csv(path)
         if history.empty or cfg.selection_metric not in history:
             raise ValueError(f'incomplete comparison metric schema: {path}')
-        chosen = selected_history_row(history, cfg.selection_metric)
+        chosen = selected_history_row(history, cfg.selection_metric, saved['model_contract'].get('spectral_balance'))
+        if chosen is None:
+            rows.append({**row, 'status': 'no_eligible_best',
+                         'completed_epochs': int(history.epoch.max()), 'best_epoch': None})
+            continue
         rows.append({**row, 'status': 'complete' if int(history.epoch.max()) >= cfg.epochs else 'partial',
                      'selection_mode': selection_mode(cfg.selection_metric),
                      'completed_epochs': int(history.epoch.max()), 'best_epoch': int(chosen.epoch),

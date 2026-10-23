@@ -1,10 +1,10 @@
 # 当前项目状态
 
-更新日期：2026-10-22。本页只保留当前目标、参考模型、关键结论和下一步；历史过程与验收细节见[文档索引](index.md)。
+更新日期：2026-10-23。本页只保留当前目标、参考模型、关键结论和下一步；历史过程与验收细节见[文档索引](index.md)。
 
 ## 当前目标
 
-固定 eDOS/phDOS **联合训练**，以完整 valid 的 **blind 中位 R²** 为主指标，两类谱平等考虑：新选点 `balanced_blind_r2` 取两任务中位 R² 的等权平均最大值，并分别检查 R² 与失败率。Oracle MAE 和同组成谱差仅作诊断。单任务对照暂时搁置。
+固定 eDOS/phDOS **联合训练**，两类谱平等考虑。用户于2026-10-23确认新协议：训练与完整valid选点同用**按train谱能量归一化的每原子blind全谱平方误差**，两任务各50%；选点先保护两任务失败率，保留原R²下降≤0.02保护线，再最小化联合误差。完整R²/P10/失败率仍报告，Oracle与同组成谱差仅作诊断。新协议待正式训练；历史选点不追溯改写。[公式、兼容与验收](design/design-2026-10-23-balanced-blind-objective.md)
 最终两类谱须满足 E(3) 不变性，原子重排与等价晶胞另作一致性检查。要求见[对称性设计](design/design-2026-10-04-e3-output-invariance.md)。
 
 **上一阶段的全局骨架归因已结束。**保留局部更新，沿用已有三项全局修正证据。用户于 2026-10-16 确认转向基础 Encoder 定型：先审查局部 A/B+ 选型、内部宽度、更新公式和残差连接，再确定全局模块与整体编排；I4 等增强暂不扩展。
@@ -15,7 +15,7 @@
 - **数据**：修复版 `data/crystal_q1_v1/`，实际 train/valid/test 视图为 18,704 / 2,313 / 2,287；字段和历史数据边界见[数据约定](data.md)。
 - **元素入口**：固定 ZP（Embedding → LayerNorm → Linear），参数继续训练。
 - **当前开发基线 I1**：简单径向局部更新 C1，两次局部调用后接六层全局；全局为 post-norm，注意力概率 dropout=0，Q/K/V/O 恒等初值且继续学习。其他 dropout 保持 0.05。
-- **配方与选点**：M1、SumNorm KL/W1/Huber、H1 eta/gamma、E0/P0；seed42、35轮、batch32、lr5e-5、FP32。历史实验按 `balanced_oracle_mae` 选点并保留契约；新规则 `balanced_blind_r2` 已完成 I1/I2/I4 正式对照，见[规则与边界](logs/log-2026-10-15-joint-blind-selection.md)、[运行核验](logs/log-2026-10-16-local-readout-run.md)。
+- **已有配方与选点**：M1、SumNorm KL/W1/Huber、H1 eta/gamma、E0/P0；seed42、35轮、batch32、lr5e-5、FP32。早期按 `balanced_oracle_mae`，后续按 `balanced_blind_r2`；各自契约保留。下一组完整A64采用独立开关启用新loss/总量/选点协议，不改变已有模型的评估含义。[原选点边界](logs/log-2026-10-15-joint-blind-selection.md)、[新协议准备](logs/log-2026-10-23-balanced-blind-preparation.md)
 - **同数据性能对照**：修复版数据上重训的原六层 Encoder＋ZP，seed42、35轮。ZP100 与 B7 是旧 Q1 的历史参考，数据与预算差异必须注明，不能作为同数据因果对照。
 
 历史按 Oracle MAE 选出的 checkpoint 在完整 valid 上的 **blind 中位 R²**（不是按 blind R² 重新选点）：
@@ -49,5 +49,7 @@
    [内部残差加法LR2对照](design/design-2026-10-21-local-internal-residual.md)已完成一组35轮、seed42：四个内部块使用`LN64(F(s,R))`，保留完整消息、原归一化、完整状态读出和外层残差；best ep29/latest35。LR2−A64联合blind +0.012703 [+0.006638, +0.018374]，两任务点估计保护线通过，达到设计数值采用条件。未读test；不自动替换I1或启动后续实验。[准备与交接](logs/log-2026-10-21-local-internal-residual-preparation.md)、[正式运行与核验](logs/log-2026-10-22-local-internal-residual-run.md)。
 
 3. **保留数据对应风险**：审查的 394 个材料中，125 个输入与 DOS 计算结构未通过严格匹配；冻结模型替换几何未检出改善，训练阶段的影响仍未知。磁态与细致计算条件仍缺元信息。
+
+4. **先完成尺度与目标修正包**：[语义审查](logs/log-2026-10-22-spectral-contract-audit.md)后，新协议已接通无固定上限的每原子总量、等权blind全谱loss与失败率约束选点；仅用train冻结常数，推理不依赖N_val侧车。解析/调用链检查与V100短检已通过，待OpenCode正式训练。5条负能量待核项及计数/coverage物理含义仍未解决，不删标签、不改mask。暂缓新增头数/FFN或其他Encoder对照。[准备与成本](logs/log-2026-10-23-balanced-blind-preparation.md)
 
 完整模型的等价晶胞/超胞一致性与 AMP 尚未验收。历史设计中的待办只记录当时建议，不作为当前执行指令。

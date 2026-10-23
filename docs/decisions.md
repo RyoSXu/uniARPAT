@@ -17,7 +17,9 @@
   新候选的预算、选点与采用标准在执行前另定。
 - 用户选择 ZP 用于后续结构研究，接受其已报告的性能代价；历史实验采用门槛和未达标结论继续保留。
   证据、初始化限制和后续范围见 [`design-2026-10-02-element-initialization.md`](design/design-2026-10-02-element-initialization.md)。
-- 当前默认训练目标为 SumNorm KL/W1/Huber；blind 尺度使用 H1 eta/gamma，生产网格为 E0/P0。
+- 已有实验配方为 SumNorm KL/W1/Huber 与 H1 eta/gamma，生产网格为 E0/P0；旧契约继续保留。
+  2026-10-23 用户确认后续完整A64新协议改为等权归一化blind全谱误差与每原子非负无固定上限总量，
+  通过独立开关启用，不混用旧 checkpoint。[设计](design/design-2026-10-23-balanced-blind-objective.md)
 - 2026-10-15 用户明确固定 eDOS/phDOS 联合训练，单任务对照暂时搁置；完整 A/B+ 保留为研究候选和证据。按 blind 主表判读，本轮保留 I1，不换成完整 A，也不接着换下一种局部公式；具体后续干预另定协议。
   随后确认的[完整 B+ 局部状态直连读出](design/design-2026-10-15-local-readout-interface.md)已完成：I1/I2/I4 全部按新 blind 规则从头对照；I4 相对 I1/I2 的联合收益均未达到预设采用条件，继续保留 I1，不自动追加变体。[运行与独立核验](logs/log-2026-10-16-local-readout-run.md)
 - 2026-10-16 用户确认先完成基础 Encoder 的阶段性定型，范围包含局部路线/宽度/公式/残差、全局模块及层数/编排；I4 等增强暂停，已有局部价值和全局归因证据直接复用。
@@ -30,6 +32,11 @@
 - 缺失值保持缺失；coverage mask 用于标注可靠范围，不参与当前损失。不同归一化方案不共用 checkpoint。
 - 报告 eDOS/phDOS 中位 R²与失败率，并写明数据版本、split、模型选择口径和 blind/oracle。不同谱任务的 R²不能仅凭绝对值直接比较难度。
 - 2026-10-15 用户确认两任务平等选点：新实验显式使用 `balanced_blind_r2`，取完整 valid 的 eDOS/phDOS blind 中位 R² 等权平均最大值，并列保留较早轮次。分别报告两任务 R² 和失败率；Oracle MAE 与同组成谱差仅作诊断。新对照须选点契约一致，联合增益区间下界>0且两任务各自满足 R² 下降≤0.02、失败率增加≤1 pp，才满足数值采用条件；人决定是否替换基线。已完成实验的旧 checkpoint 与契约保留，不追溯改选点。[实现与验证](logs/log-2026-10-15-joint-blind-selection.md)
+- 2026-10-23 用户确认下一版使用 `balanced_blind_energy`：两任务每原子blind全谱平方误差分别除以
+  train冻结谱能量，各占50%，完整valid取平均最小。选点前分别要求失败率不高于固定A64参考、
+  中位R²下降≤0.02；无合格轮次不保存/宣称best，latest仅供恢复。旧规则已完成实验不重判。
+  R²/P10/失败率、误差均值/中位数/P90继续分别报告；单seed与valid点估计保护不等于泛化保证。
+  采用权仍归人，不自动复用旧规则的“联合R²增益”作为新目标的采用判据。[公式与边界](design/design-2026-10-23-balanced-blind-objective.md)
 - 模型选择用 train/valid；test 不用于调参或选型。历史工作已查看部分 test，后续报告应说明这一限制，不将它称为未触碰的独立验收集。
 
 ## 输出对称性

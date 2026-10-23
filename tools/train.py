@@ -36,6 +36,7 @@ from utils.local_global_experiment import (
 from utils.lg_baseline_experiment import (
     validate_baseline_config, initialize_baseline_model, baseline_contract,
 )
+from utils.spectral_balance import ENERGY_METRIC, balanced_checkpoint_eligible
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger('ablation')
@@ -454,6 +455,10 @@ def train_and_eval(cfg: ExperimentConfig):
     validate_zproj_config(cfg)
     validate_pair_aux_config(cfg)
     validate_pair_aux_init_checkpoint(cfg)
+    spectral_balance = None
+    if cfg.spectral_balance_config:
+        from utils.spectral_balance_experiment import validate_balance_config
+        spectral_balance = validate_balance_config(cfg)
 
     if cfg.pair_budget is not None and cfg.pair_budget <= 0:
         raise ValueError("pair_budget must be positive")
@@ -479,6 +484,11 @@ def train_and_eval(cfg: ExperimentConfig):
     logger .info ("="*70 )
 
     save_dir =str(repository_path(f"./results/runs/ablation_{suffix }", root=REPO_ROOT))
+    if spectral_balance is not None and not os.path.exists(os.path.join(save_dir, 'checkpoint_latest.pth')):
+        historical = [os.path.join(save_dir, name) for name in ('checkpoint_best.pth', 'config_used.yaml')]
+        historical.append(str(repository_path(f'results/reports/history_{suffix}.csv', root=REPO_ROOT)))
+        if any(os.path.exists(path) for path in historical):
+            raise ValueError('balanced trial has existing artifacts without a recoverable latest checkpoint')
     os .makedirs (save_dir ,exist_ok =True )
     os .makedirs (repository_path('results/reports', root=REPO_ROOT),exist_ok =True )
     # Historical tags can resolve to the archive; create their actual parents.
@@ -573,6 +583,8 @@ def train_and_eval(cfg: ExperimentConfig):
         yaml_cfg ['model']['params']['w_huber']=float (cfg.w_huber )
     _wu =cfg.warmup_epochs
     yaml_cfg ['model']['params']['loss_form']="sumnorm_klw"if cfg.norm =="sumnorm"else "smoothl1"
+    if spectral_balance is not None:
+        yaml_cfg['model']['params'].update(loss_form=ENERGY_METRIC, spectral_balance=spectral_balance)
     _sn =(cfg.norm =="sumnorm")
     yaml_cfg ['model']['params']['sub_model']['transformer']['energy_code']=cfg.energy_code
     if cfg.energy_code =="edos":
@@ -704,6 +716,8 @@ def train_and_eval(cfg: ExperimentConfig):
     config_path =os .path .join (save_dir ,"config_used.yaml")
     if os .path .exists (latest_p ):
         try :
+            if spectral_balance is not None and not os.path.isfile(hist_p):
+                raise ValueError("balanced resume requires its complete selection history")
             ck =torch .load (latest_p ,map_location ='cpu')
             expected_pair_plan_hash =None
             expected_pair_lambda =None
@@ -744,11 +758,20 @@ def train_and_eval(cfg: ExperimentConfig):
             # only have checkpoints; it is rewritten incrementally below).
             if os .path .exists (hist_p ):
                 dfh =pd .read_csv (hist_p )
+                if spectral_balance is not None and dfh.empty:
+                    raise ValueError("balanced resume history is empty")
                 history =dfh .to_dict (orient ='records')
                 if start_epoch <=0 and len (dfh ):
                     start_epoch =int (dfh ['epoch'].max ())
                 if history :
-                    best_epoch =int (selected_history_row(dfh, cfg.selection_metric).epoch)
+                    chosen = selected_history_row(dfh, cfg.selection_metric, spectral_balance)
+                    best_epoch = 0 if chosen is None else int(chosen.epoch)
+                    if spectral_balance is not None:
+                        expected_score = float('inf') if chosen is None else float(chosen.balanced_score)
+                        if (int(dfh.epoch.max()) != start_epoch
+                                or not np.isclose(best_val_score, expected_score, rtol=1e-12, atol=1e-12)
+                                or (bool(best_epoch) != os.path.exists(os.path.join(save_dir, 'checkpoint_best.pth')))):
+                            raise ValueError("balanced resume checkpoint/history selection mismatch")
                     # fast-forward cosine part of scheduler to start_epoch
             for _ in range (start_epoch ):
                 scheduler .step ()
@@ -782,6 +805,7 @@ def train_and_eval(cfg: ExperimentConfig):
             'w_w1':cfg.w_w1 ,'w_huber':cfg.w_huber ,
             'scale_mode':cfg.scale_mode ,'freeze_backbone':cfg.freeze_backbone ,
             'eta_sup_w':cfg.eta_sup_w ,
+            **({'spectral_balance_config': cfg.spectral_balance_config} if spectral_balance is not None else {}),
             'delta_edos':cfg.delta_edos ,'delta_phdos':cfg.delta_phdos ,
             'scalar_mode':cfg.scalar_mode ,'scalar_sup_w':cfg.scalar_sup_w ,
             'use_g1':cfg.use_g1 ,'g1_r_cut':cfg.g1_r_cut ,
@@ -894,6 +918,7 @@ def train_and_eval(cfg: ExperimentConfig):
             pair_iterator =iter (pair_loader )
         model .model ['transformer'].train ()
         train_loss =0.0
+        train_materials = 0
         sub_loss_accum ={}
         c5_load_accum =None
         n_batches =len (train_loader )
@@ -920,9 +945,11 @@ def train_and_eval(cfg: ExperimentConfig):
                     pair_sampler.plan_hash(epoch),
                 )
                 model.pair_aux_calibration = None
-            train_loss +=loss_dict ['loss']
+            batch_weight = len(batch[0]) if spectral_balance is not None else 1
+            train_materials += batch_weight
+            train_loss += batch_weight * loss_dict['loss']
             for k ,v in loss_dict .items ():
-                sub_loss_accum [k ]=sub_loss_accum .get (k ,0.0 )+v
+                sub_loss_accum [k ]=sub_loss_accum .get (k ,0.0 )+batch_weight*v
             if cfg.c5_moe:
                 c5_load =model .model ['transformer'].last_c5_moe_load
                 if c5_load is not None and c5_load.numel ():
@@ -936,8 +963,9 @@ def train_and_eval(cfg: ExperimentConfig):
         scheduler .step ()
         torch .cuda .synchronize ()if torch .cuda .is_available ()else None
         ep_time =time .time ()-t_start
-        train_loss /=n_batches
-        avg_sub_losses ={f"train_{k }":v /n_batches for k ,v in sub_loss_accum .items ()}
+        loss_divisor = train_materials if spectral_balance is not None else n_batches
+        train_loss /=loss_divisor
+        avg_sub_losses ={f"train_{k }":v /loss_divisor for k ,v in sub_loss_accum .items ()}
         c5_load_metrics ={}
         if c5_load_accum is not None:
             c5_load =c5_load_accum /n_batches
@@ -955,10 +983,14 @@ def train_and_eval(cfg: ExperimentConfig):
             # Validation reports blind metrics; older scale variants also report oracle metrics.
         val_metrics =evaluate_split (model ,val_loader ,is_m5 =(cfg.model_name =='M5'),ph_grid =_ph_grid_centers (cfg.phdos_num ),sumnorm =(cfg.norm =='sumnorm'),pair_budget=cfg.pair_budget)
         balanced =validation_score(val_metrics, cfg.selection_metric)
+        eligible = True
+        if spectral_balance is not None:
+            eligible = balanced_checkpoint_eligible(val_metrics, spectral_balance)
+            val_metrics.update({ENERGY_METRIC: balanced, 'checkpoint_eligible': eligible})
         if cfg.selection_metric == BLIND_R2_METRIC:
             val_metrics[BLIND_R2_METRIC] = balanced
-        display_prefix = 'blind_' if cfg.selection_metric == BLIND_R2_METRIC else ''
-        displayed_mode = 'blind' if cfg.selection_metric == BLIND_R2_METRIC else 'oracle'
+        display_prefix = 'blind_' if cfg.selection_metric in (BLIND_R2_METRIC, ENERGY_METRIC) else ''
+        displayed_mode = 'blind' if cfg.selection_metric in (BLIND_R2_METRIC, ENERGY_METRIC) else 'oracle'
 
         log_str =(
         f"[{cfg.model_name }] Epoch [{epoch +1 :03d}/{cfg.epochs :03d}] ({ep_time :.1f}s) | "
@@ -982,6 +1014,11 @@ def train_and_eval(cfg: ExperimentConfig):
                         f"{val_metrics['blind_r2_phdos_median']:.3f}")
         if model .model ['transformer'].use_gated_cross_attn :
             log_str +=f" | Gate (a_e={alpha_e :.4f}, a_p={alpha_p :.4f})"
+        if spectral_balance is not None:
+            log_str += (f" | blind energy e/p={val_metrics['blind_energy_edos_mean']:.6f}/"
+                        f"{val_metrics['blind_energy_phdos_mean']:.6f}, eligible={eligible}, "
+                        f"fail e/p={val_metrics['blind_fail_rate_edos']:.3f}%/"
+                        f"{val_metrics['blind_fail_rate_phdos']:.3f}%")
         if c5_load_metrics :
             load_text =','.join (f"{v :.2f}"for v in c5_load_metrics .values ())
             log_str +=f" | C5 load ({load_text})"
@@ -1029,7 +1066,7 @@ def train_and_eval(cfg: ExperimentConfig):
                 data_contract=data_contract, model_contract=model_contract,
                 training_rng=(capture_training_rng() if model_contract is not None else None))
 
-        if is_better_score(balanced, best_val_score, cfg.selection_metric):
+        if eligible and is_better_score(balanced, best_val_score, cfg.selection_metric):
             best_val_score =balanced
             best_epoch =epoch +1
             atomic_torch_save (_ckpt (epoch +1 ,balanced ),os .path .join (save_dir ,'checkpoint_best.pth'))
@@ -1045,6 +1082,10 @@ def train_and_eval(cfg: ExperimentConfig):
 
     if cfg.skip_test_eval:
         logger.info("Test loader and automatic test evaluation skipped by request")
+        if spectral_balance is not None:
+            status = 'selected' if best_epoch else 'no_eligible_best'
+            logger.info("Balanced checkpoint status: %s; best epoch=%s", status, best_epoch)
+            return {"test_skipped": True, "selection_status": status, "best_epoch": best_epoch}
         return {"test_skipped": True}
 
     # Load best checkpoint and evaluate on Test set
@@ -1096,22 +1137,27 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
     from utils.crystal import atom_padding_mask
     from utils.metrics import per_sample_spectral_metrics
     from utils.spectral_inference import reconstruct_h1_spectra
+    from utils.spectral_balance import normalized_spectral_error, reconstruct_balanced_spectra
 
     model.model['transformer'].eval()
+    balance_protocol = getattr(model, 'spectral_balance', None)
     records = []
     spectra_batches = []
     with torch.no_grad():
         for batch in iter_computation_batches(dataloader, pair_budget=pair_budget):
             (inp, pos, mask, e_target, p_target, _, _, e_min, e_max,
              _, _, p_min, p_max, _, _, nval, ex, px) = model.data_preprocess(batch)
-            if nval is None:
+            if nval is None and balance_protocol is None:
                 raise ValueError("local/global blind evaluation requires structure valence counts")
             with model.amp_autocast():
                 outputs = model.model['transformer'](inp, mask, pos, ex, px)
             outputs = model.fp32_outputs(outputs)
             atoms = (~atom_padding_mask(pos, mask)).sum(-1)
-            spectra = reconstruct_h1_spectra(outputs, atoms, nval,
-                delta_edos=model.delta_edos, delta_phdos=model.delta_phdos)
+            if balance_protocol is None:
+                spectra = reconstruct_h1_spectra(outputs, atoms, nval,
+                    delta_edos=model.delta_edos, delta_phdos=model.delta_phdos)
+            else:
+                spectra = reconstruct_balanced_spectra(outputs, atoms, balance_protocol)
             targets = {'edos': e_target * (e_max - e_min) + e_min,
                        'phdos': p_target * (p_max - p_min) + p_min}
             spectra['oracle_edos'] = spectra['shape_edos'] * (e_max - e_min) + e_min
@@ -1122,6 +1168,10 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
                     metrics = per_sample_spectral_metrics(spectra[f'{mode}_{task}'], targets[task])
                     for metric in ('mae', 'mse', 'r2'):
                         measured[f'{mode}_{metric}_{task}'] = metrics[metric].cpu().tolist()
+                    if balance_protocol is not None:
+                        energy = normalized_spectral_error(spectra[f'{mode}_{task}'], targets[task],
+                                                          atoms, balance_protocol['tasks'][task])
+                        measured[f'{mode}_energy_{task}'] = energy.cpu().tolist()
             if return_spectra:
                 # Shape space is sum-normalized on both sides; blind/oracle keep
                 # the per-material totals so scale differences stay visible.
@@ -1158,9 +1208,19 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
                 for aggregate in ('mean', 'median', 'std'):
                     summary[f'{mode}_{metric}_{task}_{aggregate}'] = float(getattr(values, aggregate)())
             summary[f'{mode}_fail_rate_{task}'] = float((frame[f'{mode}_r2_{task}'] < 0).mean() * 100)
+            if balance_protocol is not None:
+                summary[f'{mode}_r2_{task}_p10'] = float(frame[f'{mode}_r2_{task}'].quantile(.1))
+                energy = frame[f'{mode}_energy_{task}']
+                for aggregate in ('mean', 'median'):
+                    summary[f'{mode}_energy_{task}_{aggregate}'] = float(getattr(energy, aggregate)())
+                summary[f'{mode}_energy_{task}_p90'] = float(energy.quantile(.9))
         summary[f'balanced_{mode}_mae'] = .5 * (
             summary[f'{mode}_mae_edos_median'] + summary[f'{mode}_mae_phdos_median'])
     summary[BLIND_R2_METRIC] = blind_joint_score(summary)
+    if balance_protocol is not None:
+        from utils.spectral_balance import balanced_energy_score
+        summary[ENERGY_METRIC] = balanced_energy_score(summary)
+        summary['selection_samples'] = len(frame)
     # Compatibility with existing history/log readers; explicit columns are authoritative.
     summary.update({key.removeprefix('oracle_'): value for key, value in list(summary.items())
                     if key.startswith('oracle_')})
@@ -1424,7 +1484,8 @@ def build_arg_parser():
     parser.add_argument('--grad_clip', type=float, default=None, help='Gradient-norm limit; None disables clipping')
     parser.add_argument('--w_w1', type=float, default=None, help='One-dimensional Wasserstein loss weight')
     parser.add_argument('--w_huber', type=float, default=None, help='Huber loss weight')
-    parser.add_argument('--scale_mode', type=str, default='eta', choices=['none', 'decoupled', 'eta'], help='Blind-inference scale head; eta is the default')
+    parser.add_argument('--scale_mode', type=str, default='eta', choices=['none', 'decoupled', 'eta', 'per_atom'], help='Blind-inference scale head; eta is the default')
+    parser.add_argument('--spectral_balance_config', default='', help='Frozen train normalization and valid guards for the opt-in balanced spectrum protocol')
     parser.add_argument('--eta_sup_w', type=float, default=1.0, help='Eta/gamma auxiliary-loss weight')
     parser.add_argument('--delta_edos', type=float, default=0.09375, help='eDOS bin width in eV for eta/gamma supervision')
     parser.add_argument('--delta_phdos', type=float, default=19.6875, help='phDOS bin width in cm^-1 for eta/gamma supervision')

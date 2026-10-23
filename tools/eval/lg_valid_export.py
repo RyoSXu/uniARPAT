@@ -34,6 +34,13 @@ def load_run(run_dir: Path):
     contract = saved.get('model_contract')
     if contract is None or contract.get('transformer') != params:
         raise ValueError(f'configuration does not describe its own contract: {run_dir}')
+    if 'spectral_balance' in contract:
+        from utils.spectral_balance import ENERGY_METRIC, validate_balance_protocol
+        protocol = validate_balance_protocol(contract['spectral_balance'])
+        model_params = saved['config']['model']['params']
+        if (model_params.get('spectral_balance') != protocol
+                or model_params.get('loss_form') != ENERGY_METRIC or params.get('scale_mode') != 'per_atom'):
+            raise ValueError('balanced run loss/reconstruction differs from its checkpoint contract')
     return saved, params, contract
 
 
@@ -49,10 +56,13 @@ def select_best(run_dir: Path, selection_metric: str, saved) -> dict:
     if history.empty or 'balanced_score' not in history:
         raise ValueError(f'incomplete history for {suffix}')
     contract = saved.get('model_contract', {})
+    protocol = contract.get('spectral_balance')
     if (contract.get('selection_metric') != selection_metric
-            or any(contract.get(key) != value for key, value in selection_contract(selection_metric).items())):
+            or any(contract.get(key) != value for key, value in selection_contract(selection_metric, protocol).items())):
         raise ValueError(f'checkpoint selection contract mismatch for {suffix}')
-    chosen = selected_history_row(history, selection_metric)
+    chosen = selected_history_row(history, selection_metric, protocol)
+    if chosen is None:
+        raise ValueError('no_eligible_best: no epoch passed both task guards; latest is not a selected best')
     checkpoint = torch.load(run_dir / 'checkpoint_best.pth', map_location='cpu')
     if int(checkpoint['epoch']) != int(chosen.epoch):
         raise ValueError(f'best checkpoint epoch {checkpoint["epoch"]} != history {chosen.epoch}')
@@ -71,6 +81,12 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
     selection_metric = contract['selection_metric']
     picked = select_best(run_dir, selection_metric, saved)
     checkpoint = picked['checkpoint']
+    if 'spectral_balance' in contract:
+        from utils.crystal_cache import crystal_data_contract
+        actual = crystal_data_contract(saved['config']['dataset']['valid']['data_dir'],
+            normalization=saved['cli']['norm'], pair_budget=saved['cli'].get('pair_budget'))
+        if actual is None or actual != checkpoint.get('data_contract') or actual != saved['cli'].get('data_contract'):
+            raise ValueError('balanced export data differ from the frozen training/evaluation contract')
 
     builder = ConfigBuilder(**saved['config'])
     model = builder.get_model()
@@ -90,6 +106,12 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
         raise ValueError(f'sample labels are not a one-to-one valid partition: {run_dir}')
     if not np.isfinite(frame.select_dtypes('number').to_numpy()).all():
         raise ValueError(f'non-finite exported metrics: {run_dir}')
+    if 'spectral_balance' in contract:
+        from utils.spectral_balance import ENERGY_METRIC, balanced_checkpoint_eligible
+        if not balanced_checkpoint_eligible(metrics, contract['spectral_balance']):
+            raise ValueError('recomputed best checkpoint no longer passes the frozen task guards')
+        if not np.isclose(metrics[ENERGY_METRIC], float(picked['row'].balanced_score), rtol=3e-6, atol=1e-7):
+            raise ValueError('recomputed best checkpoint differs from its selected energy score')
 
     out.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(out, index=False)
@@ -104,7 +126,7 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
         'tag': picked['tag'], 'run_dir': str(run_dir), 'samples': len(frame),
         'contract_schema': contract['schema'], 'init_protocol': contract['init_protocol'],
         'selection_metric': selection_metric,
-        **selection_contract(selection_metric),
+        **selection_contract(selection_metric, contract.get('spectral_balance')),
         'best_epoch': int(row.epoch), 'best_score': float(row.balanced_score),
         'checkpoint_epoch': int(checkpoint['epoch']),
         'epoch_time_s_median': float(picked['history'].epoch_time_s.median()),
@@ -114,7 +136,9 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
         'epochs': int(picked['history'].epoch.max()),
         'recomputed_valid': {key: value for key, value in metrics.items()
                              if key.startswith(('blind_', 'oracle_')) and key.endswith('_median')
-                             or key.startswith('balanced_')},
+                             or key.startswith('balanced_')
+                             or 'spectral_balance' in contract and (
+                                 key.startswith(('blind_', 'oracle_')) or key == 'selection_samples')},
         'history_best_row': {key: float(row[key]) for key in row.index
                              if key.startswith(('blind_', 'oracle_')) or key in (
                                  'balanced_score', 'balanced_oracle_mae', 'balanced_blind_mae')},

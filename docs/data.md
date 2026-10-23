@@ -37,6 +37,10 @@
 [结构输入设计](design/design-2026-10-04-crystal-structure-input.md)，证据见
 [实施日志](logs/log-2026-10-04-crystal-structure-input.md)。
 
+2026-10-23 的[新版联合目标](design/design-2026-10-23-balanced-blind-objective.md)沿用这些数组与划分，
+只从有效train拟合任务谱能量常数；新blind总量使用结构原子数和冻结常数，不消费逐材料N_val侧车。
+旧H1仍保留原语义。价电子计数差异与未核实标签继续单列，未因此重写缓存或认证其物理正确性。
+
 ## 可复现边界
 
 - 数据划分固定在 `data/reference/split_v2.yaml`。

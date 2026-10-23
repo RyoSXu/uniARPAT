@@ -5,8 +5,12 @@ import math
 
 import numpy as np
 
+from utils.spectral_balance import (
+    ENERGY_METRIC, balanced_energy_score, energy_selection_contract, selected_energy_history_row,
+)
+
 BLIND_R2_METRIC = "balanced_blind_r2"
-SELECTION_METRICS = ("balanced_oracle_mae", "balanced_blind_mae", BLIND_R2_METRIC)
+SELECTION_METRICS = ("balanced_oracle_mae", "balanced_blind_mae", BLIND_R2_METRIC, ENERGY_METRIC)
 
 
 def selection_mode(metric):
@@ -17,9 +21,11 @@ def selection_mode(metric):
     raise ValueError(f"unknown checkpoint selection metric: {metric}")
 
 
-def selection_contract(metric):
+def selection_contract(metric, protocol=None):
     """Only new trials receive metadata; old contract dictionaries are exact."""
     selection_mode(metric)
+    if metric == ENERGY_METRIC:
+        return energy_selection_contract(protocol)
     if metric != BLIND_R2_METRIC:
         return {}
     return {"checkpoint_selection": {
@@ -41,6 +47,8 @@ def validation_score(metrics, metric):
     selection_mode(metric)
     if metric == BLIND_R2_METRIC:
         value = blind_joint_score(metrics)
+    elif metric == ENERGY_METRIC:
+        value = balanced_energy_score(metrics)
     elif metric is None:
         value = .5 * metrics["mae_edos_median"] + .5 * metrics["mae_phdos_median"]
     else:
@@ -60,8 +68,10 @@ def is_better_score(value, best, metric):
     return value > best if selection_mode(metric) == "max" else value < best
 
 
-def selected_history_row(history, metric):
+def selected_history_row(history, metric, protocol=None):
     """Validate the recorded score before choosing one epoch for every reader."""
+    if metric == ENERGY_METRIC:
+        return selected_energy_history_row(history, protocol)
     mode = selection_mode(metric)
     required = {"epoch", "balanced_score"} | ({metric} if metric is not None else set())
     if history.empty or not required.issubset(history.columns):

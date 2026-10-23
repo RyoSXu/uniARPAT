@@ -43,3 +43,10 @@
 H1输出范围、覆盖/补零对R²的影响及回顾性选点取舍；不构造模型或修改正式协议。
 传入`--analysis-dir`与新的`--out`目录，拒绝覆盖既有证据；需要恢复既有预测产物。
 命令、解析测试及解释边界见[科学口径审查](../../docs/logs/log-2026-10-22-spectral-contract-audit.md)。
+
+`spectral_balance_prepare.py` 仅用有效train拟合每任务谱能量常数，绑定A64完整valid失败率参考，
+生成独立的每原子blind全谱loss/总量/选点协议与待执行命令。先运行
+`tools/checks/check_spectral_balance.py` 完成实批短检，再执行打印命令；不会自动启动训练。
+训练后原`lg_valid_export.py`可校验约束选点并导出新误差；无合格best时明确拒绝导出。
+见[新目标设计](../../docs/design/design-2026-10-23-balanced-blind-objective.md)及
+[准备与交接](../../docs/logs/log-2026-10-23-balanced-blind-preparation.md)。

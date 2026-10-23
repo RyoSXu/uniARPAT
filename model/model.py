@@ -66,6 +66,12 @@ class basemodel(nn.Module):
         self._eta_missing_warned = False
         # Sum-normalized distribution loss or direct Smooth L1 loss.
         self.loss_form = str(self.params.get("loss_form", "smoothl1"))
+        self.spectral_balance = self.params.get("spectral_balance")
+        if self.loss_form == "balanced_blind_energy":
+            from utils.spectral_balance import validate_balance_protocol
+            validate_balance_protocol(self.spectral_balance)
+            if self.use_mask or self.lambda_ph != 1.0:
+                raise ValueError("balanced blind spectra require full-window equal-task loss")
         self.w_w1 = float(self.params.get("w_w1", 1.0))
         self.w_huber = float(self.params.get("w_huber", 1.0))
         self.huber_delta = float(self.params.get("huber_delta", 0.02))
@@ -113,6 +119,11 @@ class basemodel(nn.Module):
             else:
                 raise NotImplementedError('Invalid model type.')
             self.sub_model_name.append(key)
+        if (self.spectral_balance is not None or self.loss_form == "balanced_blind_energy"
+                or any(getattr(value, 'scale_mode', None) == 'per_atom' for value in self.model.values())):
+            if (self.loss_form != "balanced_blind_energy" or len(self.model) != 1
+                    or self.model['transformer'].scale_mode != 'per_atom'):
+                raise ValueError("balanced protocol, objective and per-atom mass head must be enabled together")
 
         # load optimizer and lr_scheduler
         self.optimizer = {}
@@ -336,7 +347,7 @@ class basemodel(nn.Module):
             chunks = split_crystal_batch(batch_data, budget)
             self.last_microbatch_sizes = [len(chunk[0]) for chunk in chunks]
             if len(chunks) > 1:
-                if pair_batch is not None or self.loss_form != "sumnorm_klw":
+                if pair_batch is not None or self.loss_form not in ("sumnorm_klw", "balanced_blind_energy"):
                     raise ValueError("crystal accumulation requires SumNorm without pair auxiliary")
                 if self.edos_slope_ratio > 0 and not self.edos_slope_calibrated:
                     raise ValueError("calibrate slope loss before splitting a crystal batch")
@@ -385,7 +396,19 @@ class basemodel(nn.Module):
 
         # §1.2: 纯端到端直接回归 (Smooth-L1 / Huber),M1-M4 的 MSE 与 M5 的 5 项复合损失统一精简
         # L_total = SmoothL1(edos) + lambda_ph * SmoothL1(phdos), lambda_ph=1.0 (标准化空间等权)
-        if self.loss_form == "sumnorm_klw":
+        if self.loss_form == "balanced_blind_energy":
+            from utils.spectral_balance import normalized_spectral_error, reconstruct_balanced_spectra
+            spectra = reconstruct_balanced_spectra(outputs, valid_atoms, self.spectral_balance)
+            losses = []
+            for task, normalized_target, low, high in (
+                    ("edos", edos_target, edos_min, edos_max),
+                    ("phdos", phdos_target, phdos_min, phdos_max)):
+                physical_target = normalized_target * (high - low) + low
+                losses.append(normalized_spectral_error(
+                    spectra[f"blind_{task}"], physical_target, valid_atoms,
+                    self.spectral_balance["tasks"][task]).mean())
+            loss_edos, loss_phdos = losses
+        elif self.loss_form == "sumnorm_klw":
             # Sum-normalized targets use KL, W1, and Huber distribution terms.
             # Softmax is masked only when coverage masking is requested.
             loss_edos = sumnorm_klw_loss(predict_edos, edos_target, edos_cov, self.use_mask, self.w_w1, self.w_huber, self.huber_delta).mean()
@@ -397,6 +420,8 @@ class basemodel(nn.Module):
                 self.use_mask, self.peak_w, self.tail_w, self.tail_start
             )
         total_loss = loss_edos + self.lambda_ph * loss_phdos
+        if self.loss_form == "balanced_blind_energy":
+            total_loss = .5 * total_loss
         loss_c5_moe_balance = torch.tensor(0.0, device=total_loss.device)
         if "c5_moe_balance" in outputs:
             loss_c5_moe_balance = outputs["c5_moe_balance"]

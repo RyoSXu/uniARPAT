@@ -271,6 +271,8 @@ class Transformer(nn.Module):
         # Bounded coverage head (phonon eta and eDOS gamma) for auxiliary loss.
         if scale_mode == "eta":
             self.eta_head = EtaHead(d_model, hidden_dim=128, out_dim=2)
+        if scale_mode == "per_atom":
+            self.mass_head = ScaleHead(d_model, hidden_dim=128, out_dim=2)
         # Optional bounded boundary scalars.
         if scalar_mode == "s1":
             self.scalar_head = EtaHead(d_model, hidden_dim=128, out_dim=3)
@@ -750,6 +752,8 @@ class Transformer(nn.Module):
         if self.scale_mode == "eta":
             h_cry = global_masked_pool(memory, mask_atom)
             results['eta'] = self.eta_head(h_cry)  # [B,2]: [:,0]=eta_ph, [:,1]=gamma_e
+        if self.scale_mode == "per_atom":
+            results['mass_logits'] = self.mass_head(global_masked_pool(memory, mask_atom))
 
         # S1 boundary scalars (aux-only). [:,0]=wmax_n, [:,1]=eg_n, [:,2]=eval_n.
         if self.scalar_mode == "s1":
