@@ -38,3 +38,8 @@
 先运行 `tools/checks/check_local_residual.py`，再用新预检训练LR2；复用认证A64与冻结导出。
 默认打印命令，`--run`才训练；见[设计](../../docs/design/design-2026-10-21-local-internal-residual.md)和
 [交接](../../docs/logs/log-2026-10-21-local-internal-residual-preparation.md)。
+
+`spectral_contract_audit.py` 只读取冻结train/valid标签、已有预测和history，核查eDOS窗口积分、
+H1输出范围、覆盖/补零对R²的影响及回顾性选点取舍；不构造模型或修改正式协议。
+传入`--analysis-dir`与新的`--out`目录，拒绝覆盖既有证据；需要恢复既有预测产物。
+命令、解析测试及解释边界见[科学口径审查](../../docs/logs/log-2026-10-22-spectral-contract-audit.md)。

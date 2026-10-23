@@ -46,6 +46,7 @@
 | 总体收益与结构谱差的幅度、方向、可读性 | [I1 收益与泛化诊断](logs/log-2026-10-14-i1-benefit-diagnosis.md)、[早期泛化诊断](logs/log-2026-10-10-local-structure-attribution-diagnosis.md)、[逐阶段读出](logs/log-2026-10-11-stage-readout-diagnosis.md) |
 | 材料对可比性、标签几何与训练环境支持 | [材料对审查与几何替换](logs/log-2026-10-14-i1-pair-audit.md) |
 | 完整局部模块的收益是否被总量预测掩盖 | [谱形与总量交叉诊断](logs/log-2026-10-15-shape-total-diagnosis.md) |
+| R²、失败率、eDOS尺度上限与谱段覆盖的科学含义 | [只读语义审查与下一步](logs/log-2026-10-22-spectral-contract-audit.md) |
 | 小样本拟合与困难材料对 | [小样本拟合](logs/log-2026-10-12-local-structure-small-fit.md)、[困难对归因](logs/log-2026-10-12-hard-pair-attribution.md)、[损失隔离](logs/log-2026-10-12-local-structure-loss-isolation.md) |
 
 其他设计与证据见 [design/](design/)、[logs/](logs/)；早期研究见 [archive/docs/](../archive/docs/)。历史待办不自动成为当前执行指令。
