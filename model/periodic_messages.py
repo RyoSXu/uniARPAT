@@ -140,7 +140,7 @@ class InvariantMessageBlock(nn.Module):
     """A: all unordered same-center pairs, exchange-symmetric scalar messages."""
 
     def __init__(self, pair_chunk=4096, recompute_angles=True, *, scalar_channels=64, hidden_channels=128,
-                 norm_first=False):
+                 norm_first=False, residual_add=True):
         super().__init__()
         if not isinstance(pair_chunk, int) or isinstance(pair_chunk, bool) or pair_chunk <= 0:
             raise ValueError("pair chunk must be a positive integer")
@@ -149,6 +149,9 @@ class InvariantMessageBlock(nn.Module):
         if not isinstance(norm_first, bool):
             raise ValueError("local norm_first must be boolean")
         self.norm_first = norm_first
+        if not isinstance(residual_add, bool):
+            raise ValueError("local residual_add must be boolean")
+        self.residual_add = residual_add
         for width in (scalar_channels, hidden_channels):
             if isinstance(width, bool) or not isinstance(width, int) or width <= 0:
                 raise ValueError("local widths must be positive integers")
@@ -180,8 +183,8 @@ class InvariantMessageBlock(nn.Module):
     def forward(self, scalar, geometry):
         residual = scalar
         if self.norm_first:
-            # Normalize the complete message/update branch, retaining the raw
-            # scalar state on the internal identity connection.
+            # Normalize the message/update branch. An enabled addition uses
+            # the original scalar state captured above.
             scalar = self.norm(scalar)
         shape = scalar.shape
         channels = self.scalar_channels
@@ -216,7 +219,9 @@ class InvariantMessageBlock(nn.Module):
                 angular = angular + pooled
         angular = angular.view(shape) / g.pair_count.to(scalar.dtype).clamp(min=1).sqrt()[..., None]
         update_input = torch.cat((scalar, radial, angular, count_features(g, scalar.dtype)), -1)
-        updated = residual + self.update(update_input)
+        updated = self.update(update_input)
+        if self.residual_add:
+            updated = residual + updated
         return updated if self.norm_first else self.norm(updated)
 
 
@@ -314,7 +319,8 @@ class PeriodicLocalMessage(nn.Module):
 
     def __init__(self, route: str, d_model: int = 512, pair_chunk: int = 4096,
                  recompute_angles: bool = True, include_high_order: bool = True,
-                 *, scalar_channels: int = 64, hidden_channels: int = 128, norm_first: bool = False):
+                 *, scalar_channels: int = 64, hidden_channels: int = 128, norm_first: bool = False,
+                 readout_delta: bool = False, internal_residual: bool = True):
         super().__init__()
         if route not in ("A", "B+"):
             raise ValueError("route must be A or B+")
@@ -327,8 +333,14 @@ class PeriodicLocalMessage(nn.Module):
             raise ValueError("B+ widths retain the accepted 64/128 configuration")
         if not isinstance(norm_first, bool) or route == "B+" and norm_first:
             raise ValueError("internal pre-norm is supported only for A; norm_first must be boolean")
+        if not isinstance(readout_delta, bool) or route == "B+" and readout_delta:
+            raise ValueError("incremental readout is supported only for A; readout_delta must be boolean")
+        if not isinstance(internal_residual, bool) or route == "B+" and not internal_residual:
+            raise ValueError("removing internal residual is supported only for A; internal_residual must be boolean")
         self.route, self.d_model = route, d_model
         self.norm_first = norm_first
+        self.readout_delta = readout_delta
+        self.internal_residual = internal_residual
         self.scalar_channels, self.hidden_channels = scalar_channels, hidden_channels
         self.include_high_order = include_high_order
         self.local_input = nn.Linear(d_model, scalar_channels)
@@ -336,7 +348,7 @@ class PeriodicLocalMessage(nn.Module):
         if route == "A":
             self.blocks = nn.ModuleList(InvariantMessageBlock(pair_chunk, recompute_angles,
                 scalar_channels=scalar_channels, hidden_channels=hidden_channels,
-                norm_first=norm_first) for _ in range(2))
+                norm_first=norm_first, residual_add=internal_residual) for _ in range(2))
         else:
             self.blocks = nn.ModuleList(HighOrderEquivariantBlock(gate_direction=(i == 0)) for i in range(2))
 
@@ -383,7 +395,10 @@ class PeriodicLocalMessage(nn.Module):
             for block in self.blocks:
                 scalar = block(scalar, g).masked_fill(padding_mask[..., None], 0)
                 states.append(scalar)
-        output = self.local_output(scalar).masked_fill(padding_mask[..., None], 0)
+        # Keep the output bias and both gradient paths. Subtracting two affine
+        # outputs would cancel the bias and define a different experiment.
+        values = scalar - states[0] if self.readout_delta else scalar
+        output = self.local_output(values).masked_fill(padding_mask[..., None], 0)
         if return_debug:
             debug = {"states": states, "degree": g.degree,
                      "effective_count": g.effective_count, "pair_count": g.pair_count}

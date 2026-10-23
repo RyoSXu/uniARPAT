@@ -34,14 +34,14 @@ from utils.ablation_checkpoint import build_ablation_checkpoint, restore_ablatio
 from utils.bucket_batch import crystal_collate
 from utils.builder import ConfigBuilder
 from utils.local_global_experiment import capture_training_rng, comparison_contract, initialize_comparison_model
-from utils.local_norm_experiment import local_norm_config, validate_local_norm_model
 from utils.paths import file_sha256, repository_path
 from utils.zproj_alignment import rng_digest, rng_snapshot
 
 
-def code_fingerprints():
+def code_fingerprints(*, protocol=runner.INTERNAL_NORM):
     return {**fresh_fingerprints(), **{name: file_sha256(ROOT / name) for name in
-        ("utils/local_norm_experiment.py", "tools/eval/local_norm_compare.py", "tools/checks/check_local_norm.py")}}
+        ("utils/local_norm_experiment.py", "tools/eval/local_norm_compare.py", "tools/checks/check_local_norm.py",
+         *protocol.source_files)}}
 
 
 def historical_module(name, reference):
@@ -126,7 +126,7 @@ def replay_reference(saved, reference, batches, ids):
     return {"passed": True, "materials": len(ids), "material_ids": ids, "spectra": errors}
 
 
-def check(out, evidence_dir, tag_prefix, reference_commit=runner.REFERENCE_COMMIT):
+def check(out, evidence_dir, tag_prefix, reference_commit=runner.REFERENCE_COMMIT, *, protocol=runner.INTERNAL_NORM):
     if out.exists():
         raise FileExistsError("existing local norm preflight must be preserved")
     if not sys.flags.utf8_mode:
@@ -134,19 +134,19 @@ def check(out, evidence_dir, tag_prefix, reference_commit=runner.REFERENCE_COMMI
     torch.set_num_threads(1)
     started = time.monotonic()
     saved, reference_cfg, reference = runner.reference_identity(evidence_dir, reference_commit)
-    cfg = local_norm_config(reference_cfg, tag_prefix)
+    cfg = protocol.config_factory(reference_cfg, tag_prefix)
     if (any(runner.queue.run_directory(cfg).glob("*"))
             or repository_path(f"results/reports/history_m1{cfg.tag}.csv").exists()):
-        raise ValueError("preflight requires an unused LN1 training tag")
-    fingerprints = code_fingerprints()
+        raise ValueError(f"preflight requires an unused {protocol.route} training tag")
+    fingerprints = code_fingerprints(protocol=protocol)
     assembled = captured_config(cfg)
-    if runner.restore_post_assembly(assembled) != saved["config"]:
-        raise ValueError("LN1 changes more than the internal normalization route")
+    if runner.restore_reference_assembly(assembled, protocol=protocol) != saved["config"]:
+        raise ValueError(f"{protocol.route} changes more than its isolated local route")
     params = assembled["model"]["params"]["sub_model"]["transformer"]
     compatibility = post_norm_compatibility(saved["model_contract"]["transformer"], reference)
     if compatibility["initialization"] != saved["runtime"]["local_global_init"]:
         raise ValueError("current canonical post-norm initialization differs from historical A64")
-    print(json.dumps({"reference_reuse": "authenticated", "post_norm_compatibility": "passed"}), flush=True)
+    print(json.dumps({"reference_reuse": "authenticated", protocol.compatibility_key: "passed"}), flush=True)
     builder = ConfigBuilder(**assembled)
     train_loader = builder.get_dataloader(split="train", dos_minmax=True, dos_sumnorm=True, batch_size=32)
     valid_loader = builder.get_dataloader(split="valid", dos_minmax=True, dos_sumnorm=True, batch_size=32)
@@ -157,7 +157,7 @@ def check(out, evidence_dir, tag_prefix, reference_commit=runner.REFERENCE_COMMI
         "sampler_seed": train_loader.sampler.seed,
         "first_train_ids": [str(train_loader.dataset.material_ids[i]) for i in order[:32]]}
     if data_order != reference["data_order"]:
-        raise ValueError("LN1 sampling or complete train/valid views differ from A64")
+        raise ValueError(f"{protocol.route} sampling or complete train/valid views differ from A64")
     largest = int(train_loader.dataset.atom_counts.argmax())
     tail_indices = [i for i in order if i != largest][:31] + [largest]
     tail_batch = crystal_collate([train_loader.dataset[i] for i in tail_indices])
@@ -168,7 +168,7 @@ def check(out, evidence_dir, tag_prefix, reference_commit=runner.REFERENCE_COMMI
     model = builder.get_model()
     transformer = model.model["transformer"]
     info = initialize_comparison_model(transformer, params, 42)
-    validate_local_norm_model(transformer, params, require_identity=True)
+    protocol.validate_model(transformer, params, require_identity=True)
     entry = {"configuration": asdict(cfg), "assembled_configuration": assembled, "initialization": info,
              "contract": comparison_contract(cfg, params), "data_order": data_order,
              "stress_batch": {"ids": [str(train_loader.dataset.material_ids[i]) for i in tail_indices],
@@ -181,7 +181,7 @@ def check(out, evidence_dir, tag_prefix, reference_commit=runner.REFERENCE_COMMI
         entry["forward_backward"] = _train_batch_updates(model, train_batches)
         evaluated = evaluate_split(model, valid_batches, sumnorm=True, return_sample_level=True, sample_ids=ids)
         if not np.isfinite(evaluated["sample_df"].select_dtypes("number").to_numpy()).all():
-            raise ValueError("non-finite pre-norm blind/oracle evaluation")
+            raise ValueError("non-finite local candidate blind/oracle evaluation")
         entry["evaluation_finite"] = True
         transformer.eval()
         entry["symmetry"] = {}
@@ -195,7 +195,7 @@ def check(out, evidence_dir, tag_prefix, reference_commit=runner.REFERENCE_COMMI
                 permutation = permutation_case(model, transformer, symmetry_batch, dtype)
                 if any(value > tolerance for value in worst.values()) or any(
                         value["max_rel"] > tolerance for value in permutation.values()):
-                    raise ValueError("internal pre-norm E(3)/permutation exceeded tolerance")
+                    raise ValueError("local candidate E(3)/permutation exceeded tolerance")
                 entry["symmetry"][str(dtype)] = {"e3_max_rel": worst, "permutation": permutation}
         transformer.to(torch.float32)
         entry["checkpoint_roundtrip"] = checkpoint_roundtrip(model, builder, entry, saved["cli"]["data_contract"])
@@ -208,23 +208,23 @@ def check(out, evidence_dir, tag_prefix, reference_commit=runner.REFERENCE_COMMI
             if "different model contract" not in str(error):
                 raise
         else:
-            raise ValueError("pre/post norm must reject each other's same-shape checkpoint")
-        entry["post_norm_checkpoint_rejected"] = True
+            raise ValueError("candidate and reference must reject each other's same-shape checkpoint")
+        entry[protocol.rejected_checkpoint_key] = True
         del payload
     entry["costs"] = [{"kind": "ordinary", **step_cost(model, batch)} for batch in train_batches]
     entry["costs"].append({"kind": "largest_structure", **step_cost(model, tail_batch)})
     entry["geometry_cache"] = transformer._local_geometry_cache.configuration()
-    report = {"schema": runner.PREFLIGHT_SCHEMA, "passed": True, "tag_prefix": tag_prefix,
-        "scope": "disposable real-batch steps, historical post-norm replay; no formal training or test evaluation",
+    report = {"schema": f"{protocol.stem}-preflight-v1", "passed": True, "tag_prefix": tag_prefix,
+        "scope": "disposable real-batch steps, historical A64 replay; no formal training or test evaluation",
         "code_sha256": fingerprints, "runtime": runner.fresh.runtime_identity(),
         "data_contract": saved["cli"]["data_contract"], "references": {"A64": reference},
-        "post_norm_compatibility": compatibility, "reference_prediction_replay": replay,
-        "learning_rate_35": learning_rate_trace(35, cfg.lr), "controls": {"LN1": entry},
+        protocol.compatibility_key: compatibility, "reference_prediction_replay": replay,
+        "learning_rate_35": learning_rate_trace(35, cfg.lr), "controls": {protocol.route: entry},
         "elapsed_s": time.monotonic() - started}
     del transformer, model, builder
     gc.collect()
     torch.cuda.empty_cache()
-    runner.validate_preflight(report, cfg)
+    runner.validate_preflight(report, cfg, protocol=protocol)
     out.parent.mkdir(parents=True, exist_ok=True)
     dump(out, report)
     print(json.dumps({"passed": True, "elapsed_s": report["elapsed_s"], "costs": entry["costs"], "report": str(out)}), flush=True)

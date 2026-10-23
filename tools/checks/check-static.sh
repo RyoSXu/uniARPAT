@@ -93,6 +93,9 @@ PY
     tests.pipeline.test_local_width \
     tests.pipeline.test_local_width_fresh \
     tests.pipeline.test_local_norm \
+    tests.pipeline.test_local_outer_norm \
+    tests.pipeline.test_local_increment \
+    tests.pipeline.test_local_residual \
     tests.model.test_periodic_messages_gpu
 
 "$python_bin" tools/checks/check_repository.py --worktree

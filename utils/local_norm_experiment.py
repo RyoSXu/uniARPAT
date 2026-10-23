@@ -53,7 +53,9 @@ def validate_local_norm_model(transformer, params: dict, *, require_identity=Fal
         raise ValueError("internal normalization comparison does not include a readout gate")
     for layer in encoder.local_layers:
         message = layer.message
-        if ((message.scalar_channels, message.hidden_channels) != (64, 128)
+        if (layer.outer_norm_first is not True or message.readout_delta is not False or message.internal_residual is not True
+                or any(block.residual_add is not True for block in message.blocks)
+                or (message.scalar_channels, message.hidden_channels) != (64, 128)
                 or message.norm_first is not True or any(block.norm_first is not True for block in message.blocks)):
             raise ValueError("LN1 changes all four 64/128 internal A blocks to pre-norm")
 

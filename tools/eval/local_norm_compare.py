@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
+from functools import partial
 import gc
 import hashlib
 import json
@@ -13,6 +14,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -31,7 +33,7 @@ from utils.builder import ConfigBuilder
 from utils.checkpoint_selection import BLIND_R2_METRIC
 from utils.experiment_config import ExperimentConfig
 from utils.local_global_experiment import comparison_contract, validate_local_global_config
-from utils.local_norm_experiment import local_norm_config, post_norm_parameters
+from utils.local_norm_experiment import local_norm_config, post_norm_parameters, validate_local_norm_model
 from utils.paths import file_sha256, repository_path
 
 DEFAULT_EVIDENCE = ROOT / "results/runs/local_a_width_fresh_20261019"
@@ -47,6 +49,27 @@ COMPATIBILITY_FILES = ("model/periodic_messages.py", "model/local_global_encoder
 SCOPE = ("complete A64 internal pre-norm versus post-norm; same complete initial tensors, external residuals, "
          "staged L2/G6 and joint losses; seed42, 35 epochs, crystal_q1_v1 train/valid only; "
          "equal-task blind median R2 selection; intervals conditional on selected checkpoints")
+
+
+@dataclass(frozen=True)
+class NormProtocol:
+    """Only the declared local candidate varies; evidence and statistics are shared."""
+
+    route: str = "LN1"
+    stem: str = "local-internal-norm"
+    config_factory: Callable = local_norm_config
+    reference_parameters: Callable = post_norm_parameters
+    validate_model: Callable = validate_local_norm_model
+    reference_init_key: str = "post_norm_initialization"
+    rejected_checkpoint_key: str = "post_norm_checkpoint_rejected"
+    compatibility_key: str = "post_norm_compatibility"
+    execution_fields: tuple = (("internal_normalization", ("pre-norm",)*4),)
+    decision_key: str = "pre_norm_conditions_met"
+    scope: str = SCOPE
+    source_files: tuple = ()
+
+
+INTERNAL_NORM = NormProtocol()
 
 
 def historical_source(commit, name, expected_sha256):
@@ -116,27 +139,31 @@ def reference_identity(evidence_dir, commit=REFERENCE_COMMIT):
 
 
 def restore_post_assembly(assembled):
+    return restore_reference_assembly(assembled)
+
+
+def restore_reference_assembly(assembled, *, protocol=INTERNAL_NORM):
     result = deepcopy(assembled)
     params = result["model"]["params"]["sub_model"]["transformer"]
-    result["model"]["params"]["sub_model"]["transformer"] = post_norm_parameters(params)
+    result["model"]["params"]["sub_model"]["transformer"] = protocol.reference_parameters(params)
     return result
 
 
-def validate_preflight(report, cfg):
+def validate_preflight(report, cfg, *, protocol=INTERNAL_NORM):
     from tools.checks.check_local_norm import code_fingerprints
 
     ref = report["references"]["A64"]
     saved, reference_cfg, identity = reference_identity(Path(ref["evidence_dir"]), ref["reference_commit"])
-    entry = report.get("controls", {}).get("LN1", {})
+    entry = report.get("controls", {}).get(protocol.route, {})
     params = entry.get("assembled_configuration", {}).get("model", {}).get("params", {}).get(
         "sub_model", {}).get("transformer", {})
-    if (report.get("schema") != PREFLIGHT_SCHEMA or report.get("passed") is not True
-            or report.get("code_sha256") != code_fingerprints() or ref != identity
+    if (report.get("schema") != f"{protocol.stem}-preflight-v1" or report.get("passed") is not True
+            or report.get("code_sha256") != code_fingerprints(protocol=protocol) or ref != identity
             or report.get("runtime") != fresh.runtime_identity() or report.get("data_contract") != saved["cli"]["data_contract"]
-            or set(report.get("controls", {})) != {"LN1"} or entry.get("configuration") != asdict(cfg)
-            or not params or restore_post_assembly(entry["assembled_configuration"]) != saved["config"]
+            or set(report.get("controls", {})) != {protocol.route} or entry.get("configuration") != asdict(cfg)
+            or not params or restore_reference_assembly(entry["assembled_configuration"], protocol=protocol) != saved["config"]
             or entry.get("contract") != comparison_contract(cfg, params)
-            or entry.get("initialization", {}).get("post_norm_initialization") != saved["runtime"]["local_global_init"]
+            or entry.get("initialization", {}).get(protocol.reference_init_key) != saved["runtime"]["local_global_init"]
             or entry["initialization"].get("state_sha256") != saved["runtime"]["local_global_init"]["state_sha256"]
             or entry.get("data_order") != ref["data_order"]
             or entry.get("training_start_rng_sha256") != saved["runtime"]["structure_training_rng"][0]["state_sha256"]
@@ -145,60 +172,63 @@ def validate_preflight(report, cfg):
             or set(entry.get("symmetry", {})) != {"torch.float32", "torch.float64"}
             or entry.get("checkpoint_roundtrip") != {
                 "weights_optimizer_rng_equal": True, "foreign_contracts_rejected": True}
-            or entry.get("post_norm_checkpoint_rejected") is not True
+            or entry.get(protocol.rejected_checkpoint_key) is not True
             or len(entry.get("costs", [])) != 3
-            or report.get("post_norm_compatibility", {}).get("passed") is not True
+            or report.get(protocol.compatibility_key, {}).get("passed") is not True
             or report.get("reference_prediction_replay", {}).get("passed") is not True
             or report.get("learning_rate_35") != learning_rate_trace(35, cfg.lr)):
-        raise ValueError("local norm source, recipe, initialization, compatibility or real-batch preflight differs")
+        raise ValueError("local comparison source, recipe, initialization, compatibility or real-batch preflight differs")
     # Reconstruct the only allowed change from the authenticated A64 recipe.
-    if cfg != local_norm_config(reference_cfg, report["tag_prefix"]):
+    if cfg != protocol.config_factory(reference_cfg, report["tag_prefix"]):
         raise ValueError("candidate queue differs from the authenticated A64 recipe")
     validate_local_global_config(cfg)
     return report
 
 
-def verify_preflight(path, cfg):
-    return validate_preflight(json.loads(path.read_text()), cfg)
+def verify_preflight(path, cfg, *, protocol=INTERNAL_NORM):
+    return validate_preflight(json.loads(path.read_text()), cfg, protocol=protocol)
 
 
-def comparison_report(exports, draws=2000):
-    report = norm.comparison_report(exports, draws, labels=LABELS, scope=SCOPE, seed=20261016)
+def comparison_report(exports, draws=2000, *, protocol=INTERNAL_NORM):
+    report = norm.comparison_report(exports, draws, labels=(protocol.route, "A64"), scope=protocol.scope, seed=20261016)
     report["decisions"] = {
-        "pre_norm_conditions_met": report["joint_blind"]["LN1_minus_A64"]["eligible_for_adoption"],
+        protocol.decision_key: report["joint_blind"][f"{protocol.route}_minus_A64"]["eligible_for_adoption"],
         "automatic_baseline_replacement": False, "automatic_followup_training": False}
     return report
 
 
-def structural_report(pairs):
+def structural_report(pairs, *, protocol=INTERNAL_NORM):
+    contrast = f"{protocol.route}_minus_A64"
     report = {"diagnostic_only": True, "bootstrap": {"draws": 2000, "unit": "composition group", "seed": 42,
-              "training_seed_uncertainty": False}, "summaries": {}, "contrasts": {"LN1_minus_A64": {}}}
+              "training_seed_uncertainty": False}, "summaries": {}, "contrasts": {contrast: {}}}
     for split in ("train", "valid"):
         for grouping in ("absolute", "reduced"):
             for task in ("edos", "phdos"):
                 filtered = {}
-                for label in LABELS:
+                for label in (protocol.route, "A64"):
                     key = f"{label}_{split}_{grouping}_{task}"
                     report["summaries"][key], filtered[label] = bplus.group_summary(pairs[label, split, grouping, task], task)
-                report["contrasts"]["LN1_minus_A64"][f"{split}_{grouping}_{task}"] = paired_group_interval(
-                    filtered["A64"], filtered["LN1"])
+                report["contrasts"][contrast][f"{split}_{grouping}_{task}"] = paired_group_interval(
+                    filtered["A64"], filtered[protocol.route])
     return report
 
 
-def verify_completed(cfg, preflight):
+def verify_completed(cfg, preflight, *, protocol=INTERNAL_NORM):
     queue.verify_completed(cfg, preflight)
     saved, _, contract = load_run(queue.run_directory(cfg))
-    entry = preflight["controls"]["LN1"]
+    entry = preflight["controls"][protocol.route]
     execution = saved.get("runtime", {}).get("local_global_execution", [])
     if (saved["config"] != entry["assembled_configuration"] or contract != entry["contract"]
-            or not execution or any(record.get("internal_normalization") != ["pre-norm"]*4 for record in execution)):
-        raise ValueError("completed LN1 assembly, contract or actual normalization differs from preflight")
+            or not execution or any(record.get(key) != list(expected)
+                for record in execution for key, expected in protocol.execution_fields)):
+        raise ValueError(f"completed {protocol.route} assembly, contract or actual normalization differs from preflight")
 
 
-def analyze(controls, preflight, out):
+def analyze(controls, preflight, out, *, protocol=INTERNAL_NORM):
     cfg, = controls
-    validate_preflight(preflight, cfg)
-    verify_completed(cfg, preflight)
+    route = protocol.route
+    validate_preflight(preflight, cfg, protocol=protocol)
+    verify_completed(cfg, preflight, protocol=protocol)
     if out.exists():
         raise FileExistsError("existing local norm analysis must be preserved")
     out.mkdir(parents=True)
@@ -210,50 +240,51 @@ def analyze(controls, preflight, out):
             raise ValueError("reference export changed before copying")
         shutil.copyfile(source["source"], out / name)
     run, before = queue.run_directory(cfg), fresh.artifacts(cfg)
-    export(run, out / "LN1_valid_samples.csv", out / "LN1_summary.json", spectra_out=out / "LN1_valid_spectra.npz")
-    train_pairs = bplus.export_train(run, out, "LN1")
+    export(run, out / f"{route}_valid_samples.csv", out / f"{route}_summary.json", spectra_out=out / f"{route}_valid_spectra.npz")
+    train_pairs = bplus.export_train(run, out, route)
     saved, _, _ = load_run(run)
     pairs = {}
     for split, size in (("train", 18704), ("valid", 2313)):
-        bplus.assert_paired_targets(out / f"LN1_{split}_spectra.npz", out / f"A64_{split}_spectra.npz")
+        bplus.assert_paired_targets(out / f"{route}_{split}_spectra.npz", out / f"A64_{split}_spectra.npz")
         dataset = ConfigBuilder(**saved["config"]).get_dataset(split=split, dos_minmax=True, dos_sumnorm=True)
         if len(dataset) != size:
             raise ValueError("local norm diagnosis requires complete train/valid views")
-        for label in LABELS:
-            tables = train_pairs if (label, split) == ("LN1", "train") else bplus.spectrum_pairs(
+        for label in (route, "A64"):
+            tables = train_pairs if (label, split) == (route, "train") else bplus.spectrum_pairs(
                 out / f"{label}_{split}_spectra.npz", out / f"{label}_{split}_samples.csv", dataset)
             for (grouping, task), table in tables.items():
                 table.to_csv(out / f"{label}_{split}_{grouping}_{task}_pairs.csv", index=False)
                 pairs[label, split, grouping, task] = table
         del dataset
         gc.collect()
-    exports = {label: load(out / f"{label}_summary.json", out / f"{label}_valid_samples.csv") for label in LABELS}
-    report = comparison_report(exports)
-    report.update(schema="local-internal-norm-analysis-v1", analysis_complete=True,
-        structural_diagnosis=structural_report(pairs), code_sha256=preflight["code_sha256"],
-        data_contract=preflight["data_contract"], initialization=preflight["controls"]["LN1"]["initialization"],
-        run_artifacts={"LN1": before, "A64": reference})
-    validate_preflight(preflight, cfg)
+    exports = {label: load(out / f"{label}_summary.json", out / f"{label}_valid_samples.csv") for label in (route, "A64")}
+    report = comparison_report(exports, protocol=protocol)
+    report.update(schema=f"{protocol.stem}-analysis-v1", analysis_complete=True,
+        structural_diagnosis=structural_report(pairs, protocol=protocol), code_sha256=preflight["code_sha256"],
+        data_contract=preflight["data_contract"], initialization=preflight["controls"][route]["initialization"],
+        run_artifacts={route: before, "A64": reference})
+    validate_preflight(preflight, cfg, protocol=protocol)
     if fresh.artifacts(cfg) != before:
         raise ValueError("candidate checkpoint, configuration or history changed during analysis")
     dump(out / "report.json", report)
     return report
 
 
-def execute(cfg, preflight, out):
-    validate_preflight(preflight, cfg)
+def execute(cfg, preflight, out, *, protocol=INTERNAL_NORM):
+    validate_preflight(preflight, cfg, protocol=protocol)
     status = summarize([cfg])[0]["status"]
     if status == "partial" or status == "pending" and any(queue.run_directory(cfg).glob("*")):
         raise ValueError("partial local norm run requires a recovery decision; refusing automatic resume")
     if status == "complete":
-        verify_completed(cfg, preflight)
+        verify_completed(cfg, preflight, protocol=protocol)
     if (out / "analysis").exists():
         raise FileExistsError("existing local norm analysis must be preserved; use --summarize")
-    return queue.execute([cfg], preflight, out, analyze_fn=analyze, queue_schema="local-internal-norm-queue-v1")
+    return queue.execute([cfg], preflight, out, analyze_fn=partial(analyze, protocol=protocol),
+                         queue_schema=f"{protocol.stem}-queue-v1")
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(*, protocol=INTERNAL_NORM):
+    parser = argparse.ArgumentParser(description=protocol.scope)
     parser.add_argument("--references", type=Path, default=DEFAULT_EVIDENCE)
     parser.add_argument("--reference-commit", default=REFERENCE_COMMIT)
     parser.add_argument("--tag-prefix", required=True)
@@ -265,20 +296,20 @@ def main():
     action.add_argument("--analyze", action="store_true")
     args = parser.parse_args()
     _, reference, _ = reference_identity(args.references, args.reference_commit)
-    cfg = local_norm_config(reference, args.tag_prefix)
+    cfg = protocol.config_factory(reference, args.tag_prefix)
     if args.summarize:
         print(json.dumps(summarize([cfg]), ensure_ascii=False, indent=2))
     elif args.run or args.analyze:
         if args.preflight is None or args.out is None:
             parser.error("--run/--analyze require --preflight and --out")
-        preflight = verify_preflight(args.preflight, cfg)
+        preflight = verify_preflight(args.preflight, cfg, protocol=protocol)
         if (Path(preflight["references"]["A64"]["evidence_dir"]) != args.references.resolve()
                 or preflight["references"]["A64"]["reference_commit"] != args.reference_commit):
             raise ValueError("CLI reference differs from the authenticated preflight")
         if args.run:
-            execute(cfg, preflight, args.out)
+            execute(cfg, preflight, args.out, protocol=protocol)
         else:
-            analyze([cfg], preflight, args.out / "analysis")
+            analyze([cfg], preflight, args.out / "analysis", protocol=protocol)
     else:
         print(shlex.join(training_command(cfg)))
 

@@ -23,3 +23,18 @@
 先用 `tools/checks/check_local_norm.py` 认证历史Git源码、参考产物及当前默认行为，再完成GPU短检；
 默认打印命令，`--run`才训练，`--summarize`只读进度。方案及边界见
 [局部内部归一化](../../docs/design/design-2026-10-20-local-internal-norm.md)。
+
+`local_outer_norm_compare.py` 使用同一认证、队列和统计流程，单独检验完整A外层512维post-norm（LN2）；
+内部64维post-norm保持不变，复用A64外层pre-norm参考，只新增一组训练。
+先运行 `tools/checks/check_local_outer_norm.py`；默认打印命令，`--run`才训练。
+见[外层归一化设计](../../docs/design/design-2026-10-21-local-outer-norm.md)与[交接](../../docs/logs/log-2026-10-21-local-outer-norm-preparation.md)。
+
+`local_increment_compare.py` 对照完整A的完整状态与增量读出（LR1），保留输出偏置、内外残差和原归一化位置。
+先运行 `tools/checks/check_local_increment.py`；仅新增训练LR1，复用认证的A64结果与导出。
+默认打印命令，`--run`才训练；见[设计](../../docs/design/design-2026-10-21-local-increment-readout.md)和
+[交接](../../docs/logs/log-2026-10-21-local-increment-preparation.md)。
+
+`local_residual_compare.py` 只检验四个A内部块是否显式加回输入状态（LR2），保留外层残差、原归一化及完整状态读出。
+先运行 `tools/checks/check_local_residual.py`，再用新预检训练LR2；复用认证A64与冻结导出。
+默认打印命令，`--run`才训练；见[设计](../../docs/design/design-2026-10-21-local-internal-residual.md)和
+[交接](../../docs/logs/log-2026-10-21-local-internal-residual-preparation.md)。

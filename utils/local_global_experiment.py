@@ -28,6 +28,18 @@ def is_deep_depths(local_depth, global_depth) -> bool:
 
 
 def validate_local_global_config(cfg: ExperimentConfig) -> None:
+    if cfg.local_route == "LR2":
+        from utils.local_residual_experiment import validate_residual_config
+        validate_residual_config(cfg)
+        return
+    if cfg.local_route == "LR1":
+        from utils.local_increment_experiment import validate_increment_config
+        validate_increment_config(cfg)
+        return
+    if cfg.local_route == "LN2":
+        from utils.local_outer_norm_experiment import validate_outer_norm_config
+        validate_outer_norm_config(cfg)
+        return
     if cfg.local_route == "LN1":
         from utils.local_norm_experiment import validate_local_norm_config
         validate_local_norm_config(cfg)
@@ -314,6 +326,15 @@ def initialize_comparison_model(transformer, params: dict, seed: int) -> dict:
     """
     from utils.zproj_alignment import state_hash
 
+    if params.get("local_route") == "LR2":
+        from utils.local_residual_experiment import initialize_residual_model
+        return initialize_residual_model(transformer, params, seed)
+    if params.get("local_route") == "LR1":
+        from utils.local_increment_experiment import initialize_increment_model
+        return initialize_increment_model(transformer, params, seed)
+    if params.get("local_route") == "LN2":
+        from utils.local_outer_norm_experiment import initialize_outer_norm_model
+        return initialize_outer_norm_model(transformer, params, seed)
     if params.get("local_route") == "LN1":
         from utils.local_norm_experiment import initialize_local_norm_model
         return initialize_local_norm_model(transformer, params, seed)
@@ -376,6 +397,15 @@ def training_record(cfg: ExperimentConfig) -> dict:
 
 
 def comparison_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict | None:
+    if cfg.local_route == "LR2":
+        from utils.local_residual_experiment import residual_contract
+        return residual_contract(cfg, transformer_params)
+    if cfg.local_route == "LR1":
+        from utils.local_increment_experiment import increment_contract
+        return increment_contract(cfg, transformer_params)
+    if cfg.local_route == "LN2":
+        from utils.local_outer_norm_experiment import outer_norm_contract
+        return outer_norm_contract(cfg, transformer_params)
     if cfg.local_route == "LN1":
         from utils.local_norm_experiment import local_norm_contract
         return local_norm_contract(cfg, transformer_params)

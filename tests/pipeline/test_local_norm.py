@@ -56,7 +56,8 @@ def direct_block(block, scalar, g):
     radial = radial.view_as(values) / g.degree.clamp(min=1).to(values.dtype).sqrt()[..., None]
     angular = angular.view_as(values) / g.pair_count.clamp(min=1).to(values.dtype).sqrt()[..., None]
     counts = torch.stack((g.degree.to(values.dtype).log1p(), g.effective_count.to(values.dtype)), -1)
-    updated = scalar + block.update(torch.cat((values, radial, angular, counts), -1))
+    update = block.update(torch.cat((values, radial, angular, counts), -1))
+    updated = scalar + update if block.residual_add else update
     return updated if block.norm_first else block.norm(updated)
 
 
