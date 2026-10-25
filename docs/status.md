@@ -4,7 +4,7 @@
 
 ## 当前目标
 
-固定 eDOS/phDOS **联合训练**，两类谱平等考虑。用户于2026-10-23确认新协议：训练与完整valid选点同用**按train谱能量归一化的每原子blind全谱平方误差**，两任务各50%；选点先保护两任务失败率，保留原R²下降≤0.02保护线，再最小化联合误差。完整R²/P10/失败率仍报告，Oracle与同组成谱差仅作诊断。新协议待正式训练；历史选点不追溯改写。[公式、兼容与验收](design/design-2026-10-23-balanced-blind-objective.md)
+固定 eDOS/phDOS **联合训练**，两类谱平等考虑。用户于2026-10-23确认新协议：训练与完整valid选点同用**按train谱能量归一化的每原子blind全谱平方误差**，两任务各50%；选点先保护两任务失败率，保留原R²下降≤0.02保护线，再最小化联合误差。完整R²/P10/失败率仍报告，Oracle与同组成谱差仅作诊断。新协议已有首组正式训练结果；历史选点不追溯改写。[公式、兼容与验收](design/design-2026-10-23-balanced-blind-objective.md)、[正式运行与核验](logs/log-2026-10-23-balanced-blind-run.md)
 最终两类谱须满足 E(3) 不变性，原子重排与等价晶胞另作一致性检查。要求见[对称性设计](design/design-2026-10-04-e3-output-invariance.md)。
 
 **上一阶段的全局骨架归因已结束。**保留局部更新，沿用已有三项全局修正证据。用户于 2026-10-16 确认转向基础 Encoder 定型：先审查局部 A/B+ 选型、内部宽度、更新公式和残差连接，再确定全局模块与整体编排；I4 等增强暂不扩展。
@@ -15,7 +15,7 @@
 - **数据**：修复版 `data/crystal_q1_v1/`，实际 train/valid/test 视图为 18,704 / 2,313 / 2,287；字段和历史数据边界见[数据约定](data.md)。
 - **元素入口**：固定 ZP（Embedding → LayerNorm → Linear），参数继续训练。
 - **当前开发基线 I1**：简单径向局部更新 C1，两次局部调用后接六层全局；全局为 post-norm，注意力概率 dropout=0，Q/K/V/O 恒等初值且继续学习。其他 dropout 保持 0.05。
-- **已有配方与选点**：M1、SumNorm KL/W1/Huber、H1 eta/gamma、E0/P0；seed42、35轮、batch32、lr5e-5、FP32。早期按 `balanced_oracle_mae`，后续按 `balanced_blind_r2`；各自契约保留。下一组完整A64采用独立开关启用新loss/总量/选点协议，不改变已有模型的评估含义。[原选点边界](logs/log-2026-10-15-joint-blind-selection.md)、[新协议准备](logs/log-2026-10-23-balanced-blind-preparation.md)
+- **已有配方与选点**：M1、SumNorm KL/W1/Huber、H1 eta/gamma、E0/P0；seed42、35轮、batch32、lr5e-5、FP32。早期按 `balanced_oracle_mae`，后续按 `balanced_blind_r2`；各自契约保留。本次完整A64通过独立开关启用新loss/总量/选点协议，不改变已有模型的评估含义。[原选点边界](logs/log-2026-10-15-joint-blind-selection.md)、[新协议准备](logs/log-2026-10-23-balanced-blind-preparation.md)
 - **同数据性能对照**：修复版数据上重训的原六层 Encoder＋ZP，seed42、35轮。ZP100 与 B7 是旧 Q1 的历史参考，数据与预算差异必须注明，不能作为同数据因果对照。
 
 历史按 Oracle MAE 选出的 checkpoint 在完整 valid 上的 **blind 中位 R²**（不是按 blind R² 重新选点）：
@@ -50,6 +50,6 @@
 
 3. **保留数据对应风险**：审查的 394 个材料中，125 个输入与 DOS 计算结构未通过严格匹配；冻结模型替换几何未检出改善，训练阶段的影响仍未知。磁态与细致计算条件仍缺元信息。
 
-4. **先完成尺度与目标修正包**：[语义审查](logs/log-2026-10-22-spectral-contract-audit.md)后，新协议已接通无固定上限的每原子总量、等权blind全谱loss与失败率约束选点；仅用train冻结常数，推理不依赖N_val侧车。解析/调用链检查与V100短检已通过，待OpenCode正式训练。5条负能量待核项及计数/coverage物理含义仍未解决，不删标签、不改mask。暂缓新增头数/FFN或其他Encoder对照。[准备与成本](logs/log-2026-10-23-balanced-blind-preparation.md)
+4. **新版尺度与目标修正包已完成一组正式联训**：A64、seed42、35轮，eligible ep26/29/32/33，best ep32/latest35。相对固定原选中A64 ep31，valid等权blind mean E增加+0.00642 [+0.00127, +0.01147]；判为本次完整包比较恶化，不自动替换I1/A64/LR2，也不能归因单一组件。仅单seed和材料抽样区间；5条待核材料仍保留，未评估test。[准备与短检](logs/log-2026-10-23-balanced-blind-preparation.md)、[正式结果与边界](logs/log-2026-10-23-balanced-blind-run.md)。
 
 完整模型的等价晶胞/超胞一致性与 AMP 尚未验收。历史设计中的待办只记录当时建议，不作为当前执行指令。
