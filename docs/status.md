@@ -49,14 +49,14 @@ phDOS失败率则增加0.476 pp。相对旧A64，误差点差−0.00052、区间
 | 宽度、内外归一化、增量读出 | W1/LN1/LN2/LR1均未达各自升级条件，A64保留工作参考。[索引](index.md#模型设计) |
 | 内部残差LR2 | 旧配方下达到数值采用条件，valid phDOS谱差有改善、eDOS未明确改善；未在新配方验证，未自动组合。[结果](logs/log-2026-10-22-local-internal-residual-run.md) |
 | 全局模块与编排 | 三项骨架修正已有证据；头数、FFN及当前配方下编排尚未选优，工作点不等于最优。[路线图](design/design-2026-09-19-structural-refinement.md) |
-| 结构谱差 | 总体恢复没有解决同组成eDOS谱差。冻结逐阶段读出看到三层表示都分开，valid上线性探针和模型输出都没有优于零响应，因而不指定某一层为瓶颈。[读出](logs/log-2026-10-27-shape-aux-stage-readout.md) |
+| 结构谱差 | 总体恢复没有解决同组成eDOS谱差。冻结逐阶段读出看到三层表示都分开，valid上线性探针和模型输出都没有优于零响应，因而不指定某一层为瓶颈。随后的组比较结束归因：验证组相对全部训练组不是更小的结构差，不据此改网络。[读出](logs/log-2026-10-27-shape-aux-stage-readout.md)、[比较](logs/log-2026-10-27-shape-gap-comparability.md) |
 
 ## 尚未解决与下一步
 
 1. 结束本轮loss候选比较，保持工作配方与评价口径稳定，不自动继续调权、追加种子或轮数。
-2. 谱形辅助第25轮的冻结逐阶段读出已完成：三层表示距离都高于事先分界，valid上线性探针和模型谱形差都没有优于零响应。
-   按事先规则不据此改局部、全局或decoder。Decoder拆分、预训练和数据扩展仍不做自动下一轮。
-   [读出结果](logs/log-2026-10-27-shape-aux-stage-readout.md)
+2. 同组成谱差的归因已结束：层读出没有指定瓶颈；验证组也不是一批更小的结构差。
+   不自动改局部、全局、decoder，不自动再训练。下一问需要另定，不再从这条归因里产生。
+   [读出](logs/log-2026-10-27-shape-aux-stage-readout.md)、[组比较](logs/log-2026-10-27-shape-gap-comparability.md)
 3. 数据风险继续单列：5条电子谱待核材料、N_val来源差异、coverage物理含义及输入／DOS计算几何不一致；
    未删除标签、改mask或重分箱。[语义审查](logs/log-2026-10-22-spectral-contract-audit.md)、[几何与来源](logs/log-2026-10-14-i1-pair-audit.md)
 4. 完整模型等价晶胞／超胞一致性、全面对称性验收与AMP仍未完成。
