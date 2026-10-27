@@ -81,6 +81,7 @@ PY
     tests.pipeline.test_local_structure_controls \
     tests.pipeline.test_local_structure_diagnosis \
     tests.pipeline.test_stage_readout_diagnosis \
+    tests.pipeline.test_shape_aux_stage_readout \
     tests.pipeline.test_local_structure_small_fit \
     tests.pipeline.test_local_structure_hard_pair \
     tests.pipeline.test_local_structure_loss_isolation \

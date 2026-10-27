@@ -50,6 +50,7 @@
 | 完整局部模块的收益是否被总量预测掩盖 | [谱形与总量交叉诊断](logs/log-2026-10-15-shape-total-diagnosis.md) |
 | R²、失败率、eDOS尺度上限与谱段覆盖的科学含义 | [只读语义审查与下一步](logs/log-2026-10-22-spectral-contract-audit.md) |
 | 小样本拟合与困难材料对 | [小样本拟合](logs/log-2026-10-12-local-structure-small-fit.md)、[困难对归因](logs/log-2026-10-12-hard-pair-attribution.md)、[损失隔离](logs/log-2026-10-12-local-structure-loss-isolation.md) |
+| 谱形辅助 checkpoint 上同组成谱差停在哪一层 | [冻结逐阶段读出设计](design/design-2026-10-27-shape-aux-stage-readout.md)、[正式结果](logs/log-2026-10-27-shape-aux-stage-readout.md) |
 
 其他设计与证据见 [design/](design/)、[logs/](logs/)；早期研究见 [archive/docs/](../archive/docs/)。历史待办不自动成为当前执行指令。
 新文档使用[设计模板](design/template.md)或[日志模板](logs/template.md)。
