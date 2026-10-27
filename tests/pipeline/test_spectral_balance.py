@@ -55,9 +55,9 @@ class BalancedPipelineTests(unittest.TestCase):
             torch.testing.assert_close(value, original.state_dict()[old_key], rtol=0, atol=0)
         self.assertEqual(sum(p.numel() for p in candidate.parameters()), sum(p.numel() for p in original.parameters()))
 
-    def training_model(self):
+    def training_model(self, *, shape_aux=False):
         model = basemodel(logging.getLogger('balanced-test'), loss_form=ENERGY_METRIC,
-            spectral_balance=protocol((8, 4)), metrics_list=[],
+            spectral_balance=protocol((8, 4)), spectral_shape_aux=shape_aux, metrics_list=[],
             sub_model={'transformer': {**model_params('I3'), 'scale_mode': 'per_atom'}},
             optimizer={'transformer': {'type': 'AdamW', 'params': {'lr': 0.}}}, lr_scheduler={})
         model.to(torch.device('cpu'))

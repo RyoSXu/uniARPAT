@@ -36,11 +36,18 @@ def load_run(run_dir: Path):
         raise ValueError(f'configuration does not describe its own contract: {run_dir}')
     if 'spectral_balance' in contract:
         from utils.spectral_balance import ENERGY_METRIC, validate_balance_protocol
+        from utils.spectral_balance_experiment import shape_supervision_contract
         protocol = validate_balance_protocol(contract['spectral_balance'])
         model_params = saved['config']['model']['params']
         if (model_params.get('spectral_balance') != protocol
                 or model_params.get('loss_form') != ENERGY_METRIC or params.get('scale_mode') != 'per_atom'):
             raise ValueError('balanced run loss/reconstruction differs from its checkpoint contract')
+        enabled = model_params.get('spectral_shape_aux', False)
+        expected_shape = shape_supervision_contract(enabled)
+        if (enabled != contract.get('training', {}).get('spectral_shape_aux', False)
+                or contract.get('shape_supervision') != expected_shape.get('shape_supervision')
+                or enabled != (contract['schema'] == 'joint-spectral-balance-shape-model-v1')):
+            raise ValueError('shape auxiliary differs from the saved training/checkpoint contract')
     return saved, params, contract
 
 

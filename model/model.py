@@ -19,6 +19,7 @@ from model.losses import (
     edos_pair_contrast_loss,
     edos_slope_matching_loss,
     gradient_loss,
+    nonzero_sumnorm_klw_loss,
     sumnorm_klw_loss,
     tv_loss,
     weighted_smooth_l1_loss,
@@ -67,6 +68,9 @@ class basemodel(nn.Module):
         # Sum-normalized distribution loss or direct Smooth L1 loss.
         self.loss_form = str(self.params.get("loss_form", "smoothl1"))
         self.spectral_balance = self.params.get("spectral_balance")
+        self.spectral_shape_aux = self.params.get("spectral_shape_aux", False)
+        if not isinstance(self.spectral_shape_aux, bool) or self.spectral_shape_aux and self.loss_form != "balanced_blind_energy":
+            raise ValueError("spectral_shape_aux requires the balanced blind objective and a boolean flag")
         if self.loss_form == "balanced_blind_energy":
             from utils.spectral_balance import validate_balance_protocol
             validate_balance_protocol(self.spectral_balance)
@@ -75,6 +79,8 @@ class basemodel(nn.Module):
         self.w_w1 = float(self.params.get("w_w1", 1.0))
         self.w_huber = float(self.params.get("w_huber", 1.0))
         self.huber_delta = float(self.params.get("huber_delta", 0.02))
+        if self.spectral_shape_aux and (self.w_w1, self.w_huber, self.huber_delta) != (1., 1., .02):
+            raise ValueError("shape auxiliary uses the fixed historical 1/1/.02 shape recipe")
         self.edos_slope_ratio = float(self.params.get("edos_slope_ratio", 0.0))
         self.edos_slope_lambda = 0.0
         self.edos_slope_calibrated = self.edos_slope_ratio == 0.0
@@ -408,6 +414,13 @@ class basemodel(nn.Module):
                     spectra[f"blind_{task}"], physical_target, valid_atoms,
                     self.spectral_balance["tasks"][task]).mean())
             loss_edos, loss_phdos = losses
+            if self.spectral_shape_aux:
+                loss_shape_e = nonzero_sumnorm_klw_loss(predict_edos,
+                    edos_target * (edos_max - edos_min) + edos_min).mean()
+                loss_shape_p = nonzero_sumnorm_klw_loss(predict_phdos,
+                    phdos_target * (phdos_max - phdos_min) + phdos_min).mean()
+                loss_edos = loss_edos + loss_shape_e
+                loss_phdos = loss_phdos + loss_shape_p
         elif self.loss_form == "sumnorm_klw":
             # Sum-normalized targets use KL, W1, and Huber distribution terms.
             # Softmax is masked only when coverage masking is requested.
@@ -595,6 +608,8 @@ class basemodel(nn.Module):
                 'pair_ratio': self.pair_ratio,
                 'pair_lambda': self.pair_lambda,
             })
+        if self.spectral_shape_aux:
+            result.update(loss_energy_e=losses[0].item(), loss_energy_p=losses[1].item())
         return result
 
     def test_one_step(self, batch_data, step=None, save_predict=False, *, pair_budget=None,

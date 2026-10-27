@@ -34,6 +34,8 @@ def check(preparation, out):
     if out.exists():
         raise FileExistsError(f'use a new preflight output directory: {out}')
     saved = json.loads(Path(preparation).read_text())
+    if any(file_sha256(p) != digest for p, digest in saved['input_sha256'].items()):
+        raise ValueError('preparation inputs or source changed; prepare a new isolated trial')
     cfg = ExperimentConfig(**saved['configuration'])
     protocol = validate_balance_config(cfg)
     if not torch.cuda.is_available():
@@ -46,6 +48,9 @@ def check(preparation, out):
     model = builder.get_model()
     params = assembly['model']['params']['sub_model']['transformer']
     initialization = initialize_comparison_model(model.model['transformer'], params, cfg.seed)
+    control = saved.get('completed_control')
+    if cfg.spectral_shape_aux and (control is None or control['initialization'] != initialization):
+        raise ValueError('shape candidate initial tensors differ from the completed pure-energy control')
     model.to(torch.device('cuda'))
     configure_local_global_execution(model.model['transformer'])
     loader = builder.get_dataloader(split='train', batch_size=cfg.batch_size, dos_minmax=True, dos_sumnorm=True)
@@ -73,7 +78,8 @@ def check(preparation, out):
         group['lr'] = 0.
     before = model.train_one_step(batches[0], 0, pair_budget=cfg.pair_budget)
     evaluated = evaluate_local_global_split(model, batches[:1], pair_budget=cfg.pair_budget)
-    if not np.isclose(before['loss'], evaluated[ENERGY_METRIC], rtol=3e-6, atol=1e-7):
+    auxiliary = .5*(before['loss_shape_e'] + before['loss_shape_p']) if cfg.spectral_shape_aux else 0.
+    if not np.isclose(before['loss'] - auxiliary, evaluated[ENERGY_METRIC], rtol=3e-6, atol=1e-7):
         raise ValueError('training/evaluation normalized blind objectives differ')
     # Measure shared-encoder gradients without tuning weights or taking a step.
     (inp, pos, mask, et, pt, _, _, elo, ehi, _, _, plo, phi, _, _, _, ex, px) = model.data_preprocess(batches[0])
@@ -82,6 +88,10 @@ def check(preparation, out):
     spectra = reconstruct_balanced_spectra(outputs, atoms, protocol)
     objective = [normalized_spectral_error(spectra[f'blind_{task}'], target, atoms,
         protocol['tasks'][task]).mean() for task, target in (('edos', et*(ehi-elo)+elo), ('phdos', pt*(phi-plo)+plo))]
+    if cfg.spectral_shape_aux:
+        from model.losses import nonzero_sumnorm_klw_loss
+        for i, (task, target) in enumerate((('edos', et*(ehi-elo)+elo), ('phdos', pt*(phi-plo)+plo))):
+            objective[i] = objective[i] + nonzero_sumnorm_klw_loss(outputs[task], target).mean()
     parameters = tuple(model.model['transformer'].encoder.parameters())
     gradients = [torch.autograd.grad(value, parameters, retain_graph=i == 0, allow_unused=True)
                  for i, value in enumerate(objective)]
@@ -103,7 +113,8 @@ def check(preparation, out):
         'gpu': torch.cuda.get_device_name(), 'batch_sizes': [len(batch[0]) for batch in batches],
         'batch_atoms': [int(batch[0].ne(0).sum()) for batch in batches],
         'update_seconds': timings, 'peak_allocated_mib': peak, 'losses': losses,
-        'loss_evaluation_difference': abs(before['loss'] - evaluated[ENERGY_METRIC]),
+        'loss_evaluation_difference': abs(before['loss'] - auxiliary - evaluated[ENERGY_METRIC]),
+        'shape_auxiliary_at_consistency_check': auxiliary,
         'shared_encoder_gradient_diagnostic': {'edos_norm': norms[0], 'phdos_norm': norms[1],
             'cosine': cosine, 'scope': 'one train batch after two disposable updates; not a causal or global balance claim'},
         'full_training_started': False}

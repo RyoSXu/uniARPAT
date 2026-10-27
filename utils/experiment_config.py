@@ -79,6 +79,7 @@ class ExperimentConfig:
     eta_sup_w: float = 1.0
     # New objective/selection semantics are opt-in and bind a frozen JSON protocol.
     spectral_balance_config: str = ""
+    spectral_shape_aux: bool = False
     delta_edos: float = 0.09375
     delta_phdos: float = 19.6875
     freeze_backbone: bool = False

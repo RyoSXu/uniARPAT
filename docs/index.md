@@ -16,6 +16,7 @@
 | 指标、模型和实验术语 | [glossary.md](glossary.md) |
 | 联合 blind checkpoint 选点与双任务保护 | [实现、验证与兼容边界](logs/log-2026-10-15-joint-blind-selection.md) |
 | 新版等权 blind 全谱 loss、总量与约束选点 | [设计与科学定义](design/design-2026-10-23-balanced-blind-objective.md)、[准备与短检](logs/log-2026-10-23-balanced-blind-preparation.md)、[正式运行与核验](logs/log-2026-10-23-balanced-blind-run.md) |
+| 固定总量与选点，仅补独立谱形监督 | [单候选设计](design/design-2026-10-25-spectral-shape-supervision.md)、[准备与短检](logs/log-2026-10-25-spectral-shape-preparation.md)、[正式运行与核验](logs/log-2026-10-26-spectral-shape-aux-run.md) |
 
 ## 模型设计
 

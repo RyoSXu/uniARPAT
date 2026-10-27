@@ -52,6 +52,22 @@ def sumnorm_klw_loss(pred_raw, target, cov, use_mask, w_w1, w_huber, huber_delta
     return kl + w_w1 * w1 + w_huber * hub
 
 
+def nonzero_sumnorm_klw_loss(pred_logits, physical_target, w_w1=1., w_huber=1., huber_delta=.02):
+    """Existing shape objective, with no artificial shape imposed on zero DOS.
+
+    Returns one value per material. Zero spectra stay in the batch denominator
+    and remain supervised by the separate blind full-spectrum objective.
+    """
+    if (pred_logits.ndim != 2 or pred_logits.shape != physical_target.shape
+            or not torch.isfinite(pred_logits).all() or not torch.isfinite(physical_target).all()
+            or (physical_target < 0).any()):
+        raise ValueError("finite logits and aligned nonnegative physical spectra required")
+    total = physical_target.sum(-1, keepdim=True)
+    target = physical_target / torch.where(total > 0, total, torch.ones_like(total))
+    values = sumnorm_klw_loss(pred_logits, target, None, False, w_w1, w_huber, huber_delta)
+    return torch.where(total.squeeze(-1) > 0, values, torch.zeros_like(values))
+
+
 def edos_slope_matching_loss(pred_logits, target):
     """Match first differences between normalized eDOS probability shapes."""
     if pred_logits.ndim != 2 or pred_logits.shape != target.shape:

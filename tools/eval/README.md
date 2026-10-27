@@ -50,3 +50,7 @@ H1输出范围、覆盖/补零对R²的影响及回顾性选点取舍；不构�
 训练后原`lg_valid_export.py`可校验约束选点并导出新误差；无合格best时明确拒绝导出。
 见[新目标设计](../../docs/design/design-2026-10-23-balanced-blind-objective.md)及
 [准备与交接](../../docs/logs/log-2026-10-23-balanced-blind-preparation.md)。
+
+同一准备入口加`--shape-aux --control-preparation <已完成纯E的report.json>`，
+只生成固定权重的谱形辅助候选，认证主对照、冻结同一protocol并检查其余训练条件一致；
+选点仍只使用blind E。见[单候选设计](../../docs/design/design-2026-10-25-spectral-shape-supervision.md)。

@@ -32,7 +32,7 @@ def validate_local_global_config(cfg: ExperimentConfig) -> None:
         from utils.spectral_balance_experiment import validate_balance_config
         validate_balance_config(cfg)
         return
-    if cfg.scale_mode == "per_atom" or cfg.selection_metric == "balanced_blind_energy":
+    if cfg.spectral_shape_aux or cfg.scale_mode == "per_atom" or cfg.selection_metric == "balanced_blind_energy":
         raise ValueError("per-atom balanced spectra require --spectral_balance_config")
     if cfg.local_route == "LR2":
         from utils.local_residual_experiment import validate_residual_config
@@ -403,6 +403,7 @@ def training_record(cfg: ExperimentConfig) -> dict:
     return {key: value for key, value in asdict(cfg).items()
             if key not in ('tag', 'skip_existing')
             and (key != 'spectral_balance_config' or value)
+            and (key != 'spectral_shape_aux' or value)
             and (key != 'global_depth' or value is not None)}
 
 

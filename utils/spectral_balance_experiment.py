@@ -10,13 +10,26 @@ from utils.paths import file_sha256, input_path
 from utils.spectral_balance import ENERGY_METRIC, energy_selection_contract, load_balance_protocol
 
 
+def shape_supervision_contract(enabled):
+    """One fixed candidate; no validation-tuned coefficient or weight search."""
+    if not isinstance(enabled, bool):
+        raise ValueError("spectral_shape_aux must be boolean")
+    return {} if not enabled else {"shape_supervision": {
+        "schema": "equal-task-sumnorm-shape-aux-v1", "weight": 1.,
+        "formula": "0.5*mean(E_edos+S_edos) + 0.5*mean(E_phdos+S_phdos)",
+        "shape_loss": "KL + W1 + Huber", "w_w1": 1., "w_huber": 1., "huber_delta": .02,
+        "zero_target": "zero auxiliary loss; retain blind energy; average over all materials",
+        "checkpoint_metric_includes_auxiliary": False,
+    }}
+
+
 def legacy_balance_config(cfg):
     from utils.experiment_config import ExperimentConfig
 
     # Legacy factories compare this path as a string. The new protocol checks
     # the actual manifest/payload hashes independently, so equivalent absolute
     # paths need not be rejected by the historical recipe's spelling.
-    return replace(cfg, spectral_balance_config="", scale_mode="eta",
+    return replace(cfg, spectral_balance_config="", spectral_shape_aux=False, scale_mode="eta",
                    selection_metric="balanced_blind_r2", data_dir=ExperimentConfig().data_dir)
 
 
@@ -26,6 +39,7 @@ def validate_balance_config(cfg):
     if (not cfg.spectral_balance_config or cfg.local_route != "I3"
             or cfg.scale_mode != "per_atom" or cfg.selection_metric != ENERGY_METRIC):
         raise ValueError("balanced spectra require I3/A64, per_atom scale and balanced_blind_energy")
+    shape_supervision_contract(cfg.spectral_shape_aux)
     validate_local_global_config(legacy_balance_config(cfg))
     protocol = load_balance_protocol(cfg.spectral_balance_config, cfg.data_dir)
     if (protocol["reference"]["label"] != "A64"
@@ -43,7 +57,7 @@ def balance_model_contract(cfg, params):
     protocol = validate_balance_config(cfg)
     base_params = {**params, "scale_mode": "eta"}
     base = comparison_contract(legacy_balance_config(cfg), base_params)
-    return {"schema": "joint-spectral-balance-model-v1", "init_protocol": "joint-spectral-balance-init-v1",
+    contract = {"schema": "joint-spectral-balance-model-v1", "init_protocol": "joint-spectral-balance-init-v1",
             "seed": cfg.seed, "transformer": deepcopy(params), "normalization": cfg.norm,
             "selection_metric": ENERGY_METRIC, **energy_selection_contract(protocol),
             "spectral_balance": protocol,
@@ -51,6 +65,12 @@ def balance_model_contract(cfg, params):
             "training": training_record(cfg), "backbone_reference": base,
             "scope": "scale parameterization, blind objective and checkpoint protocol package; "
                      "complete A64 encoder/decoder unchanged; not a single-factor encoder test"}
+    if cfg.spectral_shape_aux:
+        contract.update(schema="joint-spectral-balance-shape-model-v1",
+                        scope="fixed shape auxiliary added to the completed blind-energy control; "
+                              "same A64 tensors, mass reconstruction, data, budget and checkpoint rule",
+                        **shape_supervision_contract(True))
+    return contract
 
 
 def initialize_balance_model(transformer, params, seed):
