@@ -1,6 +1,6 @@
 # uniARPAT crystal-q1-v1 dataset card
 
-[中文](dataset-card-zh.md) · [Sources, citations and license review](dataset-sources.md) · Updated: 2026-10-19
+[中文](dataset-card-zh.md) · [Sources, citations and license review](dataset-sources.md) · Documentation updated: 2026-10-27 (data version unchanged)
 
 ## Purpose and version
 
@@ -73,6 +73,12 @@ PhononDB PBEsol, and JARVIS optB88vdW among its sources; complete per-task compu
    That sum is not directly a physical integral;
    window integrals also require bin widths. Spectral scale is modeled separately; blind/oracle do not denote separate released target arrays.
 
+The current research recipe predicts nonnegative per-atom window mass with no fixed upper bound and uses
+train-energy-normalized blind full-spectrum error plus independent shape supervision. Zero spectra have zero
+shape auxiliary loss but retain full-spectrum supervision. New blind reconstruction does not use per-material
+`N_val`; formal loss and scoring retain all bins without coverage masking. This model protocol update changes
+no released arrays, masks, splits, or historical quality filters; see the [current project status](status.md).
+
 Historical methods are available in Git at `e24d2a4^:tools/getdata/a4_process.py`, `a4_pass2.py`, and `recompute_phonondb.py`.
 Q1 and complete-structure steps are implemented in `tools/data/q1_rebuild.py` and `tools/data/migrate_crystal_q1.py`.
 
@@ -96,7 +102,7 @@ Each `data/crystal_q1_v1/{split}/` has 11 arrays. Below, `s` denotes a split, `M
 | `atomic_numbers_s.npy` | [S] / uint8 | Atomic numbers |
 | `atom_offsets_s.npy` | [M+1] / int64 | Structure i occupies `[offsets[i]:offsets[i+1]]` |
 | `n_atoms_s.npy` | [M] / int32 | Complete atom count N |
-| `nvalence_s.npy` | [M] / float32 | Audited/fallback valence count for scale supervision; not a strictly label-independent input feature |
+| `nvalence_s.npy` | [M] / float32 | Audited/fallback valence count for historical H1 scale supervision; not a strictly label-independent input feature and unused by new blind reconstruction |
 | `s_index.npy` | [M] / Unicode | Canonical MP IDs defining row alignment |
 | `edos_tgtdos_s.npy`, `phdos_tgtdos_s.npy` | [M,128], [M,64] / float32 | Processed density targets |
 | `edos_mask_s.npy`, `phdos_mask_s.npy` | [M,128], [M,64] / bool | True indicates finite source samples in the bin; training configuration determines loss masking |

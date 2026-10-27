@@ -1,6 +1,6 @@
 # uniARPAT crystal-q1-v1 数据说明
 
-[English](dataset-card-en.md) · [来源、引用与许可核查](dataset-sources.md) · 更新：2026-10-19
+[English](dataset-card-en.md) · [来源、引用与许可核查](dataset-sources.md) · 文档更新：2026-10-27（数据版本未变）
 
 ## 数据用途与版本
 
@@ -60,6 +60,10 @@ phDOS 按可用性从 MP、[PhononDB / NIMS MDR](https://doi.org/10.48505/nims.4
    全零谱在加小量的分母下仍保持全零。这个和不是直接的物理积分。窗口总量需要结合箱宽；
    模型另行学习谱尺度，blind/oracle 不是两套发布标签。
 
+当前研究工作配方使用每原子非负无固定上限的窗口总量，以及train谱能量归一化的blind全谱误差加独立谱形辅助。
+零谱的辅助项为0、全谱误差仍监督；新blind重建不使用逐材料`N_val`，正式loss/评分不使用coverage删箱。
+这是模型协议更新，未改发布数组、mask、划分或历史质量筛选；具体公式与适用范围见[当前状态](status.md)。
+
 父处理方法可在 Git `e24d2a4^:tools/getdata/a4_process.py`、`a4_pass2.py`、`recompute_phonondb.py` 核对。
 Q1 和完整结构步骤分别见 `tools/data/q1_rebuild.py`、`tools/data/migrate_crystal_q1.py`。
 
@@ -82,7 +86,7 @@ Q1 和完整结构步骤分别见 `tools/data/q1_rebuild.py`、`tools/data/migra
 | `atomic_numbers_s.npy` | [S] / uint8 | 原子序数 |
 | `atom_offsets_s.npy` | [M+1] / int64 | 第 i 个结构取 `[offsets[i]:offsets[i+1]]` |
 | `n_atoms_s.npy` | [M] / int32 | 完整原子数 N |
-| `nvalence_s.npy` | [M] / float32 | 审定/回退价电子数，用于尺度监督；非严格独立于标签的输入特征 |
+| `nvalence_s.npy` | [M] / float32 | 审定/回退价电子数，用于历史H1尺度监督；非严格独立于标签的输入特征，新blind重建不用它 |
 | `s_index.npy` | [M] / Unicode | canonical MP 材料 ID，所有材料字段按此顺序对齐 |
 | `edos_tgtdos_s.npy`、`phdos_tgtdos_s.npy` | [M,128]、[M,64] / float32 | 处理后的密度标签 |
 | `edos_mask_s.npy`、`phdos_mask_s.npy` | [M,128]、[M,64] / bool | True 表示该箱存在有限源采样点；是否用于损失由训练配置决定 |

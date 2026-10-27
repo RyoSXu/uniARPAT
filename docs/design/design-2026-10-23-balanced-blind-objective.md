@@ -4,6 +4,12 @@
 本关卡替代继续增加 Encoder 变体；完整 A64 骨架、联合训练、seed42 保持。
 旧实验保留其原始 loss、选点与结论，不追溯重新选 checkpoint，不自动替换 I1。
 
+进度同步（2026-10-27）：本页纯E修正包35轮已完成，best ep32，联合误差未改善旧A64，见
+[正式结果](../logs/log-2026-10-23-balanced-blind-run.md)。随后唯一的
+[固定谱形辅助候选](design-2026-10-25-spectral-shape-supervision.md)也已完成，best ep25，
+恢复至旧A64点估计附近并作为后续研究工作参考；总量与选点定义沿用本页，训练改为E+S。
+以下保留纯E原协议，不能当作当前完整训练loss。阶段结论与下一步见[状态页](../status.md)。
+
 ## 为什么改
 
 [语义审查](../logs/log-2026-10-22-spectral-contract-audit.md)确认三项实际问题：

@@ -1,6 +1,6 @@
 # 文档导航
 
-先读[当前状态](status.md)。本页只提供入口；结论在状态页维护，过程、成本和验证记录在各实验日志维护。
+进度同步：2026-10-27。先读[当前状态](status.md)。本页只提供入口；结论在状态页维护，过程、成本和验证记录在各实验日志维护。
 
 ## 日常说明
 
@@ -14,9 +14,9 @@
 | 研究与实施流程 | [workflow.md](workflow.md) |
 | 目录职责、兼容路径和 Git 边界 | [repository.md](repository.md) |
 | 指标、模型和实验术语 | [glossary.md](glossary.md) |
-| 联合 blind checkpoint 选点与双任务保护 | [实现、验证与兼容边界](logs/log-2026-10-15-joint-blind-selection.md) |
-| 新版等权 blind 全谱 loss、总量与约束选点 | [设计与科学定义](design/design-2026-10-23-balanced-blind-objective.md)、[准备与短检](logs/log-2026-10-23-balanced-blind-preparation.md)、[正式运行与核验](logs/log-2026-10-23-balanced-blind-run.md) |
-| 固定总量与选点，仅补独立谱形监督 | [单候选设计](design/design-2026-10-25-spectral-shape-supervision.md)、[准备与短检](logs/log-2026-10-25-spectral-shape-preparation.md)、[正式运行与核验](logs/log-2026-10-26-spectral-shape-aux-run.md) |
+| 历史联合blind R²选点与双任务报告 | [实现、验证与兼容边界](logs/log-2026-10-15-joint-blind-selection.md) |
+| 当前总量与约束选点定义、纯E已完成对照 | [设计与科学定义](design/design-2026-10-23-balanced-blind-objective.md)、[准备与短检](logs/log-2026-10-23-balanced-blind-preparation.md)、[正式运行与核验](logs/log-2026-10-23-balanced-blind-run.md) |
+| 当前研究工作配方：E＋独立谱形辅助（已完成） | [单候选设计](design/design-2026-10-25-spectral-shape-supervision.md)、[准备与短检](logs/log-2026-10-25-spectral-shape-preparation.md)、[正式运行与核验](logs/log-2026-10-26-spectral-shape-aux-run.md) |
 
 ## 模型设计
 
@@ -26,14 +26,14 @@
 | ZP 元素入口 | [初始化设计](design/design-2026-10-02-element-initialization.md) |
 | 完整晶体输入与周期邻居 | [结构输入](design/design-2026-10-04-crystal-structure-input.md)、[物理记录](design/design-2026-10-03-periodic-neighbor-records.md) |
 | A/B+ 局部消息与接口 | [候选公式](design/design-2026-10-04-periodic-message-candidates.md)、[模块边界](design/design-2026-10-04-periodic-message-module-boundaries.md) |
-| 当前局部模块定型：共同参考与 A/B+ 选型 | [复用范围、判据与预算](design/design-2026-10-16-local-module-selection.md)、[入口与短检](logs/log-2026-10-16-local-module-preparation.md)、[正式运行与结果](logs/log-2026-10-16-local-module-run.md) |
+| A/B+阶段选型（暂定完整A，非总体胜出） | [复用范围、判据与预算](design/design-2026-10-16-local-module-selection.md)、[入口与短检](logs/log-2026-10-16-local-module-preparation.md)、[正式运行与结果](logs/log-2026-10-16-local-module-run.md) |
 | 完整 A 内部容量 | [64/128与128/256方案](design/design-2026-10-16-local-a-width.md)、[迁移后准备](logs/log-2026-10-19-local-width-fresh-preparation.md)、[两组结果与核验](logs/log-2026-10-20-local-width-fresh-run.md) |
 | 完整 A 内部归一化（已完成） | [pre/post-norm设计](design/design-2026-10-20-local-internal-norm.md)、[准备与短检](logs/log-2026-10-20-local-internal-norm-preparation.md)、[结果与独立核验](logs/log-2026-10-21-local-internal-norm-run.md) |
 | 完整 A 外层512维归一化（已完成，未达采用条件） | [LN2设计](design/design-2026-10-21-local-outer-norm.md)、[准备与交接](logs/log-2026-10-21-local-outer-norm-preparation.md)、[正式运行与核验](logs/log-2026-10-21-local-outer-norm-run.md) |
 | 完整 A 完整状态与增量读出（未达采用条件） | [LR1设计](design/design-2026-10-21-local-increment-readout.md)、[准备与交接](logs/log-2026-10-21-local-increment-preparation.md)、[运行与核验](logs/log-2026-10-21-local-increment-run.md) |
-| 完整 A 内部残差加法（数值采用条件已满足，待用户决定） | [LR2设计](design/design-2026-10-21-local-internal-residual.md)、[准备与交接](logs/log-2026-10-21-local-internal-residual-preparation.md)、[正式运行与核验](logs/log-2026-10-22-local-internal-residual-run.md) |
-| 局部—全局 Encoder 与当前 I1 对照 | [接入设计](design/design-2026-10-04-local-global-encoder.md)、[投影对照](design/design-2026-10-13-attention-projection-attribution.md) |
-| I1 开发基线上的完整 B+ 升级 | [实验设计](design/design-2026-10-14-i1-bplus-encoder.md)、[准备与短检](logs/log-2026-10-14-i1-bplus-preparation.md)、[运行与核验](logs/log-2026-10-14-i1-bplus-run.md) |
+| 完整 A 内部残差LR2（旧协议满足数值条件，未并入新配方） | [LR2设计](design/design-2026-10-21-local-internal-residual.md)、[准备与交接](logs/log-2026-10-21-local-internal-residual-preparation.md)、[正式运行与核验](logs/log-2026-10-22-local-internal-residual-run.md) |
+| 历史局部—全局接入与I1骨架对照 | [接入设计](design/design-2026-10-04-local-global-encoder.md)、[投影对照](design/design-2026-10-13-attention-projection-attribution.md) |
+| I1性能参照上的完整 B+ 升级 | [实验设计](design/design-2026-10-14-i1-bplus-encoder.md)、[准备与短检](logs/log-2026-10-14-i1-bplus-preparation.md)、[运行与核验](logs/log-2026-10-14-i1-bplus-run.md) |
 | 修正联合骨架上的完整 A/B+ 比较 | [完整 A 设计](design/design-2026-10-15-i1-a-encoder.md)、[准备与成本](logs/log-2026-10-15-i1-a-preparation.md)、[运行与核验](logs/log-2026-10-15-i1-a-run.md) |
 | 最终输出的 E(3) 要求 | [对称性设计](design/design-2026-10-04-e3-output-invariance.md) |
 | 完整 B+ 接口干预 | [局部状态直连读出](design/design-2026-10-15-local-readout-interface.md)、[实现与短检](logs/log-2026-10-15-local-readout-preparation.md)、[运行与核验](logs/log-2026-10-16-local-readout-run.md) |
