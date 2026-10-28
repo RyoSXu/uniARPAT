@@ -65,8 +65,9 @@ phDOS失败率则增加0.476 pp。相对旧A64，误差点差−0.00052、区间
    [盘点](logs/log-2026-10-28-structure-pool-inventory.md)
 6. 已有两份模型的预测平均，联合 mean E 就降 0.0098，区间不含零，大于此前任何单模块改动。
    单 seed 对照分不清架构效果和训练随机性。[诊断](logs/log-2026-10-28-error-structure-ensemble.md)
-7. 声子晶格动力学头已实现并通过真实批次短检，35 轮训练待外部执行。eDOS 路径不变。
-   [设计](design/design-2026-10-28-phonon-lattice-head.md)、[短检](logs/log-2026-10-28-phonon-head-preparation.md)
+7. 声子晶格动力学头首轮在第 8 轮因数值缺陷中断，缺陷已修复。中断前 phDOS 明显落后于对照，
+   训练集也拟合不足；是否重跑或改为「物理谱加学到的修正」待定。eDOS 路径不变。
+   [设计](design/design-2026-10-28-phonon-lattice-head.md)、[中断与修复](logs/log-2026-10-28-phonon-head-run-failure.md)
 
 模型选择只用train/valid；历史test曾用于诊断，不称完全未触碰的留出集。
 旧实验结论限各自数据、目标、选点和预算；历史设计或提示词不自动成为当前执行指令。

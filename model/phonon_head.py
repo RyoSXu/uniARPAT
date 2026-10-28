@@ -99,6 +99,15 @@ def binned_modes(frequencies, edges, sigma):
     return (cdf[:, 1:] - cdf[:, :-1]).sum(0) / frequencies.shape[0]
 
 
+def window_logits(modes, total_modes, floor):
+    """Shape logits from in-window modes per cell.
+
+    Normalizing by the fixed 3N instead of the in-window sum keeps gradients
+    finite when every mode of a crystal leaves the window.
+    """
+    return torch.log(modes / total_modes[:, None] + floor)
+
+
 class PhononSpringHead(nn.Module):
     def __init__(self, d_model, radius, *, atom_channels=64, hidden_channels=128, q_length=20.0,
                  max_q_points=512, initial_width_bins=1.0, min_width_bins=0.25, shape_floor=1e-6):
@@ -179,7 +188,6 @@ class PhononSpringHead(nn.Module):
                 meshes[sizes] = shifted_mesh(sizes, memory.device, memory.dtype)
             nu = harmonic_frequencies(blocks[chosen], compact[b, dst], compact[b, src], delta,
                                       masses[b][valid[b]], meshes[sizes])
-            spectra.append(binned_modes(nu, edges, sigma) / bin_width)
-        dos = torch.stack(spectra)
-        shape = dos / dos.sum(-1, keepdim=True).clamp_min(torch.finfo(dos.dtype).tiny)
-        return torch.log(shape + self.shape_floor)
+            spectra.append(binned_modes(nu, edges, sigma))
+        total = 3.0 * valid.sum(-1).to(memory.dtype)
+        return window_logits(torch.stack(spectra), total, self.shape_floor)

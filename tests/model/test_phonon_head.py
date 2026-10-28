@@ -10,7 +10,7 @@ import unittest
 import torch
 
 from model.phonon_head import (
-    CM_PER_SQRT_EV_A2_AMU, PhononSpringHead, binned_modes, harmonic_frequencies, mesh_sizes,
+    CM_PER_SQRT_EV_A2_AMU, PhononSpringHead, binned_modes, harmonic_frequencies, mesh_sizes, window_logits,
 )
 from tests.model.test_local_global_encoder import fixture
 from utils.crystal import CrystalGeometry
@@ -107,7 +107,7 @@ class TestPhononHead(unittest.TestCase):
         records, mask, geom = head_inputs(geometry.cell, geometry.frac_coords, z)
         base = head(memory, records, z, mask, geom, centers)
         self.assertTrue(torch.isfinite(base).all())
-        torch.testing.assert_close(base.exp().sum(-1), torch.ones(2, dtype=DTYPE), rtol=0, atol=1e-4)
+        self.assertTrue((base.exp().sum(-1) <= 1 + 64 * head.shape_floor + 1e-9).all())
 
         angle = 0.7
         rotation = torch.tensor([[math.cos(angle), -math.sin(angle), 0.], [math.sin(angle), math.cos(angle), 0.],
@@ -133,6 +133,29 @@ class TestPhononHead(unittest.TestCase):
         (-(target * torch.log_softmax(logits, -1)).sum()).backward()
         self.assertTrue(torch.isfinite(memory.grad).all() and memory.grad.abs().sum() > 0)
         self.assertTrue(torch.isfinite(head.width.grad) and head.width.grad != 0)
+
+    def test_modes_leaving_the_window_keep_logits_and_gradients_finite(self):
+        old = torch.get_default_dtype()
+        torch.set_default_dtype(torch.float32)
+        try:
+            edges = torch.linspace(-280, 980, 65)
+            centers = (edges[1:] + edges[:-1]) / 2
+            target = torch.softmax(-((centers - 300) / 150) ** 2, 0)
+            shifts = torch.tensor([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]],
+                                  dtype=torch.float32)
+            zeros = torch.zeros(6, dtype=torch.long)
+            q = torch.rand(64, 3, generator=torch.Generator().manual_seed(0))
+            for stiffness in (5.0, 40.0, -40.0):
+                springs = torch.tensor([stiffness, stiffness], requires_grad=True)
+                blocks = springs[1] * torch.eye(3) + (springs[0] - springs[1]) * shifts[:, :, None] * shifts[:, None, :]
+                nu = harmonic_frequencies(blocks, zeros, zeros, shifts, torch.tensor([1.008]), q)
+                modes = binned_modes(nu, edges, torch.tensor(19.6875))
+                logits = window_logits(modes[None], torch.tensor([3.0]), 1e-6)
+                loss = -(target * torch.log_softmax(logits[0], 0)).sum()
+                loss.backward()
+                self.assertTrue(torch.isfinite(logits).all() and torch.isfinite(springs.grad).all(), stiffness)
+        finally:
+            torch.set_default_dtype(old)
 
     def test_mesh_is_denser_for_small_cells_and_capped(self):
         self.assertEqual(mesh_sizes(3.0 * torch.eye(3).numpy(), 20.0, 512), (7, 7, 7))

@@ -55,7 +55,7 @@
 | 共享 decoder 拆成两套是否提高联合误差 | [方案](design/design-2026-10-28-split-decoder.md)、[结果：不采用](logs/log-2026-10-28-split-decoder-run.md) |
 | 本机还有没有 Q1 以外的晶体结构 | [只读盘点](logs/log-2026-10-28-structure-pool-inventory.md) |
 | 误差主要在哪、单模型随机差异有多大 | [误差结构与已有模型平均](logs/log-2026-10-28-error-structure-ensemble.md) |
-| 声子谱改由学习弹簧加精确晶格动力学给出 | [设计](design/design-2026-10-28-phonon-lattice-head.md)、[实现与短检](logs/log-2026-10-28-phonon-head-preparation.md)，正式训练未启动 |
+| 声子谱改由学习弹簧加精确晶格动力学给出 | [设计](design/design-2026-10-28-phonon-lattice-head.md)、[实现与短检](logs/log-2026-10-28-phonon-head-preparation.md)、[首轮中断与修复](logs/log-2026-10-28-phonon-head-run-failure.md) |
 
 其他设计与证据见 [design/](design/)、[logs/](logs/)；早期研究见 [archive/docs/](../archive/docs/)。历史待办不自动成为当前执行指令。
 新文档使用[设计模板](design/template.md)或[日志模板](logs/template.md)。
