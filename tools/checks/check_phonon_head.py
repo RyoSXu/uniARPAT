@@ -34,14 +34,16 @@ from utils.spectral_balance_experiment import validate_balance_config
 
 PROTOCOL = "results/runs/spectral_shape_aux_20261025/protocol.json"
 TAG = "_sbal_phonon20261028_shape_a64_s42_e35"
+PRIOR_TAG = "_sbal_phonprior20261028_shape_a64_s42_e35"
 
 
-def candidate_config(data_dir):
+def candidate_config(data_dir, correction=False):
     return ExperimentConfig(**{**FROZEN, "local_route": "I3", "scale_mode": "per_atom",
                                "selection_metric": ENERGY_METRIC,
                                "spectral_balance_config": str(input_path(PROTOCOL)),
                                "spectral_shape_aux": True, "phonon_head": True,
-                               "data_dir": str(input_path(data_dir)), "tag": TAG})
+                               "phonon_correction": correction,
+                               "data_dir": str(input_path(data_dir)), "tag": PRIOR_TAG if correction else TAG})
 
 
 def build(cfg):
@@ -74,16 +76,16 @@ def updates(model, batches, pair_budget):
     return timings, losses, torch.cuda.max_memory_allocated() / 1024**2
 
 
-def check(out, data_dir, batches=3):
+def check(out, data_dir, batches=3, correction=False):
     out = Path(out)
     if out.exists():
         raise FileExistsError(f"use a new preflight output directory: {out}")
     if not torch.cuda.is_available():
         raise ValueError("real-batch preflight requires CUDA")
     torch.set_num_threads(1)
-    cfg = candidate_config(data_dir)
+    cfg = candidate_config(data_dir, correction)
     validate_balance_config(cfg)
-    control_cfg = replace(cfg, phonon_head=False, tag="_unit_phonon_control")
+    control_cfg = replace(cfg, phonon_head=False, phonon_correction=False, tag="_unit_phonon_control")
 
     builder, model, params, init = build(cfg)
     loader = builder.get_dataloader(split="train", batch_size=cfg.batch_size, dos_minmax=True, dos_sumnorm=True)
@@ -137,8 +139,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True)
     parser.add_argument("--data-dir", default="data/crystal_q1_v1")
+    parser.add_argument("--correction", action="store_true", help="physics prior plus learned correction")
     args = parser.parse_args()
-    result = check(input_path(args.out), args.data_dir)
+    result = check(input_path(args.out), args.data_dir, correction=args.correction)
     print(json.dumps({key: result[key] for key in (
         "passed", "gpu", "candidate_update_seconds", "control_update_seconds", "candidate_peak_allocated_mib",
         "control_peak_allocated_mib", "loss_evaluation_difference", "initial_physics_after_updates")},

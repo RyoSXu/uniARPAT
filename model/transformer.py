@@ -152,7 +152,7 @@ class Transformer(nn.Module):
                   local_route="none", local_layout=None, local_depth=None,
                   global_depth=None,
                   lg_baseline=False, local_scalar_channels=None, local_hidden_channels=None,
-                  phonon_head=False):
+                  phonon_head=False, phonon_correction=False):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
@@ -466,6 +466,9 @@ class Transformer(nn.Module):
 
         # Built last so every pre-existing tensor keeps its random stream.
         self.phonon_head = None
+        if phonon_correction and not phonon_head:
+            raise ValueError("phonon correction needs the phonon head")
+        self.phonon_correction = bool(phonon_correction)
         if phonon_head:
             if local_route in ("none", "C0", "G0", "O0") or scale_mode != "per_atom":
                 raise ValueError("phonon head needs periodic local records and the per-atom total head")
@@ -718,7 +721,7 @@ class Transformer(nn.Module):
             )
             c5_balance_edos = self.decoder.last_c5_moe_balance
             c5_load_edos = self.decoder.last_c5_moe_load
-            if not hasattr(self, "atom_phdos_head") and self.phonon_head is None:
+            if not hasattr(self, "atom_phdos_head") and (self.phonon_head is None or self.phonon_correction):
                 hs_phdos, _ = self.decoder(
                     phdos_tgt_input, decoder_memory,
                     memory_key_padding_mask=decoder_mask,
@@ -747,6 +750,8 @@ class Transformer(nn.Module):
                 out_phdos = self.phdos_out_head(hs_phdos.permute(0, 2, 1)).squeeze(1) # -> [B, phdos_num]
             else:
                 out_phdos = self.phonon_head(memory, records, atom_idx, mask_atom, pos, phdos_x)
+                if self.phonon_correction:
+                    out_phdos = out_phdos + self.phdos_out_head(hs_phdos.permute(0, 2, 1)).squeeze(1)
 
         results['edos'] = out_edos
         results['phdos'] = out_phdos

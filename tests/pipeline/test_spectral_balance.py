@@ -106,10 +106,56 @@ class BalancedPipelineTests(unittest.TestCase):
         self.assertTrue(all(p.grad is None for p in transformer.phdos_out_head.parameters()))
         self.assertTrue(all(p.grad is not None for p in transformer.edos_out_head.parameters()))
 
-    def training_model(self, *, shape_aux=False, phonon_head=False):
+    def test_phonon_correction_starts_exactly_at_the_physics_shape(self):
+        pure = self.training_model(shape_aux=True, phonon_head=True)
+        prior = self.training_model(shape_aux=True, phonon_head=True, phonon_correction=True)
+        for model in (pure, prior):
+            params = model.params['sub_model']['transformer']
+            initialize_comparison_model(model.model['transformer'], params, 42)
+        pure_state, prior_state = pure.model['transformer'].state_dict(), prior.model['transformer'].state_dict()
+        final = [key for key in prior_state if key.startswith('phdos_out_head.layers.10.')]
+        self.assertEqual(len(final), 2)
+        for key, value in prior_state.items():
+            if key in final:
+                self.assertEqual(int(torch.count_nonzero(value)), 0)
+            else:
+                torch.testing.assert_close(value, pure_state[key], rtol=0, atol=0)
+        items = [grid_sample(3, 42), grid_sample(2, 43)]
+        for item in items:
+            item[14] = None
+        batch = crystal_collate(items)
+        outputs = []
+        for model in (pure, prior):
+            model.model['transformer'].eval()
+            inp, pos, mask, *rest = model.data_preprocess(batch)
+            with torch.no_grad():
+                outputs.append(model.model['transformer'](inp, mask, pos, rest[-2], rest[-1]))
+        for key in ('edos', 'phdos', 'mass_logits'):
+            torch.testing.assert_close(outputs[1][key], outputs[0][key], rtol=0, atol=0)
+
+    def test_phonon_correction_learns_through_the_zeroed_final_convolution(self):
+        model = self.training_model(shape_aux=True, phonon_head=True, phonon_correction=True)
+        initialize_comparison_model(model.model['transformer'], model.params['sub_model']['transformer'], 42)
+        items = [grid_sample(3, 42), grid_sample(2, 43)]
+        for item in items:
+            item[14] = None
+        batch = crystal_collate(items)
+        stats = model.train_one_step(batch, 0)
+        metrics = trainer.evaluate_local_global_split(model, [batch])
+        auxiliary = .5 * (stats['loss_shape_e'] + stats['loss_shape_p'])
+        self.assertAlmostEqual(stats['loss'] - auxiliary, metrics[ENERGY_METRIC], places=6)
+        transformer = model.model['transformer']
+        final = transformer.phdos_out_head.layers[10]
+        self.assertGreater(float(final.weight.grad.abs().sum()), 0.)
+        self.assertTrue(all(p.grad is not None and torch.isfinite(p.grad).all()
+                            for p in transformer.phonon_head.parameters()))
+
+    def training_model(self, *, shape_aux=False, phonon_head=False, phonon_correction=False):
         transformer = {**model_params('I3'), 'scale_mode': 'per_atom'}
         if phonon_head:
             transformer['phonon_head'] = True
+        if phonon_correction:
+            transformer['phonon_correction'] = True
         model = basemodel(logging.getLogger('balanced-test'), loss_form=ENERGY_METRIC,
             spectral_balance=protocol((8, 4)), spectral_shape_aux=shape_aux, metrics_list=[],
             sub_model={'transformer': transformer},

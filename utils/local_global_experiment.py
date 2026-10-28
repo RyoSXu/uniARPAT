@@ -406,6 +406,7 @@ def training_record(cfg: ExperimentConfig) -> dict:
             and (key != 'spectral_shape_aux' or value)
             and (key != 'split_decoder' or value)
             and (key != 'phonon_head' or value)
+            and (key != 'phonon_correction' or value)
             and (key != 'global_depth' or value is not None)}
 
 

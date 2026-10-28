@@ -30,15 +30,26 @@ def legacy_balance_config(cfg):
     # the actual manifest/payload hashes independently, so equivalent absolute
     # paths need not be rejected by the historical recipe's spelling.
     return replace(cfg, spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
-                   phonon_head=False, scale_mode="eta", selection_metric="balanced_blind_r2",
-                   data_dir=ExperimentConfig().data_dir)
+                   phonon_head=False, phonon_correction=False, scale_mode="eta",
+                   selection_metric="balanced_blind_r2", data_dir=ExperimentConfig().data_dir)
 
 
 def _backbone_params(params):
     """A64 reference parameters without the opt-in readout changes."""
     base = {**params, "scale_mode": "eta", "decoupled_decoder": False}
     base.pop("phonon_head", None)
+    base.pop("phonon_correction", None)
     return base
+
+
+def _final_phdos_conv(state):
+    """Keys of the last convolution in the original phDOS readout."""
+    indices = {int(key.split(".")[2]) for key in state
+               if key.startswith("phdos_out_head.layers.") and key.endswith(".weight")}
+    if not indices:
+        raise ValueError("phonon correction needs the original convolutional phDOS readout")
+    last = max(indices)
+    return f"phdos_out_head.layers.{last}.weight", f"phdos_out_head.layers.{last}.bias"
 
 
 def validate_balance_config(cfg):
@@ -51,6 +62,8 @@ def validate_balance_config(cfg):
         raise ValueError("split decoder requires the fixed shape auxiliary on the current recipe")
     if cfg.phonon_head and (not cfg.spectral_shape_aux or cfg.split_decoder):
         raise ValueError("phonon head is a single candidate on the shape-auxiliary recipe")
+    if cfg.phonon_correction and not cfg.phonon_head:
+        raise ValueError("phonon correction needs the phonon head")
     shape_supervision_contract(cfg.spectral_shape_aux)
     validate_local_global_config(legacy_balance_config(cfg))
     protocol = load_balance_protocol(cfg.spectral_balance_config, cfg.data_dir)
@@ -91,7 +104,8 @@ def balance_model_contract(cfg, params):
                         **shape_supervision_contract(True))
     elif params.get("decoupled_decoder"):
         raise ValueError("decoupled decoder weights require the split decoder candidate")
-    if cfg.phonon_head != bool(params.get("phonon_head")):
+    if (cfg.phonon_head != bool(params.get("phonon_head"))
+            or cfg.phonon_correction != bool(params.get("phonon_correction"))):
         raise ValueError("phonon head flag and model parameters disagree")
     if cfg.phonon_head:
         contract.update(schema="joint-spectral-balance-phonon-head-v1",
@@ -104,8 +118,15 @@ def balance_model_contract(cfg, params):
                                      "mesh": "shifted Monkhorst-Pack, ceil(20 A / plane spacing), <= 512 points",
                                      "broadening": "one learned Gaussian width, initial 1 bin, floor 0.25 bin",
                                      "masses": "pymatgen standard atomic masses",
-                                     "output": "normalized window shape as logits"},
+                                     "output": "in-window modes per 3N, floored, as logits"},
                         **shape_supervision_contract(True))
+    if cfg.phonon_correction:
+        contract["phonon_head"]["correction"] = ("original phDOS decoder and convolutional readout added to the "
+                                                 "physics logits; its final convolution starts at zero")
+        contract.update(schema="joint-spectral-balance-phonon-prior-v1",
+                        scope="phDOS shape = physics prior from learned springs times a learned correction; "
+                              "start equals the physics shape; total, eDOS path, encoder, loss, data and "
+                              "checkpoint rule unchanged")
     return contract
 
 
@@ -153,6 +174,10 @@ def initialize_balance_model(transformer, params, seed):
             torch.random.default_generator.manual_seed(seed)
             head = PhononSpringHead(transformer.d_model, LOCAL_RADIUS)
         mapped.update({f"phonon_head.{key}": value for key, value in head.state_dict().items()})
+    correction = bool(params.get("phonon_correction"))
+    if correction:
+        for key in _final_phdos_conv(mapped):
+            mapped[key] = torch.zeros_like(mapped[key])
     expected = transformer.state_dict()
     if expected.keys() != mapped.keys() or any(expected[key].shape != mapped[key].shape for key in expected):
         raise ValueError("balanced mass head must preserve A64 MLP tensor shapes")
@@ -175,4 +200,6 @@ def initialize_balance_model(transformer, params, seed):
             "split_decoder": decoupled,
             "decoder_copies_identical_at_init": decoupled,
             **({"phonon_head": "seeded independent initialization; all A64 tensors copied"} if phonon else {}),
+            **({"phonon_correction": "final phDOS convolution zeroed; start equals the physics shape"}
+               if correction else {}),
             "update_counts": transformer.encoder.update_counts}

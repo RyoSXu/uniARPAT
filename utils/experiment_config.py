@@ -82,6 +82,7 @@ class ExperimentConfig:
     spectral_shape_aux: bool = False
     split_decoder: bool = False
     phonon_head: bool = False
+    phonon_correction: bool = False
     delta_edos: float = 0.09375
     delta_phdos: float = 19.6875
     freeze_backbone: bool = False
