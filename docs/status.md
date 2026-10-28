@@ -54,9 +54,8 @@ phDOS失败率则增加0.476 pp。相对旧A64，误差点差−0.00052、区间
 ## 尚未解决与下一步
 
 1. 结束本轮loss候选比较，保持工作配方与评价口径稳定，不自动继续调权、追加种子或轮数。
-2. 同组成谱差的归因已结束：层读出没有指定瓶颈；验证组也不是一批更小的结构差。
-   不自动改局部、全局、decoder，不自动再训练。下一问需要另定，不再从这条归因里产生。
-   [读出](logs/log-2026-10-27-shape-aux-stage-readout.md)、[组比较](logs/log-2026-10-27-shape-gap-comparability.md)
+2. 同组成谱差的归因已结束。下一组已定但未训练：只把共享 6 层 decoder 拆成两套，初值复制自同一套共享 decoder。
+   [方案](design/design-2026-10-28-split-decoder.md)、[读出](logs/log-2026-10-27-shape-aux-stage-readout.md)
 3. 数据风险继续单列：5条电子谱待核材料、N_val来源差异、coverage物理含义及输入／DOS计算几何不一致；
    未删除标签、改mask或重分箱。[语义审查](logs/log-2026-10-22-spectral-contract-audit.md)、[几何与来源](logs/log-2026-10-14-i1-pair-audit.md)
 4. 完整模型等价晶胞／超胞一致性、全面对称性验收与AMP仍未完成。

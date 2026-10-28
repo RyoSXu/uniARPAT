@@ -129,6 +129,15 @@ class SpectralShapeAuxTests(unittest.TestCase):
             restore_ablation_checkpoint(ck, model, opt, False, model_contract=new)
         parsed = build_arg_parser().parse_args(training_command(replace(cfg, spectral_shape_aux=True))[2:])
         self.assertTrue(parsed.spectral_shape_aux)
+        split_cfg = replace(cfg, spectral_shape_aux=True, split_decoder=True)
+        split_params = {**params, 'decoupled_decoder': True}
+        with patch('utils.spectral_balance_experiment.validate_balance_config', return_value=fixtures.protocol()):
+            with patch('utils.spectral_balance_experiment.file_sha256', return_value='unit'):
+                split_contract = comparison_contract(split_cfg, split_params)
+        self.assertEqual(split_contract['schema'], 'joint-spectral-balance-split-decoder-v1')
+        self.assertTrue(split_contract['training']['split_decoder'])
+        self.assertTrue(split_contract['training']['spectral_shape_aux'])
+        self.assertEqual(split_contract['checkpoint_selection'], new['checkpoint_selection'])
 
     def test_export_rejects_auxiliary_flag_or_formula_drift(self):
         policy = shape_supervision_contract(True)

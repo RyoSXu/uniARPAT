@@ -55,6 +55,24 @@ class BalancedPipelineTests(unittest.TestCase):
             torch.testing.assert_close(value, original.state_dict()[old_key], rtol=0, atol=0)
         self.assertEqual(sum(p.numel() for p in candidate.parameters()), sum(p.numel() for p in original.parameters()))
 
+    def test_split_decoder_copies_one_initial_decoder_into_both_tasks(self):
+        params = {**model_params('I3'), 'scale_mode': 'per_atom'}
+        shared = Transformer(**params)
+        initialize_comparison_model(shared, params, 42)
+        split_params = {**params, 'decoupled_decoder': True}
+        split = Transformer(**split_params)
+        info = initialize_comparison_model(split, split_params, 42)
+        self.assertTrue(info['split_decoder'])
+        shared_state, split_state = shared.state_dict(), split.state_dict()
+        for key, value in shared_state.items():
+            if key.startswith('decoder.'):
+                suffix = key[len('decoder.'):]
+                torch.testing.assert_close(split_state['edos_decoder.' + suffix], value, rtol=0, atol=0)
+                torch.testing.assert_close(split_state['phdos_decoder.' + suffix], value, rtol=0, atol=0)
+            else:
+                torch.testing.assert_close(split_state[key], value, rtol=0, atol=0)
+        self.assertFalse(any(key.startswith('decoder.') for key in split_state))
+
     def training_model(self, *, shape_aux=False):
         model = basemodel(logging.getLogger('balanced-test'), loss_form=ENERGY_METRIC,
             spectral_balance=protocol((8, 4)), spectral_shape_aux=shape_aux, metrics_list=[],

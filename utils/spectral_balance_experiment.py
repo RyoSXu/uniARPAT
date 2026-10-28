@@ -29,8 +29,9 @@ def legacy_balance_config(cfg):
     # Legacy factories compare this path as a string. The new protocol checks
     # the actual manifest/payload hashes independently, so equivalent absolute
     # paths need not be rejected by the historical recipe's spelling.
-    return replace(cfg, spectral_balance_config="", spectral_shape_aux=False, scale_mode="eta",
-                   selection_metric="balanced_blind_r2", data_dir=ExperimentConfig().data_dir)
+    return replace(cfg, spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
+                   scale_mode="eta", selection_metric="balanced_blind_r2",
+                   data_dir=ExperimentConfig().data_dir)
 
 
 def validate_balance_config(cfg):
@@ -39,6 +40,8 @@ def validate_balance_config(cfg):
     if (not cfg.spectral_balance_config or cfg.local_route != "I3"
             or cfg.scale_mode != "per_atom" or cfg.selection_metric != ENERGY_METRIC):
         raise ValueError("balanced spectra require I3/A64, per_atom scale and balanced_blind_energy")
+    if cfg.split_decoder and not cfg.spectral_shape_aux:
+        raise ValueError("split decoder requires the fixed shape auxiliary on the current recipe")
     shape_supervision_contract(cfg.spectral_shape_aux)
     validate_local_global_config(legacy_balance_config(cfg))
     protocol = load_balance_protocol(cfg.spectral_balance_config, cfg.data_dir)
@@ -55,7 +58,7 @@ def balance_model_contract(cfg, params):
     from utils.local_global_experiment import comparison_contract, training_record
 
     protocol = validate_balance_config(cfg)
-    base_params = {**params, "scale_mode": "eta"}
+    base_params = {**params, "scale_mode": "eta", "decoupled_decoder": False}
     base = comparison_contract(legacy_balance_config(cfg), base_params)
     contract = {"schema": "joint-spectral-balance-model-v1", "init_protocol": "joint-spectral-balance-init-v1",
             "seed": cfg.seed, "transformer": deepcopy(params), "normalization": cfg.norm,
@@ -70,7 +73,33 @@ def balance_model_contract(cfg, params):
                         scope="fixed shape auxiliary added to the completed blind-energy control; "
                               "same A64 tensors, mass reconstruction, data, budget and checkpoint rule",
                         **shape_supervision_contract(True))
+    if cfg.split_decoder:
+        if not params.get("decoupled_decoder"):
+            raise ValueError("split decoder candidate must construct two task decoders")
+        contract.update(schema="joint-spectral-balance-split-decoder-v1",
+                        scope="two full 6-layer decoders copied from one shared initial decoder; "
+                              "queries, heads, encoder, loss, data and checkpoint rule unchanged; "
+                              "extra parameters are the second decoder and are not capacity-matched",
+                        **shape_supervision_contract(True))
+    elif params.get("decoupled_decoder"):
+        raise ValueError("decoupled decoder weights require the split decoder candidate")
     return contract
+
+
+def _install_split_decoder(shared_state, target):
+    """Copy one shared decoder into both task decoders. Other tensors stay put."""
+    expected = target.state_dict()
+    mapped = {}
+    for key, value in shared_state.items():
+        destinations = (f"edos_decoder.{key[len('decoder.'):]}", f"phdos_decoder.{key[len('decoder.'):]}") \
+            if key.startswith("decoder.") else (key,)
+        for dest in destinations:
+            if dest not in expected or expected[dest].shape != value.shape:
+                raise ValueError(f"split decoder tensor does not match the shared decoder: {dest}")
+            mapped[dest] = value.detach().clone()
+    if set(mapped) != set(expected):
+        raise ValueError("split decoder leaves tensors outside the shared initialization")
+    return mapped
 
 
 def initialize_balance_model(transformer, params, seed):
@@ -81,7 +110,8 @@ def initialize_balance_model(transformer, params, seed):
 
     if params.get("scale_mode") != "per_atom" or params.get("local_route") != "I3":
         raise ValueError("balanced initialization requires per_atom complete A64")
-    base_params = {**params, "scale_mode": "eta"}
+    decoupled = bool(params.get("decoupled_decoder"))
+    base_params = {**params, "scale_mode": "eta", "decoupled_decoder": False}
     with torch.random.fork_rng(devices=[]):
         torch.random.default_generator.manual_seed(seed)
         reference = Transformer(**base_params)
@@ -89,6 +119,8 @@ def initialize_balance_model(transformer, params, seed):
     state = reference.state_dict()
     mapped = {key.replace("eta_head.", "mass_head.", 1) if key.startswith("eta_head.") else key: value
               for key, value in state.items()}
+    if decoupled:
+        mapped = _install_split_decoder(mapped, transformer)
     expected = transformer.state_dict()
     if expected.keys() != mapped.keys() or any(expected[key].shape != mapped[key].shape for key in expected):
         raise ValueError("balanced mass head must preserve A64 MLP tensor shapes")
@@ -97,8 +129,17 @@ def initialize_balance_model(transformer, params, seed):
     actual = transformer.state_dict()
     if any(not torch.equal(actual[key], value.to(actual[key])) for key, value in mapped.items()):
         raise ValueError("balanced initialization did not preserve mapped initial tensors")
+    if decoupled:
+        for key, value in actual.items():
+            if not key.startswith("edos_decoder."):
+                continue
+            other = actual["phdos_decoder." + key[len("edos_decoder."):]]
+            if not torch.equal(value, other):
+                raise ValueError("task decoders diverged at initialization")
     return {"protocol": "joint-spectral-balance-init-v1", "seed": seed,
             "a64_initialization": info, "state_sha256": state_hash(actual),
             "mass_head_mapping": "eta_head.mlp -> mass_head.mlp; raw e/p mass logits replace bounded ph/e ratios",
             "backbone_initial_tensors_identical": True,
+            "split_decoder": decoupled,
+            "decoder_copies_identical_at_init": decoupled,
             "update_counts": transformer.encoder.update_counts}

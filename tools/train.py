@@ -499,6 +499,10 @@ def train_and_eval(cfg: ExperimentConfig):
         yaml_cfg =yaml .load (f ,Loader =yaml .FullLoader )
 
     yaml_cfg ['model']['params']['sub_model']['transformer'].update (config_info ['transformer_params'])
+    if cfg.split_decoder:
+        if cfg.model_name != "M1" or not cfg.spectral_shape_aux:
+            raise ValueError("split decoder is only the M1 shape-auxiliary candidate")
+        yaml_cfg['model']['params']['sub_model']['transformer']['decoupled_decoder'] = True
     # Command-line grid settings override the template dimensions and data path.
     yaml_cfg ['model']['params']['sub_model']['transformer']['edos_num']=cfg.edos_num
     yaml_cfg ['model']['params']['sub_model']['transformer']['phdos_num']=cfg.phdos_num
@@ -809,6 +813,7 @@ def train_and_eval(cfg: ExperimentConfig):
             'eta_sup_w':cfg.eta_sup_w ,
             **({'spectral_balance_config': cfg.spectral_balance_config} if spectral_balance is not None else {}),
             **({'spectral_shape_aux': True} if cfg.spectral_shape_aux else {}),
+            **({'split_decoder': True} if cfg.split_decoder else {}),
             'delta_edos':cfg.delta_edos ,'delta_phdos':cfg.delta_phdos ,
             'scalar_mode':cfg.scalar_mode ,'scalar_sup_w':cfg.scalar_sup_w ,
             'use_g1':cfg.use_g1 ,'g1_r_cut':cfg.g1_r_cut ,
@@ -1490,6 +1495,7 @@ def build_arg_parser():
     parser.add_argument('--scale_mode', type=str, default='eta', choices=['none', 'decoupled', 'eta', 'per_atom'], help='Blind-inference scale head; eta is the default')
     parser.add_argument('--spectral_balance_config', default='', help='Frozen train normalization and valid guards for the opt-in balanced spectrum protocol')
     parser.add_argument('--spectral_shape_aux', action='store_true', help='Add the single fixed equal-task shape auxiliary; checkpoint selection remains blind energy')
+    parser.add_argument('--split_decoder', action='store_true', help='Replace the shared 6-layer decoder with two copies of its initial weights')
     parser.add_argument('--eta_sup_w', type=float, default=1.0, help='Eta/gamma auxiliary-loss weight')
     parser.add_argument('--delta_edos', type=float, default=0.09375, help='eDOS bin width in eV for eta/gamma supervision')
     parser.add_argument('--delta_phdos', type=float, default=19.6875, help='phDOS bin width in cm^-1 for eta/gamma supervision')

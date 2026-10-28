@@ -52,6 +52,7 @@
 | 小样本拟合与困难材料对 | [小样本拟合](logs/log-2026-10-12-local-structure-small-fit.md)、[困难对归因](logs/log-2026-10-12-hard-pair-attribution.md)、[损失隔离](logs/log-2026-10-12-local-structure-loss-isolation.md) |
 | 谱形辅助 checkpoint 上同组成谱差停在哪一层 | [冻结逐阶段读出设计](design/design-2026-10-27-shape-aux-stage-readout.md)、[正式结果](logs/log-2026-10-27-shape-aux-stage-readout.md) |
 | 验证组是不是比训练成功组更小的结构差 | [比较设计](design/design-2026-10-27-shape-gap-comparability.md)、[结果](logs/log-2026-10-27-shape-gap-comparability.md) |
+| 共享 decoder 拆成两套是否提高联合误差 | [双 decoder 方案](design/design-2026-10-28-split-decoder.md)，训练尚未启动 |
 
 其他设计与证据见 [design/](design/)、[logs/](logs/)；早期研究见 [archive/docs/](../archive/docs/)。历史待办不自动成为当前执行指令。
 新文档使用[设计模板](design/template.md)或[日志模板](logs/template.md)。

@@ -44,9 +44,14 @@ def load_run(run_dir: Path):
             raise ValueError('balanced run loss/reconstruction differs from its checkpoint contract')
         enabled = model_params.get('spectral_shape_aux', False)
         expected_shape = shape_supervision_contract(enabled)
+        shape_schema = contract.get('schema') in {
+            'joint-spectral-balance-shape-model-v1', 'joint-spectral-balance-split-decoder-v1'}
+        split = contract.get('schema') == 'joint-spectral-balance-split-decoder-v1'
         if (enabled != contract.get('training', {}).get('spectral_shape_aux', False)
                 or contract.get('shape_supervision') != expected_shape.get('shape_supervision')
-                or enabled != (contract['schema'] == 'joint-spectral-balance-shape-model-v1')):
+                or enabled != shape_schema
+                or split != bool(contract.get('training', {}).get('split_decoder'))
+                or split != bool(params.get('decoupled_decoder'))):
             raise ValueError('shape auxiliary differs from the saved training/checkpoint contract')
     return saved, params, contract
 

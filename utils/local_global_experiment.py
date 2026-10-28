@@ -404,6 +404,7 @@ def training_record(cfg: ExperimentConfig) -> dict:
             if key not in ('tag', 'skip_existing')
             and (key != 'spectral_balance_config' or value)
             and (key != 'spectral_shape_aux' or value)
+            and (key != 'split_decoder' or value)
             and (key != 'global_depth' or value is not None)}
 
 
