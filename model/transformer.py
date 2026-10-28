@@ -151,7 +151,8 @@ class Transformer(nn.Module):
                   g2_content_mode="radial", use_periodic_manybody=False,
                   local_route="none", local_layout=None, local_depth=None,
                   global_depth=None,
-                  lg_baseline=False, local_scalar_channels=None, local_hidden_channels=None):
+                  lg_baseline=False, local_scalar_channels=None, local_hidden_channels=None,
+                  phonon_head=False):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
@@ -463,6 +464,18 @@ class Transformer(nn.Module):
                 self.scale_head.mlp[-1].bias.copy_(torch.tensor([3.0, -1.5]))
             assert torch.allclose(self.scale_head.mlp[-1].bias, torch.tensor([3.0, -1.5])), "ScaleHead bias verification failed!"
 
+        # Built last so every pre-existing tensor keeps its random stream.
+        self.phonon_head = None
+        if phonon_head:
+            if local_route in ("none", "C0", "G0", "O0") or scale_mode != "per_atom":
+                raise ValueError("phonon head needs periodic local records and the per-atom total head")
+            if (decoupled_decoder or use_gated_cross_attn or atom_additive_phdos or self.r1a_point
+                    or self.c5_moe or predict_scale):
+                raise ValueError("phonon head replaces only the plain shared phDOS readout")
+            from model.local_global_encoder import LOCAL_RADIUS
+            from model.phonon_head import PhononSpringHead
+            self.phonon_head = PhononSpringHead(d_model, LOCAL_RADIUS)
+
         self.d_model = d_model
         self.nhead = nhead
 
@@ -553,6 +566,7 @@ class Transformer(nn.Module):
             atom_src = atom_src + self.macro_lattice_alpha * self.macro_lattice_mlp(macro).unsqueeze(1)
 
         # Compute relative geometry features
+        records = None
         if self.local_route in ("C0", "G0", "O0"):
             memory = self.encoder(atom_src, None, mask_atom)
         elif self.local_route != "none":
@@ -704,7 +718,7 @@ class Transformer(nn.Module):
             )
             c5_balance_edos = self.decoder.last_c5_moe_balance
             c5_load_edos = self.decoder.last_c5_moe_load
-            if not hasattr(self, "atom_phdos_head"):
+            if not hasattr(self, "atom_phdos_head") and self.phonon_head is None:
                 hs_phdos, _ = self.decoder(
                     phdos_tgt_input, decoder_memory,
                     memory_key_padding_mask=decoder_mask,
@@ -729,7 +743,10 @@ class Transformer(nn.Module):
             out_phdos = self.phdos_out_head(hs_phdos).squeeze(-1) # [B, phdos_num, 1] -> [B, phdos_num]
         else:
             out_edos = self.edos_out_head(hs_edos.permute(0, 2, 1)).squeeze(1) # -> [B, edos_num]
-            out_phdos = self.phdos_out_head(hs_phdos.permute(0, 2, 1)).squeeze(1) # -> [B, phdos_num]
+            if self.phonon_head is None:
+                out_phdos = self.phdos_out_head(hs_phdos.permute(0, 2, 1)).squeeze(1) # -> [B, phdos_num]
+            else:
+                out_phdos = self.phonon_head(memory, records, atom_idx, mask_atom, pos, phdos_x)
 
         results['edos'] = out_edos
         results['phdos'] = out_phdos

@@ -73,10 +73,46 @@ class BalancedPipelineTests(unittest.TestCase):
                 torch.testing.assert_close(split_state[key], value, rtol=0, atol=0)
         self.assertFalse(any(key.startswith('decoder.') for key in split_state))
 
-    def training_model(self, *, shape_aux=False):
+    def test_phonon_head_keeps_every_a64_tensor_and_seeds_only_the_head(self):
+        params = {**model_params('I3'), 'scale_mode': 'per_atom'}
+        shared = Transformer(**params)
+        initialize_comparison_model(shared, params, 42)
+        phonon_params = {**params, 'phonon_head': True}
+        first, second = Transformer(**phonon_params), Transformer(**phonon_params)
+        info = initialize_comparison_model(first, phonon_params, 42)
+        initialize_comparison_model(second, phonon_params, 42)
+        self.assertIn('phonon_head', info)
+        state, again = first.state_dict(), second.state_dict()
+        for key, value in shared.state_dict().items():
+            torch.testing.assert_close(state[key], value, rtol=0, atol=0)
+        head = [key for key in state if key.startswith('phonon_head.')]
+        self.assertTrue(head and set(state) == set(shared.state_dict()) | set(head))
+        for key in head:
+            torch.testing.assert_close(state[key], again[key], rtol=0, atol=0)
+
+    def test_phonon_head_trains_through_shared_objective_and_skips_old_phdos_readout(self):
+        model = self.training_model(shape_aux=True, phonon_head=True)
+        items = [grid_sample(3, 42), grid_sample(2, 43)]
+        for item in items:
+            item[14] = None
+        batch = crystal_collate(items)
+        stats = model.train_one_step(batch, 0)
+        metrics = trainer.evaluate_local_global_split(model, [batch])
+        auxiliary = .5 * (stats['loss_shape_e'] + stats['loss_shape_p'])
+        self.assertAlmostEqual(stats['loss'] - auxiliary, metrics[ENERGY_METRIC], places=6)
+        transformer = model.model['transformer']
+        self.assertTrue(all(p.grad is not None and torch.isfinite(p.grad).all()
+                            for p in transformer.phonon_head.parameters()))
+        self.assertTrue(all(p.grad is None for p in transformer.phdos_out_head.parameters()))
+        self.assertTrue(all(p.grad is not None for p in transformer.edos_out_head.parameters()))
+
+    def training_model(self, *, shape_aux=False, phonon_head=False):
+        transformer = {**model_params('I3'), 'scale_mode': 'per_atom'}
+        if phonon_head:
+            transformer['phonon_head'] = True
         model = basemodel(logging.getLogger('balanced-test'), loss_form=ENERGY_METRIC,
             spectral_balance=protocol((8, 4)), spectral_shape_aux=shape_aux, metrics_list=[],
-            sub_model={'transformer': {**model_params('I3'), 'scale_mode': 'per_atom'}},
+            sub_model={'transformer': transformer},
             optimizer={'transformer': {'type': 'AdamW', 'params': {'lr': 0.}}}, lr_scheduler={})
         model.to(torch.device('cpu'))
         return model

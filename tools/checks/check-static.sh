@@ -44,6 +44,7 @@ PY
     tests.pipeline.test_thermodynamics \
     tests.model.test_gated_attention \
     tests.model.test_scale_normalization \
+    tests.model.test_phonon_head \
     archive.code.tests.test_g1_graph \
     archive.code.tests.test_g2_structure_path_audit \
     archive.code.tests.test_g2_frozen_readout_probe \

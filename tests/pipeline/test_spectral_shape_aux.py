@@ -138,6 +138,24 @@ class SpectralShapeAuxTests(unittest.TestCase):
         self.assertTrue(split_contract['training']['split_decoder'])
         self.assertTrue(split_contract['training']['spectral_shape_aux'])
         self.assertEqual(split_contract['checkpoint_selection'], new['checkpoint_selection'])
+        phonon_cfg = replace(cfg, spectral_shape_aux=True, phonon_head=True)
+        phonon_params = {**params, 'phonon_head': True}
+        with patch('utils.spectral_balance_experiment.validate_balance_config', return_value=fixtures.protocol()):
+            with patch('utils.spectral_balance_experiment.file_sha256', return_value='unit'):
+                phonon_contract = comparison_contract(phonon_cfg, phonon_params)
+                with self.assertRaisesRegex(ValueError, 'phonon head flag'):
+                    comparison_contract(phonon_cfg, params)
+        self.assertEqual(phonon_contract['schema'], 'joint-spectral-balance-phonon-head-v1')
+        self.assertTrue(phonon_contract['training']['phonon_head'])
+        self.assertEqual(phonon_contract['checkpoint_selection'], new['checkpoint_selection'])
+        self.assertNotIn('phonon_head', phonon_contract['backbone_reference']['transformer'])
+        for bad in (replace(cfg, phonon_head=True), replace(cfg, spectral_shape_aux=True, phonon_head=True,
+                                                             split_decoder=True)):
+            with self.assertRaisesRegex(ValueError, 'phonon head'):
+                from utils.spectral_balance_experiment import validate_balance_config
+                validate_balance_config(bad)
+        parsed = build_arg_parser().parse_args(training_command(phonon_cfg)[2:])
+        self.assertTrue(parsed.phonon_head and parsed.spectral_shape_aux)
 
     def test_export_rejects_auxiliary_flag_or_formula_drift(self):
         policy = shape_supervision_contract(True)

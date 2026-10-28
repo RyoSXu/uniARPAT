@@ -33,6 +33,8 @@
 在共同结构表示之后研究两任务是否需要独立decoder及共享到哪一层。
 目前仍为六层共享decoder。2026-10-28 的完全拆开对照没有达到采用条件，不自动继续拆层或加深度。
 [方案](design-2026-10-28-split-decoder.md)、[结果](../logs/log-2026-10-28-split-decoder-run.md)
+随后改为按物理机制区分读出：phDOS 由学习弹簧和精确晶格动力学给出，eDOS 仍用共享 decoder。
+[声子物理头](design-2026-10-28-phonon-lattice-head.md)
 
 ## 4. 大规模数据利用
 

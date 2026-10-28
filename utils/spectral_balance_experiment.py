@@ -30,8 +30,15 @@ def legacy_balance_config(cfg):
     # the actual manifest/payload hashes independently, so equivalent absolute
     # paths need not be rejected by the historical recipe's spelling.
     return replace(cfg, spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
-                   scale_mode="eta", selection_metric="balanced_blind_r2",
+                   phonon_head=False, scale_mode="eta", selection_metric="balanced_blind_r2",
                    data_dir=ExperimentConfig().data_dir)
+
+
+def _backbone_params(params):
+    """A64 reference parameters without the opt-in readout changes."""
+    base = {**params, "scale_mode": "eta", "decoupled_decoder": False}
+    base.pop("phonon_head", None)
+    return base
 
 
 def validate_balance_config(cfg):
@@ -42,6 +49,8 @@ def validate_balance_config(cfg):
         raise ValueError("balanced spectra require I3/A64, per_atom scale and balanced_blind_energy")
     if cfg.split_decoder and not cfg.spectral_shape_aux:
         raise ValueError("split decoder requires the fixed shape auxiliary on the current recipe")
+    if cfg.phonon_head and (not cfg.spectral_shape_aux or cfg.split_decoder):
+        raise ValueError("phonon head is a single candidate on the shape-auxiliary recipe")
     shape_supervision_contract(cfg.spectral_shape_aux)
     validate_local_global_config(legacy_balance_config(cfg))
     protocol = load_balance_protocol(cfg.spectral_balance_config, cfg.data_dir)
@@ -58,8 +67,7 @@ def balance_model_contract(cfg, params):
     from utils.local_global_experiment import comparison_contract, training_record
 
     protocol = validate_balance_config(cfg)
-    base_params = {**params, "scale_mode": "eta", "decoupled_decoder": False}
-    base = comparison_contract(legacy_balance_config(cfg), base_params)
+    base = comparison_contract(legacy_balance_config(cfg), _backbone_params(params))
     contract = {"schema": "joint-spectral-balance-model-v1", "init_protocol": "joint-spectral-balance-init-v1",
             "seed": cfg.seed, "transformer": deepcopy(params), "normalization": cfg.norm,
             "selection_metric": ENERGY_METRIC, **energy_selection_contract(protocol),
@@ -83,6 +91,21 @@ def balance_model_contract(cfg, params):
                         **shape_supervision_contract(True))
     elif params.get("decoupled_decoder"):
         raise ValueError("decoupled decoder weights require the split decoder candidate")
+    if cfg.phonon_head != bool(params.get("phonon_head")):
+        raise ValueError("phonon head flag and model parameters disagree")
+    if cfg.phonon_head:
+        contract.update(schema="joint-spectral-balance-phonon-head-v1",
+                        scope="phDOS shape from learned Born-von Karman springs and exact harmonic "
+                              "lattice dynamics; total stays with the per-atom mass head; eDOS path, "
+                              "encoder, loss, data and checkpoint rule unchanged",
+                        phonon_head={"schema": "learned-spring-harmonic-dos-v1", "radius": 6.0,
+                                     "spring_form": "k_par r r^T + k_perp (I - r r^T); quintic cutoff",
+                                     "acoustic_sum_rule": "on-site block equals neighbor sum",
+                                     "mesh": "shifted Monkhorst-Pack, ceil(20 A / plane spacing), <= 512 points",
+                                     "broadening": "one learned Gaussian width, initial 1 bin, floor 0.25 bin",
+                                     "masses": "pymatgen standard atomic masses",
+                                     "output": "normalized window shape as logits"},
+                        **shape_supervision_contract(True))
     return contract
 
 
@@ -111,7 +134,8 @@ def initialize_balance_model(transformer, params, seed):
     if params.get("scale_mode") != "per_atom" or params.get("local_route") != "I3":
         raise ValueError("balanced initialization requires per_atom complete A64")
     decoupled = bool(params.get("decoupled_decoder"))
-    base_params = {**params, "scale_mode": "eta", "decoupled_decoder": False}
+    phonon = bool(params.get("phonon_head"))
+    base_params = _backbone_params(params)
     with torch.random.fork_rng(devices=[]):
         torch.random.default_generator.manual_seed(seed)
         reference = Transformer(**base_params)
@@ -121,6 +145,14 @@ def initialize_balance_model(transformer, params, seed):
               for key, value in state.items()}
     if decoupled:
         mapped = _install_split_decoder(mapped, transformer)
+    if phonon:
+        from model.local_global_encoder import LOCAL_RADIUS
+        from model.phonon_head import PhononSpringHead
+
+        with torch.random.fork_rng(devices=[]):
+            torch.random.default_generator.manual_seed(seed)
+            head = PhononSpringHead(transformer.d_model, LOCAL_RADIUS)
+        mapped.update({f"phonon_head.{key}": value for key, value in head.state_dict().items()})
     expected = transformer.state_dict()
     if expected.keys() != mapped.keys() or any(expected[key].shape != mapped[key].shape for key in expected):
         raise ValueError("balanced mass head must preserve A64 MLP tensor shapes")
@@ -142,4 +174,5 @@ def initialize_balance_model(transformer, params, seed):
             "backbone_initial_tensors_identical": True,
             "split_decoder": decoupled,
             "decoder_copies_identical_at_init": decoupled,
+            **({"phonon_head": "seeded independent initialization; all A64 tensors copied"} if phonon else {}),
             "update_counts": transformer.encoder.update_counts}
