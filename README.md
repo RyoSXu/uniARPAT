@@ -3,9 +3,10 @@
 从晶体结构预测电子态密度和声子态密度（eDOS 与 phDOS）。当前研究重点是同组成、不同结构材料的谱形差异预测。
 当前模型、阶段结论和下一步见[项目状态](docs/status.md)，其他说明见[文档索引](docs/index.md)。
 
-2026-10-27：已完成全谱目标与谱形辅助对照；后续研究工作参考为完整A64、每原子非负无固定上限总量、
-等权blind全谱误差加固定谱形辅助。相对纯全谱误差有所恢复，尚未解决同组成eDOS谱差；
-I1及旧模型仍作历史性能参照。同组成谱差的归因已结束：没有定位到某一层，验证组也不是更小的一类结构差。不据此改结构，也不自动追加训练。
+2026-10-31：用户确认以完整A64的LR2形式（关闭四个内部加法、保留外层残差）＋E＋S作为研究工作点，
+使用每原子非负无固定上限总量、等权blind全谱误差加固定谱形辅助。
+本次单seed总体误差改善，同组成谱差尚未检出明确改善；I1及旧模型保留历史性能参照。
+冻结读出和组比较未定位单层瓶颈，不自动追加训练。
 
 ## 开始使用
 
@@ -22,7 +23,7 @@ python3 -c "import json; print(json.load(open('data/crystal_q1_v1/manifest.json'
 ```
 
 数据字段、有效划分和旧 Q1 的兼容边界见[数据约定](docs/data.md)。训练配方和预算按获准设计执行，使用新的唯一标签；不同归一化方案不共用 checkpoint。
-当前工作配方须显式启用`per_atom`、冻结protocol、`--spectral_shape_aux`与`balanced_blind_energy`；
+当前工作配方须显式指定`--local_route LR2`、`per_atom`、冻结protocol、`--spectral_shape_aux`与`balanced_blind_energy`；
 命令行仍保留历史默认，不能直接当作当前研究配方。测试所需本地数据见[测试说明](tests/README.md)。
 数据来源、处理流程、单位和发布说明见[中文数据卡](docs/dataset-card-zh.md)、[English](docs/dataset-card-en.md)及[来源与许可](docs/dataset-sources.md)。
 未经明确批准，不运行 `--model all --epochs 100`。实验只用 train/valid 选型，具体规则见[已确定约定](docs/decisions.md)。

@@ -1,6 +1,6 @@
 # 文档导航
 
-进度同步：2026-10-27。先读[当前状态](status.md)。本页只提供入口；结论在状态页维护，过程、成本和验证记录在各实验日志维护。
+进度同步：2026-10-31。先读[当前状态](status.md)。本页只提供入口；结论在状态页维护，过程、成本和验证记录在各实验日志维护。
 
 ## 日常说明
 
@@ -16,7 +16,8 @@
 | 指标、模型和实验术语 | [glossary.md](glossary.md) |
 | 历史联合blind R²选点与双任务报告 | [实现、验证与兼容边界](logs/log-2026-10-15-joint-blind-selection.md) |
 | 当前总量与约束选点定义、纯E已完成对照 | [设计与科学定义](design/design-2026-10-23-balanced-blind-objective.md)、[准备与短检](logs/log-2026-10-23-balanced-blind-preparation.md)、[正式运行与核验](logs/log-2026-10-23-balanced-blind-run.md) |
-| 当前研究工作配方：E＋独立谱形辅助（已完成） | [单候选设计](design/design-2026-10-25-spectral-shape-supervision.md)、[准备与短检](logs/log-2026-10-25-spectral-shape-preparation.md)、[正式运行与核验](logs/log-2026-10-26-spectral-shape-aux-run.md) |
+| 当前研究工作配方：LR2＋E＋独立谱形辅助 | [迁移设计](design/design-2026-10-30-spectral-residual.md)、[运行、核验与采用](logs/log-2026-10-30-spectral-residual-run.md) |
+| E＋独立谱形辅助的原A64对照 | [单候选设计](design/design-2026-10-25-spectral-shape-supervision.md)、[准备与短检](logs/log-2026-10-25-spectral-shape-preparation.md)、[正式运行与核验](logs/log-2026-10-26-spectral-shape-aux-run.md) |
 
 ## 模型设计
 
@@ -31,7 +32,8 @@
 | 完整 A 内部归一化（已完成） | [pre/post-norm设计](design/design-2026-10-20-local-internal-norm.md)、[准备与短检](logs/log-2026-10-20-local-internal-norm-preparation.md)、[结果与独立核验](logs/log-2026-10-21-local-internal-norm-run.md) |
 | 完整 A 外层512维归一化（已完成，未达采用条件） | [LN2设计](design/design-2026-10-21-local-outer-norm.md)、[准备与交接](logs/log-2026-10-21-local-outer-norm-preparation.md)、[正式运行与核验](logs/log-2026-10-21-local-outer-norm-run.md) |
 | 完整 A 完整状态与增量读出（未达采用条件） | [LR1设计](design/design-2026-10-21-local-increment-readout.md)、[准备与交接](logs/log-2026-10-21-local-increment-preparation.md)、[运行与核验](logs/log-2026-10-21-local-increment-run.md) |
-| 完整 A 内部残差LR2（旧协议满足数值条件，未并入新配方） | [LR2设计](design/design-2026-10-21-local-internal-residual.md)、[准备与交接](logs/log-2026-10-21-local-internal-residual-preparation.md)、[正式运行与核验](logs/log-2026-10-22-local-internal-residual-run.md) |
+| 完整 A 内部残差LR2的旧H1协议与原结果 | [LR2设计](design/design-2026-10-21-local-internal-residual.md)、[准备与交接](logs/log-2026-10-21-local-internal-residual-preparation.md)、[正式运行与核验](logs/log-2026-10-22-local-internal-residual-run.md) |
+| LR2迁移到E＋S配方（已采用为研究工作点） | [单候选与冻结条件](design/design-2026-10-30-spectral-residual.md)、[准备与短检](logs/log-2026-10-30-spectral-residual-preparation.md)、[正式运行与valid核验](logs/log-2026-10-30-spectral-residual-run.md) |
 | 历史局部—全局接入与I1骨架对照 | [接入设计](design/design-2026-10-04-local-global-encoder.md)、[投影对照](design/design-2026-10-13-attention-projection-attribution.md) |
 | I1性能参照上的完整 B+ 升级 | [实验设计](design/design-2026-10-14-i1-bplus-encoder.md)、[准备与短检](logs/log-2026-10-14-i1-bplus-preparation.md)、[运行与核验](logs/log-2026-10-14-i1-bplus-run.md) |
 | 修正联合骨架上的完整 A/B+ 比较 | [完整 A 设计](design/design-2026-10-15-i1-a-encoder.md)、[准备与成本](logs/log-2026-10-15-i1-a-preparation.md)、[运行与核验](logs/log-2026-10-15-i1-a-run.md) |
@@ -55,7 +57,7 @@
 | 共享 decoder 拆成两套是否提高联合误差 | [方案](design/design-2026-10-28-split-decoder.md)、[结果：不采用](logs/log-2026-10-28-split-decoder-run.md) |
 | 本机还有没有 Q1 以外的晶体结构 | [只读盘点](logs/log-2026-10-28-structure-pool-inventory.md) |
 | 误差主要在哪、单模型随机差异有多大 | [误差结构与已有模型平均](logs/log-2026-10-28-error-structure-ensemble.md) |
-| 声子谱改由学习弹簧加精确晶格动力学给出 | [设计](design/design-2026-10-28-phonon-lattice-head.md)、[实现与短检](logs/log-2026-10-28-phonon-head-preparation.md)、[首轮中断与修复](logs/log-2026-10-28-phonon-head-run-failure.md)、[物理先验加修正短检](logs/log-2026-10-28-phonon-prior-preparation.md) |
+| 声子物理先验加学习修正（候选已结束，未采用） | [设计](design/design-2026-10-28-phonon-lattice-head.md)、[修正版短检](logs/log-2026-10-28-phonon-prior-preparation.md)、[接续核验](logs/log-2026-10-28-cursor-takeover-review.md)、[正式结果、独立核验与谱差诊断](logs/log-2026-10-29-phonon-prior-run.md) |
 
 其他设计与证据见 [design/](design/)、[logs/](logs/)；早期研究见 [archive/docs/](../archive/docs/)。历史待办不自动成为当前执行指令。
 新文档使用[设计模板](design/template.md)或[日志模板](logs/template.md)。
