@@ -36,7 +36,7 @@ def load_run(run_dir: Path):
         raise ValueError(f'configuration does not describe its own contract: {run_dir}')
     if 'spectral_balance' in contract:
         from utils.spectral_balance import ENERGY_METRIC, validate_balance_protocol
-        from utils.spectral_balance_experiment import shape_supervision_contract
+        from utils.spectral_balance_experiment import BALANCE_RESIDUAL_SCHEMA, shape_supervision_contract
         protocol = validate_balance_protocol(contract['spectral_balance'])
         model_params = saved['config']['model']['params']
         if (model_params.get('spectral_balance') != protocol
@@ -46,7 +46,16 @@ def load_run(run_dir: Path):
         expected_shape = shape_supervision_contract(enabled)
         shape_schema = contract.get('schema') in {
             'joint-spectral-balance-shape-model-v1', 'joint-spectral-balance-split-decoder-v1',
-            'joint-spectral-balance-phonon-head-v1', 'joint-spectral-balance-phonon-prior-v1'}
+            'joint-spectral-balance-phonon-head-v1', 'joint-spectral-balance-phonon-prior-v1',
+            BALANCE_RESIDUAL_SCHEMA}
+        residual = contract.get('schema') == BALANCE_RESIDUAL_SCHEMA
+        if residual or params.get('local_route') == 'LR2':
+            from utils.local_residual_experiment import residual_ablation_contract
+
+            if (not residual or params.get('local_route') != 'LR2'
+                    or contract.get('training', {}).get('local_route') != 'LR2'
+                    or contract.get('ablation') != residual_ablation_contract()):
+                raise ValueError('balanced LR2 route or internal residual contract differs')
         split = contract.get('schema') == 'joint-spectral-balance-split-decoder-v1'
         prior = contract.get('schema') == 'joint-spectral-balance-phonon-prior-v1'
         phonon = prior or contract.get('schema') == 'joint-spectral-balance-phonon-head-v1'

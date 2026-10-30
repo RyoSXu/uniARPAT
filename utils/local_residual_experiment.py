@@ -89,6 +89,19 @@ def initialize_residual_model(transformer, params: dict, seed: int) -> dict:
             "execution_order": [list(step) for step in transformer.encoder.execution_order]}
 
 
+def residual_ablation_contract() -> dict:
+    """The same four-addition intervention under either spectral objective."""
+    return {
+                "reference": "A64", "local_content": "A", "widths": [64, 128],
+                "internal_normalization": "post-norm", "outer_normalization": "pre-norm512",
+                "internal_formula": "LN64(F(s,R))", "reference_internal_formula": "LN64(s+F(s,R))",
+                "internal_residual_add": False, "scalar_still_enters_message_and_update": True,
+                "outer_residual": "h+P_out(s2)", "local_readout": "W_out*s2+b_out",
+                "local_depth": 2, "internal_blocks_per_call": 2, "global_depth": 6, "layout": "staged",
+                "all_initial_tensors_identical": True, "joint_training": True,
+                "scope": "four explicit internal scalar additions only; outer residual and complete A messages retained"}
+
+
 def residual_contract(cfg: ExperimentConfig, params: dict) -> dict:
     from utils.local_global_experiment import training_record
 
@@ -97,12 +110,4 @@ def residual_contract(cfg: ExperimentConfig, params: dict) -> dict:
     return {"schema": RESIDUAL_SCHEMA, "init_protocol": RESIDUAL_INIT, "seed": cfg.seed,
             "transformer": deepcopy(params), "normalization": cfg.norm,
             "selection_metric": cfg.selection_metric, **selection_contract(cfg.selection_metric),
-            "training": training_record(cfg), "ablation": {
-                "reference": "A64", "local_content": "A", "widths": [64, 128],
-                "internal_normalization": "post-norm", "outer_normalization": "pre-norm512",
-                "internal_formula": "LN64(F(s,R))", "reference_internal_formula": "LN64(s+F(s,R))",
-                "internal_residual_add": False, "scalar_still_enters_message_and_update": True,
-                "outer_residual": "h+P_out(s2)", "local_readout": "W_out*s2+b_out",
-                "local_depth": 2, "internal_blocks_per_call": 2, "global_depth": 6, "layout": "staged",
-                "all_initial_tensors_identical": True, "joint_training": True,
-                "scope": "four explicit internal scalar additions only; outer residual and complete A messages retained"}}
+            "training": training_record(cfg), "ablation": residual_ablation_contract()}

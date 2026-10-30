@@ -1,4 +1,4 @@
-"""Isolated balanced-spectrum protocol on the unchanged complete-A64 backbone."""
+"""Balanced-spectrum protocols and isolated candidates on complete A64."""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -8,6 +8,8 @@ import torch
 
 from utils.paths import file_sha256, input_path
 from utils.spectral_balance import ENERGY_METRIC, energy_selection_contract, load_balance_protocol
+
+BALANCE_RESIDUAL_SCHEMA = "joint-spectral-balance-residual-model-v1"
 
 
 def shape_supervision_contract(enabled):
@@ -29,7 +31,8 @@ def legacy_balance_config(cfg):
     # Legacy factories compare this path as a string. The new protocol checks
     # the actual manifest/payload hashes independently, so equivalent absolute
     # paths need not be rejected by the historical recipe's spelling.
-    return replace(cfg, spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
+    return replace(cfg, local_route="I3" if cfg.local_route == "LR2" else cfg.local_route,
+                   spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
                    phonon_head=False, phonon_correction=False, scale_mode="eta",
                    selection_metric="balanced_blind_r2", data_dir=ExperimentConfig().data_dir)
 
@@ -37,6 +40,8 @@ def legacy_balance_config(cfg):
 def _backbone_params(params):
     """A64 reference parameters without the opt-in readout changes."""
     base = {**params, "scale_mode": "eta", "decoupled_decoder": False}
+    if base.get("local_route") == "LR2":
+        base["local_route"] = "I3"
     base.pop("phonon_head", None)
     base.pop("phonon_correction", None)
     return base
@@ -55,9 +60,12 @@ def _final_phdos_conv(state):
 def validate_balance_config(cfg):
     from utils.local_global_experiment import validate_local_global_config
 
-    if (not cfg.spectral_balance_config or cfg.local_route != "I3"
+    if (not cfg.spectral_balance_config or cfg.local_route not in ("I3", "LR2")
             or cfg.scale_mode != "per_atom" or cfg.selection_metric != ENERGY_METRIC):
-        raise ValueError("balanced spectra require I3/A64, per_atom scale and balanced_blind_energy")
+        raise ValueError("balanced spectra require I3/A64 or LR2, per_atom scale and balanced_blind_energy")
+    if cfg.local_route == "LR2" and (not cfg.spectral_shape_aux or cfg.split_decoder
+                                    or cfg.phonon_head or cfg.phonon_correction):
+        raise ValueError("balanced LR2 changes only internal additions on the shared-decoder E+S recipe")
     if cfg.split_decoder and not cfg.spectral_shape_aux:
         raise ValueError("split decoder requires the fixed shape auxiliary on the current recipe")
     if cfg.phonon_head and (not cfg.spectral_shape_aux or cfg.split_decoder):
@@ -80,6 +88,8 @@ def balance_model_contract(cfg, params):
     from utils.local_global_experiment import comparison_contract, training_record
 
     protocol = validate_balance_config(cfg)
+    if params.get("local_route") != cfg.local_route:
+        raise ValueError("balanced configuration and transformer routes disagree")
     base = comparison_contract(legacy_balance_config(cfg), _backbone_params(params))
     contract = {"schema": "joint-spectral-balance-model-v1", "init_protocol": "joint-spectral-balance-init-v1",
             "seed": cfg.seed, "transformer": deepcopy(params), "normalization": cfg.norm,
@@ -127,6 +137,13 @@ def balance_model_contract(cfg, params):
                         scope="phDOS shape = physics prior from learned springs times a learned correction; "
                               "start equals the physics shape; total, eDOS path, encoder, loss, data and "
                               "checkpoint rule unchanged")
+    if cfg.local_route == "LR2":
+        from utils.local_residual_experiment import residual_ablation_contract
+
+        contract.update(schema=BALANCE_RESIDUAL_SCHEMA, ablation=residual_ablation_contract(),
+                        scope="four internal scalar additions removed from complete A64 E+S; "
+                              "identical untrained tensors, outer residual, data, joint loss, "
+                              "shared decoder, budget and checkpoint guards")
     return contract
 
 
@@ -152,8 +169,11 @@ def initialize_balance_model(transformer, params, seed):
     from utils.i1_a_experiment import initialize_i1_a_model, validate_i3_model
     from utils.zproj_alignment import state_hash
 
-    if params.get("scale_mode") != "per_atom" or params.get("local_route") != "I3":
+    if params.get("scale_mode") != "per_atom" or params.get("local_route") not in ("I3", "LR2"):
         raise ValueError("balanced initialization requires per_atom complete A64")
+    residual = params.get("local_route") == "LR2"
+    if residual and any(params.get(key) for key in ("decoupled_decoder", "phonon_head", "phonon_correction")):
+        raise ValueError("balanced LR2 cannot combine untested decoder or phonon candidates")
     decoupled = bool(params.get("decoupled_decoder"))
     phonon = bool(params.get("phonon_head"))
     base_params = _backbone_params(params)
@@ -182,7 +202,12 @@ def initialize_balance_model(transformer, params, seed):
     if expected.keys() != mapped.keys() or any(expected[key].shape != mapped[key].shape for key in expected):
         raise ValueError("balanced mass head must preserve A64 MLP tensor shapes")
     transformer.load_state_dict(mapped, strict=True)
-    validate_i3_model(transformer, params, require_identity=True)
+    if residual:
+        from utils.local_residual_experiment import validate_residual_model
+
+        validate_residual_model(transformer, params, require_identity=True)
+    else:
+        validate_i3_model(transformer, params, require_identity=True)
     actual = transformer.state_dict()
     if any(not torch.equal(actual[key], value.to(actual[key])) for key, value in mapped.items()):
         raise ValueError("balanced initialization did not preserve mapped initial tensors")
@@ -199,6 +224,7 @@ def initialize_balance_model(transformer, params, seed):
             "backbone_initial_tensors_identical": True,
             "split_decoder": decoupled,
             "decoder_copies_identical_at_init": decoupled,
+            **({"internal_residual_add": False, "route": "LR2"} if residual else {}),
             **({"phonon_head": "seeded independent initialization; all A64 tensors copied"} if phonon else {}),
             **({"phonon_correction": "final phDOS convolution zeroed; start equals the physics shape"}
                if correction else {}),
