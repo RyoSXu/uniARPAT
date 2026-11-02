@@ -39,6 +39,7 @@
 | I1性能参照上的完整 B+ 升级 | [实验设计](design/design-2026-10-14-i1-bplus-encoder.md)、[准备与短检](logs/log-2026-10-14-i1-bplus-preparation.md)、[运行与核验](logs/log-2026-10-14-i1-bplus-run.md) |
 | 修正联合骨架上的完整 A/B+ 比较 | [完整 A 设计](design/design-2026-10-15-i1-a-encoder.md)、[准备与成本](logs/log-2026-10-15-i1-a-preparation.md)、[运行与核验](logs/log-2026-10-15-i1-a-run.md) |
 | 最终输出的 E(3) 要求 | [对称性设计](design/design-2026-10-04-e3-output-invariance.md) |
+| 当前LR2完整模型的物理／晶胞一致性 | [有限验收方案](design/design-2026-11-02-crystal-model-invariance.md)、[真实结构通过与截断边界反例](logs/log-2026-11-02-crystal-model-invariance.md) |
 | 完整 B+ 接口干预 | [局部状态直连读出](design/design-2026-10-15-local-readout-interface.md)、[实现与短检](logs/log-2026-10-15-local-readout-preparation.md)、[运行与核验](logs/log-2026-10-16-local-readout-run.md) |
 
 ## 当前问题的证据

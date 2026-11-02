@@ -1,5 +1,8 @@
 # 目标：E(3) 不变的谱输出
 
+下文保留早期设计的范围与证据。当前LR2＋E＋S的完整checkpoint已有
+[2026-11-02有限验收与截断边界反例](../logs/log-2026-11-02-crystal-model-invariance.md)，不能称全部通过。
+
 更新日期：2026-10-05。用户于 2026-10-03 明确最终目标；生产 Encoder 路线尚未选择，完整接入与有限数值检查见下节。
 6.0 Å 几何已在 [既定范围](../logs/log-2026-10-03-periodic-geometry-acceptance.md)内验收通过。
 两套 [独立局部原型](design-2026-10-04-periodic-message-candidates.md)已完成
