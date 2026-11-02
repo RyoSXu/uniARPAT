@@ -63,6 +63,7 @@ PY
     tests.pipeline.test_spectral_balance \
     tests.pipeline.test_spectral_shape_aux \
     tests.pipeline.test_spectral_residual \
+    tests.pipeline.test_spectral_layout \
     archive.code.tests.test_c2_1b_loss_attribution \
     tests.pipeline.test_b7_cif_inference \
     archive.code.tests.test_d4_phdos_spike_imaginary_audit \

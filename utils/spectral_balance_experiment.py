@@ -32,6 +32,7 @@ def legacy_balance_config(cfg):
     # the actual manifest/payload hashes independently, so equivalent absolute
     # paths need not be rejected by the historical recipe's spelling.
     return replace(cfg, local_route="I3" if cfg.local_route == "LR2" else cfg.local_route,
+                   local_layout="staged" if cfg.local_layout == "midpoint" else cfg.local_layout,
                    spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
                    phonon_head=False, phonon_correction=False, scale_mode="eta",
                    selection_metric="balanced_blind_r2", data_dir=ExperimentConfig().data_dir)
@@ -42,6 +43,8 @@ def _backbone_params(params):
     base = {**params, "scale_mode": "eta", "decoupled_decoder": False}
     if base.get("local_route") == "LR2":
         base["local_route"] = "I3"
+    if base.get("local_layout") == "midpoint":
+        base["local_layout"] = "staged"
     base.pop("phonon_head", None)
     base.pop("phonon_correction", None)
     return base
@@ -63,6 +66,8 @@ def validate_balance_config(cfg):
     if (not cfg.spectral_balance_config or cfg.local_route not in ("I3", "LR2")
             or cfg.scale_mode != "per_atom" or cfg.selection_metric != ENERGY_METRIC):
         raise ValueError("balanced spectra require I3/A64 or LR2, per_atom scale and balanced_blind_energy")
+    if cfg.local_layout == "midpoint" and cfg.local_route != "LR2":
+        raise ValueError("midpoint changes scheduling only on the fixed LR2 E+S recipe")
     if cfg.local_route == "LR2" and (not cfg.spectral_shape_aux or cfg.split_decoder
                                     or cfg.phonon_head or cfg.phonon_correction):
         raise ValueError("balanced LR2 changes only internal additions on the shared-decoder E+S recipe")
@@ -90,6 +95,8 @@ def balance_model_contract(cfg, params):
     protocol = validate_balance_config(cfg)
     if params.get("local_route") != cfg.local_route:
         raise ValueError("balanced configuration and transformer routes disagree")
+    if params.get("local_layout") != cfg.local_layout:
+        raise ValueError("balanced configuration and transformer layouts disagree")
     base = comparison_contract(legacy_balance_config(cfg), _backbone_params(params))
     contract = {"schema": "joint-spectral-balance-model-v1", "init_protocol": "joint-spectral-balance-init-v1",
             "seed": cfg.seed, "transformer": deepcopy(params), "normalization": cfg.norm,
@@ -144,6 +151,13 @@ def balance_model_contract(cfg, params):
                         scope="four internal scalar additions removed from complete A64 E+S; "
                               "identical untrained tensors, outer residual, data, joint loss, "
                               "shared decoder, budget and checkpoint guards")
+        if cfg.local_layout == "midpoint":
+            from utils.spectral_layout_experiment import MIDPOINT_SCHEMA, layout_ablation_contract
+
+            contract.update(schema=MIDPOINT_SCHEMA, ablation=layout_ablation_contract(),
+                            scope="only second-local-call placement differs from staged LR2 E+S; "
+                                  "L1 G1 G2 G3 L2 G4 G5 G6; all modules, initial tensors, "
+                                  "loss, data, budget and checkpoint guards unchanged")
     return contract
 
 
@@ -203,7 +217,10 @@ def initialize_balance_model(transformer, params, seed):
         raise ValueError("balanced mass head must preserve A64 MLP tensor shapes")
     transformer.load_state_dict(mapped, strict=True)
     if residual:
-        from utils.local_residual_experiment import validate_residual_model
+        if params.get("local_layout") == "midpoint":
+            from utils.spectral_layout_experiment import validate_midpoint_model as validate_residual_model
+        else:
+            from utils.local_residual_experiment import validate_residual_model
 
         validate_residual_model(transformer, params, require_identity=True)
     else:
@@ -225,6 +242,8 @@ def initialize_balance_model(transformer, params, seed):
             "split_decoder": decoupled,
             "decoder_copies_identical_at_init": decoupled,
             **({"internal_residual_add": False, "route": "LR2"} if residual else {}),
+            **({"local_layout": "midpoint", "execution_order": [list(step) for step in transformer.encoder.execution_order]}
+               if params.get("local_layout") == "midpoint" else {}),
             **({"phonon_head": "seeded independent initialization; all A64 tensors copied"} if phonon else {}),
             **({"phonon_correction": "final phDOS convolution zeroed; start equals the physics shape"}
                if correction else {}),

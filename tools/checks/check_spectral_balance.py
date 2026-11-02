@@ -50,14 +50,17 @@ def check(preparation, out):
     initialization = initialize_comparison_model(model.model['transformer'], params, cfg.seed)
     control = saved.get('completed_control')
     if cfg.local_route == 'LR2':
-        from utils.local_residual_experiment import validate_residual_model
+        if cfg.local_layout == 'midpoint':
+            from utils.spectral_layout_experiment import validate_midpoint_model as validate_residual_model
+        else:
+            from utils.local_residual_experiment import validate_residual_model
 
         validate_residual_model(model.model['transformer'], params, require_identity=True)
         # Old completed reports can lack later bookkeeping keys. Compare the
         # actual tensor fingerprint, seed and common initialization recipe.
         keys = ('state_sha256', 'seed', 'protocol', 'a64_initialization')
         if control is None or any(control['initialization'].get(key) != initialization.get(key) for key in keys):
-            raise ValueError('LR2 initial tensors differ from the completed A64 E+S control')
+            raise ValueError('LR2 initial tensors differ from the preparation-bound E+S control')
     elif cfg.spectral_shape_aux and (control is None or control['initialization'] != initialization):
         raise ValueError('shape candidate initial tensors differ from the completed pure-energy control')
     model.to(torch.device('cuda'))
@@ -113,6 +116,7 @@ def check(preparation, out):
                for p in (ROOT / directory).rglob('*.py')}
     for name in ('tools/train.py', 'tools/checks/check_spectral_balance.py',
                  'tools/eval/spectral_balance_prepare.py', 'tools/eval/spectral_residual_prepare.py',
+                 'tools/eval/spectral_layout_prepare.py',
                  'tools/eval/lg_valid_export.py'):
         sources[name] = file_sha256(ROOT / name)
     result = {'schema': 'joint-spectral-balance-preflight-v1', 'passed': True,

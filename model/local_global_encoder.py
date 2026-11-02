@@ -14,7 +14,9 @@ from model.local_structure_controls import CONTROL_ROUTES, ControlLocalMessage
 from utils.periodic_geometry import PeriodicNeighborRecords
 
 LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2")
-LOCAL_LAYOUTS = ("staged", "alternating")
+LOCAL_LAYOUTS = ("staged", "alternating", "midpoint")
+MIDPOINT_ORDER = (("local", 0), ("global", 0), ("global", 1), ("global", 2),
+                  ("local", 1), ("global", 3), ("global", 4), ("global", 5))
 LOCAL_RADIUS = 6.0
 LOCAL_PAIR_CHUNK = 65536
 
@@ -135,6 +137,7 @@ class LocalGlobalEncoder(nn.Module):
     ``global_depth = local_depth``, so both layouts and every old checkpoint are
     unchanged. The same module/key ordering in every layout permits matched
     initialization. K=1 is supported for smoke checks.
+    midpoint is the isolated LR2 L2/G6 trial: L1 G1 G2 G3 L2 G4 G5 G6.
     """
 
     def __init__(self, route: str, layout: str, depth: int, d_model: int = 512,
@@ -143,7 +146,7 @@ class LocalGlobalEncoder(nn.Module):
                  local_scalar_channels: int | None = None, local_hidden_channels: int | None = None):
         super().__init__()
         if route not in LOCAL_ROUTES or layout not in LOCAL_LAYOUTS:
-            raise ValueError("explicit local route and staged/alternating layout required")
+            raise ValueError("explicit local route and a supported execution layout required")
         widths = (64 if local_scalar_channels is None else local_scalar_channels,
                   128 if local_hidden_channels is None else local_hidden_channels)
         if route == "W1":
@@ -165,6 +168,8 @@ class LocalGlobalEncoder(nn.Module):
             global_depth = depth
         if isinstance(global_depth, bool) or not isinstance(global_depth, int) or global_depth < 1:
             raise ValueError("global_depth must be a positive integer")
+        if layout == "midpoint" and (route != "LR2" or depth != 2 or global_depth != 6):
+            raise ValueError("midpoint requires the isolated LR2 L2/G6 candidate")
         self.route, self.layout, self.depth = route, layout, depth
         self.global_depth = global_depth
         self.d_model = d_model
@@ -201,6 +206,8 @@ class LocalGlobalEncoder(nn.Module):
 
     @property
     def execution_order(self):
+        if self.layout == "midpoint":
+            return MIDPOINT_ORDER
         if self.layout == "staged":
             return tuple((kind, i) for kind, count in
                          (("local", self.depth), ("global", self.global_depth))

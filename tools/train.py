@@ -1454,7 +1454,7 @@ def build_arg_parser():
                         help='Shared Transformer decoder depth; 6 is the B7 default')
     parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3', 'I4', 'W1', 'LN1', 'LN2', 'LR1', 'LR2'], default='none',
                         help='Frozen comparisons: G0 no local; O0/O1 old globals without geometry scoring')
-    parser.add_argument('--local_layout', choices=['staged', 'alternating'], default=None,
+    parser.add_argument('--local_layout', choices=['staged', 'alternating', 'midpoint'], default=None,
                         help='Explicit local/global execution order')
     parser.add_argument('--local_depth', type=int, default=None,
                         help='K local calls (2K internal blocks); G0/O0 require zero')

@@ -1,4 +1,4 @@
-"""Prepare one LR2 E+S trial against the completed A64 E+S control; never train."""
+"""Prepare one LR2 E+S intervention against a completed control; never train."""
 from __future__ import annotations
 
 import argparse
@@ -23,25 +23,32 @@ from utils.spectral_balance import load_balance_protocol
 from utils.spectral_balance_experiment import validate_balance_config
 
 
-def prepare(control_preparation, out, tag_prefix):
+def prepare(control_preparation, out, tag_prefix, *, midpoint=False):
     out = Path(out)
     if out.exists():
         raise FileExistsError(f'use a new output directory: {out}')
     if not re.fullmatch(r'[A-Za-z0-9_-]+', tag_prefix):
         raise ValueError('isolated alphanumeric tag prefix required')
+    if not isinstance(midpoint, bool):
+        raise ValueError('midpoint must be boolean')
     original = json.loads(input_path(control_preparation).read_text())
     reference = ExperimentConfig(**original['configuration'])
     protocol = load_balance_protocol(reference.spectral_balance_config, reference.data_dir)
-    control = completed_spectral_control(control_preparation, protocol, input_path(reference.data_dir), shape_aux=True)
+    control = completed_spectral_control(control_preparation, protocol, input_path(reference.data_dir),
+                                        shape_aux=True, local_route='LR2' if midpoint else 'I3')
+    if midpoint and control['selected_epoch'] != 29:
+        raise ValueError('midpoint comparison requires the adopted staged LR2 E+S ep29 control')
     candidate = replace(reference, local_route='LR2', skip_existing=False,
-                        tag=f'_sbal_{tag_prefix}_lr2_s42_e35')
+                        local_layout='midpoint' if midpoint else reference.local_layout,
+                        tag=f'_sbal_{tag_prefix}_lr2_{"midpoint_" if midpoint else ""}s42_e35')
     validate_balance_config(candidate)
     path = out / 'protocol.json'
     candidate = replace(candidate, spectral_balance_config=str(path.resolve()))
     before, after = training_record(reference), training_record(candidate)
     changed = {key for key in before.keys() | after.keys() if before.get(key) != after.get(key)}
-    if changed != {'local_route', 'spectral_balance_config'}:
-        raise ValueError(f'LR2 E+S changes more than the route and identical protocol path: {changed}')
+    expected = {'local_layout' if midpoint else 'local_route', 'spectral_balance_config'}
+    if changed != expected:
+        raise ValueError(f'LR2 E+S changes more than its single intervention and identical protocol path: {changed}')
     run = ROOT / f'results/runs/ablation_{candidate.model_name.lower()}{candidate.tag}'
     history = ROOT / f'results/reports/history_{candidate.model_name.lower()}{candidate.tag}.csv'
     if run.exists() or history.exists():
@@ -50,6 +57,7 @@ def prepare(control_preparation, out, tag_prefix):
     protocol_bytes = protocol_source.read_bytes()
     sources = [p for directory in ('model', 'utils') for p in (ROOT / directory).rglob('*.py')]
     sources += [ROOT / name for name in ('tools/train.py', 'tools/eval/spectral_residual_prepare.py',
+                'tools/eval/spectral_layout_prepare.py',
                 'tools/eval/spectral_balance_prepare.py', 'tools/eval/lg_valid_export.py',
                 'tools/checks/check_spectral_balance.py', 'tools/checks/check_long_budget.py')]
     hashes = {**control['input_sha256'],
@@ -69,6 +77,11 @@ def prepare(control_preparation, out, tag_prefix):
               'ablation': residual_ablation_contract(), 'changed_training_fields': sorted(changed),
               'protocol_copy_identical': path.read_bytes() == protocol_bytes,
               'input_sha256': hashes, 'not_a_new_selection_or_adoption': True}
+    if midpoint:
+        from utils.spectral_layout_experiment import layout_ablation_contract
+
+        report.update(schema='joint-spectral-balance-layout-preparation-v1',
+                      ablation=layout_ablation_contract())
     for source in sources:
         target = out / 'source_snapshot' / source.relative_to(ROOT)
         target.parent.mkdir(parents=True, exist_ok=True)

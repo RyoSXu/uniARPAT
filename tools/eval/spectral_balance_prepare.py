@@ -32,16 +32,18 @@ def completed_energy_control(preparation, protocol, data_dir):
     return completed_spectral_control(preparation, protocol, data_dir, shape_aux=False)
 
 
-def completed_spectral_control(preparation, protocol, data_dir, *, shape_aux):
-    """Verify the saved A64 control, preserving its original selected epoch."""
+def completed_spectral_control(preparation, protocol, data_dir, *, shape_aux, local_route='I3'):
+    """Verify a saved staged control, preserving its original selected epoch."""
     from tools.eval.lg_valid_export import load_run, select_best
 
     preparation = input_path(preparation)
     original = json.loads(preparation.read_text())
     cfg = ExperimentConfig(**original['configuration'])
-    if (cfg.spectral_shape_aux != shape_aux or cfg.local_route != 'I3' or cfg.split_decoder
+    if local_route not in ('I3', 'LR2') or (local_route == 'LR2' and not shape_aux):
+        raise ValueError('completed spectral controls require A64 or staged LR2 E+S')
+    if (cfg.spectral_shape_aux != shape_aux or cfg.local_route != local_route or cfg.local_layout != 'staged' or cfg.split_decoder
             or cfg.phonon_head or cfg.phonon_correction or input_path(cfg.data_dir) != data_dir.resolve()):
-        raise ValueError('comparison requires the completed A64 control with the expected objective on the same data')
+        raise ValueError('comparison requires the completed staged control with the expected objective on the same data')
     if load_balance_protocol(cfg.spectral_balance_config, cfg.data_dir) != protocol:
         raise ValueError('shape comparison must preserve all normalizers and checkpoint guards')
     run = ROOT / f'results/runs/ablation_{cfg.model_name.lower()}{cfg.tag}'
@@ -50,7 +52,7 @@ def completed_spectral_control(preparation, protocol, data_dir, *, shape_aux):
         raise ValueError('completed control differs from its preparation contract')
     selected = select_best(run, cfg.selection_metric, saved)
     if selected['history'].epoch.tolist() != list(range(1, cfg.epochs + 1)):
-        raise ValueError('A64 control must have completed its full frozen budget')
+        raise ValueError('staged control must have completed its full frozen budget')
     exports = preparation.parent / 'analysis'
     summary_path = exports / 'candidate_valid_summary.json'
     samples_path = exports / 'candidate_valid_samples.csv'
@@ -63,7 +65,7 @@ def completed_spectral_control(preparation, protocol, data_dir, *, shape_aux):
     paths = [preparation, input_path(cfg.spectral_balance_config), run / 'config_used.yaml',
              run / 'checkpoint_best.pth', summary_path, samples_path, spectra_path,
              ROOT / f'results/reports/history_{cfg.model_name.lower()}{cfg.tag}.csv']
-    return {'label': 'shape_auxiliary' if shape_aux else 'energy_only',
+    return {'label': 'lr2_shape_auxiliary' if local_route == 'LR2' else 'shape_auxiliary' if shape_aux else 'energy_only',
             'run_dir': str(run), 'selected_epoch': int(selected['row'].epoch),
             'configuration': asdict(cfg),
             'summary': str(summary_path), 'samples': str(samples_path), 'spectra': str(spectra_path),

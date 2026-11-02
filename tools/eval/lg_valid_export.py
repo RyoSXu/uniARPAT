@@ -37,6 +37,7 @@ def load_run(run_dir: Path):
     if 'spectral_balance' in contract:
         from utils.spectral_balance import ENERGY_METRIC, validate_balance_protocol
         from utils.spectral_balance_experiment import BALANCE_RESIDUAL_SCHEMA, shape_supervision_contract
+        from utils.spectral_layout_experiment import MIDPOINT_SCHEMA, layout_ablation_contract
         protocol = validate_balance_protocol(contract['spectral_balance'])
         model_params = saved['config']['model']['params']
         if (model_params.get('spectral_balance') != protocol
@@ -47,14 +48,19 @@ def load_run(run_dir: Path):
         shape_schema = contract.get('schema') in {
             'joint-spectral-balance-shape-model-v1', 'joint-spectral-balance-split-decoder-v1',
             'joint-spectral-balance-phonon-head-v1', 'joint-spectral-balance-phonon-prior-v1',
-            BALANCE_RESIDUAL_SCHEMA}
+            BALANCE_RESIDUAL_SCHEMA, MIDPOINT_SCHEMA}
         residual = contract.get('schema') == BALANCE_RESIDUAL_SCHEMA
-        if residual or params.get('local_route') == 'LR2':
+        midpoint = contract.get('schema') == MIDPOINT_SCHEMA
+        if residual or midpoint or params.get('local_route') == 'LR2':
             from utils.local_residual_experiment import residual_ablation_contract
 
-            if (not residual or params.get('local_route') != 'LR2'
+            expected = layout_ablation_contract() if midpoint else residual_ablation_contract()
+            expected_layout = 'midpoint' if midpoint else 'staged'
+            if (not (residual or midpoint) or params.get('local_route') != 'LR2'
                     or contract.get('training', {}).get('local_route') != 'LR2'
-                    or contract.get('ablation') != residual_ablation_contract()):
+                    or params.get('local_layout') != expected_layout
+                    or contract.get('training', {}).get('local_layout') != expected_layout
+                    or contract.get('ablation') != expected):
                 raise ValueError('balanced LR2 route or internal residual contract differs')
         split = contract.get('schema') == 'joint-spectral-balance-split-decoder-v1'
         prior = contract.get('schema') == 'joint-spectral-balance-phonon-prior-v1'
