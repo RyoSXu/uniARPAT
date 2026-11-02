@@ -68,7 +68,9 @@ LR2＋E＋S中段编排（L1 G1 G2 G3 L2 G4 G5 G6）对staged ep29的seed42、35
    未删除标签、改mask或重分箱。[语义审查](logs/log-2026-10-22-spectral-contract-audit.md)、[几何与来源](logs/log-2026-10-14-i1-pair-audit.md)
 3. 当前LR2的16条真实train结构在两精度下通过有限的E(3)、原子重排、等价晶胞和超胞检查；
    精确6 Å的合成边界出现FP32／FP64反例，已定位显式硬计数通道，尚未证明影响真实数据性能。
-   未改公式；全面验收与AMP仍未完成。[实测与边界归因](logs/log-2026-11-02-crystal-model-invariance.md)
+   全量train中1e-6 Å内仅3条、1e-4 Å内104条；后者两次固定旋转均无记录／计数翻转，
+   暂无依据把该风险作为主要性能归因或优先启动平滑计数训练。未改公式；全面验收与AMP仍未完成。
+   [实测与边界归因](logs/log-2026-11-02-crystal-model-invariance.md)、[全量覆盖与探针](logs/log-2026-11-02-cutoff-boundary-census.md)
 4. 结构预训练还不能开始：本机只有 Q1 的 23,306 条几何，没有额外结构。
    去掉 valid/test 的 ID 和绝对同组成后，剩下的仍是现有 train。
    [盘点](logs/log-2026-10-28-structure-pool-inventory.md)
