@@ -1,6 +1,6 @@
 # 文档导航
 
-进度同步：2026-10-31。先读[当前状态](status.md)。本页只提供入口；结论在状态页维护，过程、成本和验证记录在各实验日志维护。
+进度同步：2026-11-02。先读[当前状态](status.md)。本页只提供入口；结论在状态页维护，过程、成本和验证记录在各实验日志维护。
 
 ## 日常说明
 
@@ -34,6 +34,7 @@
 | 完整 A 完整状态与增量读出（未达采用条件） | [LR1设计](design/design-2026-10-21-local-increment-readout.md)、[准备与交接](logs/log-2026-10-21-local-increment-preparation.md)、[运行与核验](logs/log-2026-10-21-local-increment-run.md) |
 | 完整 A 内部残差LR2的旧H1协议与原结果 | [LR2设计](design/design-2026-10-21-local-internal-residual.md)、[准备与交接](logs/log-2026-10-21-local-internal-residual-preparation.md)、[正式运行与核验](logs/log-2026-10-22-local-internal-residual-run.md) |
 | LR2迁移到E＋S配方（已采用为研究工作点） | [单候选与冻结条件](design/design-2026-10-30-spectral-residual.md)、[准备与短检](logs/log-2026-10-30-spectral-residual-preparation.md)、[正式运行与valid核验](logs/log-2026-10-30-spectral-residual-run.md) |
+| LR2＋E＋S局部—全局中段编排（正式对照与独立核验完成，未升级工作点） | [设计与判据](design/design-2026-11-01-local-global-layout.md)、[准备与短检](logs/log-2026-11-01-local-global-layout-preparation.md)、[正式训练、valid配对与独立核验](logs/log-2026-11-01-local-global-layout-run.md) |
 | 历史局部—全局接入与I1骨架对照 | [接入设计](design/design-2026-10-04-local-global-encoder.md)、[投影对照](design/design-2026-10-13-attention-projection-attribution.md) |
 | I1性能参照上的完整 B+ 升级 | [实验设计](design/design-2026-10-14-i1-bplus-encoder.md)、[准备与短检](logs/log-2026-10-14-i1-bplus-preparation.md)、[运行与核验](logs/log-2026-10-14-i1-bplus-run.md) |
 | 修正联合骨架上的完整 A/B+ 比较 | [完整 A 设计](design/design-2026-10-15-i1-a-encoder.md)、[准备与成本](logs/log-2026-10-15-i1-a-preparation.md)、[运行与核验](logs/log-2026-10-15-i1-a-run.md) |
