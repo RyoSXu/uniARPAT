@@ -1,6 +1,6 @@
 # uniARPAT crystal-q1-v1 dataset card
 
-[中文](dataset-card-zh.md) · [Sources, citations and license review](dataset-sources.md) · Documentation updated: 2026-10-27 (data version unchanged)
+[中文](dataset-card-zh.md) · [Sources, citations and license review](dataset-sources.md) · Documentation updated: 2026-11-03 (data version unchanged; licensing not re-audited)
 
 ## Purpose and version
 
@@ -11,7 +11,7 @@ The targets are calculated properties, not experimental measurements or results 
 
 `crystal-q1-v1` fixes Q1 membership, E0/P0 grids, and the complete-structure repair convention.
 Its data manifest SHA-256 is `8e1b0adff516835d52d9fb0321dae5e66fb9a2ac5fd964d317e1dd8647de4b80`.
-The proposed release tag is `data-crystal-q1-v1`; nothing has been uploaded. The source notice records source-specific
+The recorded release candidate tag is `data-crystal-q1-v1`; it had not been uploaded at preparation time. This card does not verify live release status. The source notice records source-specific
 terms and attribution requirements. This release grants no new uniform license over the archive.
 All 23,306 materials are verified as `BY-C`, with no `BY-NC`, in MP's official 2026-04-13 snapshot.
 The package supports the current ZP and local-update path. It excludes the legacy periodic table, mendeleev element-feature
@@ -73,11 +73,11 @@ PhononDB PBEsol, and JARVIS optB88vdW among its sources; complete per-task compu
    That sum is not directly a physical integral;
    window integrals also require bin widths. Spectral scale is modeled separately; blind/oracle do not denote separate released target arrays.
 
-The current research recipe predicts nonnegative per-atom window mass with no fixed upper bound and uses
+The current research recipe is full A64 in its LR2 form plus E+S. It predicts nonnegative per-atom window mass with no fixed upper bound and uses
 train-energy-normalized blind full-spectrum error plus independent shape supervision. Zero spectra have zero
 shape auxiliary loss but retain full-spectrum supervision. New blind reconstruction does not use per-material
 `N_val`; formal loss and scoring retain all bins without coverage masking. This model protocol update changes
-no released arrays, masks, splits, or historical quality filters; see the [current project status](status.md).
+no released arrays, masks, splits, or historical quality filters; see the [fixed contracts](decisions.md) and [current project status](status.md).
 
 Historical methods are available in Git at `e24d2a4^:tools/getdata/a4_process.py`, `a4_pass2.py`, and `recompute_phonondb.py`.
 Q1 and complete-structure steps are implemented in `tools/data/q1_rebuild.py` and `tools/data/migrate_crystal_q1.py`.
@@ -175,8 +175,5 @@ Cite `crystal-q1-v1`, its manifest hash, actual train exclusions, grids, and nor
 No independent dataset paper or DOI exists yet; do not invent authors or a DOI. Add the permanent release URL after publication.
 Upstream references and licensing evidence are listed in the source notice.
 
-Documentation organization follows [Matbench metadata](https://github.com/materialsproject/matbench/blob/main/matbench/matbench_v0.1_dataset_metadata.json),
-[MPtrj version/citation notes](https://github.com/CederGroupHub/chgnet#mptrj-dataset), and
-[Hugging Face Dataset Cards](https://huggingface.co/docs/hub/datasets-cards).
-These are documentation references, not data sources for this archive. Report issues/corrections through the project repository;
+Report issues/corrections through the project repository;
 changes to membership, targets, grids, or the complete-structure contract require a new data version.

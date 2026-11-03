@@ -65,9 +65,9 @@ I1 上比较存储输入、MP 源结构往返、原始 DOS 计算几何，共 39
 
 主审查约 33.2 s，来源重建与分组约 17.4 s，几何替换推理/统计约 10.4 s（不含脚本准备）。
 数据与源 checkpoint 指纹不变；复核全部 22 项配对区间和 3 项几何替换区间，重算差为零。
-本地证据：[report.json](../../results/runs/i1_pair_audit_20261014/report.json)、
-[geometry_swap_report.json](../../results/runs/i1_pair_audit_20261014/geometry_swap_report.json)、
-[verification.json](../../results/runs/i1_pair_audit_20261014/verification.json)。
+本地证据：report.json（本地产物：`results/runs/i1_pair_audit_20261014/report.json`）、
+geometry_swap_report.json（本地产物：`results/runs/i1_pair_audit_20261014/geometry_swap_report.json`）、
+verification.json（本地产物：`results/runs/i1_pair_audit_20261014/verification.json`）。
 
 状态：**pending（本次审查完成，根因仍未唯一定位）**。
 简单的重复结构、能量对齐、已知来源条件或近支持分组，均未使 eDOS 恢复可分辨谱差收益。

@@ -1,11 +1,11 @@
 # AGENTS.md — 项目协作约定
 
-uniARPAT 从晶体结构预测 eDOS 与 phDOS。当前科学目标与证据见 `docs/status.md`；总体路线见
-`docs/design/design-2026-09-19-structural-refinement.md`。
+uniARPAT 从晶体结构联合预测 eDOS 与 phDOS。当前工作点与证据见 [docs/status.md](docs/status.md)，
+接手步骤见 [docs/handoff.md](docs/handoff.md)，长期契约见 [docs/decisions.md](docs/decisions.md)。
 
 ## 开始前
 
-- 阅读 `docs/status.md`、`docs/index.md`；按任务需要阅读 `docs/workflow.md`、`docs/data.md`、`docs/glossary.md` 和相关证据。
+- 先读 `docs/status.md`、`docs/handoff.md`；按 `docs/index.md` 查相关契约、源码和证据，不要求通读历史日志。
 - 修改前检查 `git status --short`，保留已有改动，不覆盖无关工作。
 
 ## 研究与实施
@@ -16,8 +16,16 @@ uniARPAT 从晶体结构预测 eDOS 与 phDOS。当前科学目标与证据见 `
 - 实验设计可以是单因素对照，也可以是相互依赖的完整架构方案；按问题选择合适预算，不预设固定 pilot 长度。
 - 模型选择使用 train/valid；不得用 test 调参或选型。结果报告中说明数据口径、任务、指标与 blind/oracle 模式。
 
+## 长时间实验与监控
+
+- 对需要多轮训练或持续等待、监控的实验，默认由当前 agent 完成方案、代码、必要测试及短时成本预检，然后直接回复精简、自包含的执行提示词，由用户交给新的 agent；不自行启动长时训练、后台任务或持续监控。
+- 提示词包含已确认的目标、对照与固定配方、准备报告/协议/产物路径、原始命令、预算、监测节奏、异常停止与恢复条件，以及训练后导出、核验和汇报要求。直接在回复中提供，不另存提示词文件。
+- 默认约每 5 分钟检查一次，每完成一轮汇报；持续负责到导出和分析结束。OOM、非有限值或契约不符时停下报告，不自动改参数、重跑或追加实验。监控本身不保证平台不会终止进程。
+- 若用户明确指定当前会话为实验执行 agent（例如交付上述执行提示词），则按该授权执行并持续监控，不重复转交。短时测试、预检和只读核验可由当前 agent 直接完成。
+
 ## 保留边界
 
 - 不同归一化方案不得复用 checkpoint。
 - 未经明确批准，不运行 `--model all --epochs 100`，不删除 checkpoint，不执行破坏性 Git 操作或提交。
 - 完成后简要说明改动、依据、验证及未解决事项；文档改动检查引用和差异，代码改动执行相关检查。
+- 当前口径分别维护在状态、决策和数据页；带日期的设计/日志及 `archive/` 是历史证据，旧待办、默认参数和提示词不构成新执行授权。同步文档不改写冻结协议、数据、checkpoint 或原始报告。

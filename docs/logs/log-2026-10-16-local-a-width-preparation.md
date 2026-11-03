@@ -21,7 +21,7 @@
 
 ## 真实短检
 
-证据：[preflight_final.json](../../results/runs/local_a_width_20261016/preflight_final.json)。
+证据：preflight_final.json（本地产物：`results/runs/local_a_width_20261016/preflight_final.json`）。
 V100 32GB，123.46秒；临时模型有有限批次更新，正式目录没有checkpoint或epoch历史。
 完整train/valid为18,704/2,313，未使用test；批序、训练起始RNG和A64未训练初始化均匹配历史记录。
 

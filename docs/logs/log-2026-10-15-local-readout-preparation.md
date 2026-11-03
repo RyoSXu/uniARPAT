@@ -52,8 +52,8 @@ g 的大小以及同组成谱差只作诊断，不代替联合 blind 主指标�
 
 ## 证据与交接
 
-本地证据：[preflight_final.json](../../results/runs/local_readout_interface_20261015/preflight_final.json)、
-[admission_codex.json](../../results/runs/local_readout_interface_20261015/admission_codex.json)。
+本地证据：preflight_final.json（本地产物：`results/runs/local_readout_interface_20261015/preflight_final.json`）、
+admission_codex.json（本地产物：`results/runs/local_readout_interface_20261015/admission_codex.json`）。
 预检 SHA256 `64d3bdef336fa4bc44c02406860b3091949bef4d7342d6a76064c7a9795aa148`；
 目录的 `gradient_numerics/` 保留初次失败日志及独立精度探针。最终准入只读重验通过，
 三组均为 pending、运行目录无正式产物，已生成隔离命令。

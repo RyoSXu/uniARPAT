@@ -88,8 +88,8 @@ GPU 使用 Tesla V100-SXM2-32GB、Torch 2.2.1、单线程 CPU、无 AMP/TF32、�
 FP64 只测 batch=3，没有测 192 原子。路线的成本不同，不宣称参数量相同或准确率谁更好。
 
 本地原始证据（运行目录按仓库约定不入 Git）：
-[FP32 最终报告](../../results/runs/local_global_preflight_20261005/fp32_final.json)、
-[FP64 最终报告](../../results/runs/local_global_preflight_20261005/fp64_final.json)。
+FP32 最终报告（本地产物：`results/runs/local_global_preflight_20261005/fp32_final.json`）、
+FP64 最终报告（本地产物：`results/runs/local_global_preflight_20261005/fp64_final.json`）。
 早期 FP32 报告仍保留为 `fp32.json`，最终报告增加了 decoder 不接收结构的明确边界。
 报告包含源文件哈希、样本、变换误差、共同初值哈希、原始计时与内存。
 
@@ -107,9 +107,9 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONWARNINGS=ignore::DeprecationWarning \
 仓库文件策略检查通过（693 个 prospective 文件）。252 项包含本轮新增 12 项；不能与此前阶段累计回归数相加。
 DeprecationWarning 仅在检查命令中屏蔽，未修改运行时警告规则。`git diff --check` 无空白错误，
 最终文档本地引用已核对；模型接入之外的既有改动保留，无提交或推送。
-原始[仓库检查输出](../../results/runs/local_global_preflight_20261005/static-check.log)、
-[四组生成命令](../../results/runs/local_global_preflight_20261005/plan-commands.log)和
-[GPU 检查输出](../../results/runs/local_global_preflight_20261005/gpu-check.log)保存在同一本地目录；
+原始仓库检查输出（本地产物：`results/runs/local_global_preflight_20261005/static-check.log`）、
+四组生成命令（本地产物：`results/runs/local_global_preflight_20261005/plan-commands.log`）和
+GPU 检查输出（本地产物：`results/runs/local_global_preflight_20261005/gpu-check.log`）保存在同一本地目录；
 初次接入完成时，两份最终 GPU 报告的源文件哈希与当时工作区逐项核对一致。
 随后仅增强检查器的梯度断言与报告；模型计算源码未改，检查器新版本的证据见审核收尾日志。
 

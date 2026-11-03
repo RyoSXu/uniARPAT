@@ -90,7 +90,7 @@ I2 训练启动于 2026-10-14 16:51，训练结束于 18:44，分析导出结束
 两模型完整 train/valid 的材料 ID 与目标对齐；从原始谱独立重算 16 张配对表、24 个组成组区间，
 误差分别不超过 1.12e−16 / 1.39e−17。另重算 12 项 valid 总体对照，CPU FP32 物理指标中位偏差
 不超过 1.20e−7，168,136 个失败标签全部一致；输入产物指纹不变。未重跑模型推理、训练或 test。
-证据：[verification_codex.json](../../results/runs/i1_bplus_encoder_20261014/analysis/verification_codex.json)。
+证据：verification_codex.json（本地产物：`results/runs/i1_bplus_encoder_20261014/analysis/verification_codex.json`）。
 
 ## 未解决事项
 

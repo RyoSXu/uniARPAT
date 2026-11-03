@@ -1,55 +1,31 @@
 # uniARPAT
 
-从晶体结构预测电子态密度和声子态密度（eDOS 与 phDOS）。当前研究重点是同组成、不同结构材料的谱形差异预测。
-当前模型、阶段结论和下一步见[项目状态](docs/status.md)，其他说明见[文档索引](docs/index.md)。
+从完整晶体结构联合预测电子态密度（eDOS）与声子态密度（phDOS）。当前研究目标是让同组成、不同结构材料的谱差预测获得可泛化收益。
 
-2026-10-31：用户确认以完整A64的LR2形式（关闭四个内部加法、保留外层残差）＋E＋S作为研究工作点，
-使用每原子非负无固定上限总量、等权blind全谱误差加固定谱形辅助。
-本次单seed总体误差改善，同组成谱差尚未检出明确改善；I1及旧模型保留历史性能参照。
-冻结读出和组比较未定位单层瓶颈，不自动追加训练。
+接手先读[当前状态](docs/status.md)与[开发交接](docs/handoff.md)；按[文档导航](docs/index.md)查契约和证据。
+当前研究工作点为 **完整 A64 的 LR2 形式＋E＋S、staged L2/G6**。总体误差已有单 seed 改善证据，同组成谱差尚未检出明确改善。
 
-## 开始使用
+## 环境与数据
 
 ```bash
-pip install -r requirements.txt
-python3 -m unittest discover -s tests -t .
-python3 tools/train.py --help
-```
-
-当前默认数据为完整结构修复版 `data/crystal_q1_v1/`。训练前检查本地清单：
-
-```bash
-python3 -c "import json; print(json.load(open('data/crystal_q1_v1/manifest.json')))"
-```
-
-数据字段、有效划分和旧 Q1 的兼容边界见[数据约定](docs/data.md)。训练配方和预算按获准设计执行，使用新的唯一标签；不同归一化方案不共用 checkpoint。
-当前工作配方须显式指定`--local_route LR2`、`per_atom`、冻结protocol、`--spectral_shape_aux`与`balanced_blind_energy`；
-命令行仍保留历史默认，不能直接当作当前研究配方。测试所需本地数据见[测试说明](tests/README.md)。
-数据来源、处理流程、单位和发布说明见[中文数据卡](docs/dataset-card-zh.md)、[English](docs/dataset-card-en.md)及[来源与许可](docs/dataset-sources.md)。
-未经明确批准，不运行 `--model all --epochs 100`。实验只用 train/valid 选型，具体规则见[已确定约定](docs/decisions.md)。
-
-## 代码与文件
-
-模型在 `model/`，支持库在 `utils/`，训练、推理和诊断入口在 `tools/`，测试在 `tests/`。
-设计与证据分别放在 `docs/design/`、`docs/logs/`；目录职责和历史兼容路径见[仓库约定](docs/repository.md)。
-
-原始数据、权重、逐样本结果和日志保留本地；Git 只收录获准的小型元信息与证据，单文件上限 2 MiB。
-新克隆需要启用文件检查钩子：
-
-```bash
+python -m pip install -r requirements.txt ruff
 git config core.hooksPath tools/checks
+python tools/train.py --help
 ```
 
-## B7 CIF 推理
+Git 保存代码、文档和有限元信息；训练数据、checkpoint 与原始预测须单独恢复。
+当前输入为 `data/crystal_q1_v1/`，有效 train/valid/test 为 18,704/2,313/2,287。
+先按[交接清单](docs/handoff.md)校验数据和所需产物，再执行获准方案。
+数据字段、来源和恢复方式见[数据约定](docs/data.md)与[中英文数据卡](docs/dataset-card-zh.md)。
 
-以下入口仅用于历史 B7 `_e9ctl`，要求 epoch-33 checkpoint；不适用于I1或新版总量/目标模型：
+命令行保留历史默认，裸训练命令不代表当前配方；当前 loss、选点、显式开关及 checkpoint 边界见[固定契约](docs/decisions.md)。
+新实验使用唯一标签，选型只用 train/valid。长时间实验由准备 agent 提供执行提示词，交给用户指定的新 agent 运行并监控，见 [AGENTS.md](AGENTS.md)。
 
-```bash
-python3 tools/infer_b7_cif.py --cif structure.cif \
-  --checkpoint results/runs/ablation_m1_e9ctl/checkpoint_best.pth \
-  --output results/runs/b7_cif_blind
-```
+## 开发入口
 
-输出为 blind 模式的 NPZ、JSON 元数据和 `summary.csv`；入口拒绝不匹配的 checkpoint、无序 CIF 和超过 80 原子的 CIF 单胞。
+- [代码地图与 Git 边界](docs/repository.md)：模型、数据、训练与导出的调用关系。
+- [研究流程](docs/workflow.md)：方案、预检、实验交接和结果核验。
+- [测试说明](tests/README.md)：可用检查及本地数据依赖；完整检查需要相应历史数据。
+- [分析工具](tools/eval/README.md)、[数据工具](tools/data/README.md)：用途、原协议与执行边界。
 
-协作遵循 [AGENTS.md](AGENTS.md) 与[工作流程](docs/workflow.md)。
+历史 B7 CIF 入口 `tools/infer_b7_cif.py` 仅支持旧 `_e9ctl` ep33，不能加载当前 LR2 checkpoint；当前尚无等价的 LR2 通用 CIF 命令行入口。

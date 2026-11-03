@@ -1,6 +1,6 @@
 # uniARPAT crystal-q1-v1 数据说明
 
-[English](dataset-card-en.md) · [来源、引用与许可核查](dataset-sources.md) · 文档更新：2026-10-27（数据版本未变）
+[English](dataset-card-en.md) · [来源、引用与许可核查](dataset-sources.md) · 文档更新：2026-11-03（数据版本未变，来源许可未重新核查）
 
 ## 数据用途与版本
 
@@ -10,7 +10,7 @@
 
 版本名 `crystal-q1-v1` 同时固定 Q1 成员、E0/P0 网格和完整结构修复口径。
 数据清单 SHA-256 为 `8e1b0adff516835d52d9fb0321dae5e66fb9a2ac5fd964d317e1dd8647de4b80`。
-本地发布候选标签为 `data-crystal-q1-v1`，尚未上传。各来源的许可与署名要求见来源说明；本次不新增整包统一许可证。
+发布准备记录中的候选标签为 `data-crystal-q1-v1`，当时尚未上传；本文不确认实时发布状态。各来源的许可与署名要求见来源说明；本次不新增整包统一许可证。
 MP 的 23,306 个材料已在官方 2026-04-13 快照逐条核实为 `BY-C`，无 `BY-NC`。
 本包面向当前 ZP + 局部更新主线，不包含旧周期表、mendeleev 元素特征快照、权重或训练输出。
 
@@ -60,9 +60,9 @@ phDOS 按可用性从 MP、[PhononDB / NIMS MDR](https://doi.org/10.48505/nims.4
    全零谱在加小量的分母下仍保持全零。这个和不是直接的物理积分。窗口总量需要结合箱宽；
    模型另行学习谱尺度，blind/oracle 不是两套发布标签。
 
-当前研究工作配方使用每原子非负无固定上限的窗口总量，以及train谱能量归一化的blind全谱误差加独立谱形辅助。
+当前研究工作配方为完整 A64 的 LR2 形式＋E＋S：使用每原子非负无固定上限的窗口总量，以及train谱能量归一化的blind全谱误差加独立谱形辅助。
 零谱的辅助项为0、全谱误差仍监督；新blind重建不使用逐材料`N_val`，正式loss/评分不使用coverage删箱。
-这是模型协议更新，未改发布数组、mask、划分或历史质量筛选；具体公式与适用范围见[当前状态](status.md)。
+这是模型协议更新，未改发布数组、mask、划分或历史质量筛选；公式见[固定契约](decisions.md)，结果见[当前状态](status.md)。
 
 父处理方法可在 Git `e24d2a4^:tools/getdata/a4_process.py`、`a4_pass2.py`、`recompute_phonondb.py` 核对。
 Q1 和完整结构步骤分别见 `tools/data/q1_rebuild.py`、`tools/data/migrate_crystal_q1.py`。
@@ -150,7 +150,4 @@ eDOS 无全零谱。全零不代表已认证的物理零谱，原因尚未逐条
 引用时写明 `crystal-q1-v1`、数据清单哈希、实际 train 过滤、网格和归一化，并引用 MP、PhononDB、JARVIS 原来源。
 本数据集尚无独立论文/DOI，不虚构作者或 DOI；正式发布后补充 Release 的固定 URL。原来源引用与许可说明见来源说明。
 
-文档组织参考 [Matbench 的数据集元数据](https://github.com/materialsproject/matbench/blob/main/matbench/matbench_v0.1_dataset_metadata.json)、
-[MPtrj 的版本与引用说明](https://github.com/CederGroupHub/chgnet#mptrj-dataset)和
-[Hugging Face Dataset Cards](https://huggingface.co/docs/hub/datasets-cards)。这些是说明方式参考，不是本包数据来源。
 问题与更正通过本项目仓库 Issues 记录；改变成员、谱值、网格或完整结构契约须发布新数据版本。

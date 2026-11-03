@@ -48,7 +48,7 @@ V100 32GB 上最终预检用时 65.4 s。两批完整优化器更新的暖态中
 据两批暖态成本与历史预算，I2 的 35 轮训练**估计约 2–3 h**，后处理另需数分钟；
 这是外推，首轮后重估，不自动改变 batch、lr、epochs 或缓存策略。
 
-本地[最终预检](../../results/runs/i1_bplus_encoder_20261014/preflight_final.json)冻结模型、代码、
+本地最终预检（本地产物：`results/runs/i1_bplus_encoder_20261014/preflight_final.json`）冻结模型、代码、
 I1 config/best/latest/history 与历史预检指纹。默认入口只打印一条 I2 命令，`--run` 才训练。
 结束须同时核验 35 轮、latest/best 契约、队列完成与 `analysis_complete=true`；中途异常停止，不自动重试。
 完整训练结果、全数据峰值与结构谱差收益仍待运行；等价晶胞/超胞一致性与 AMP 未在本轮验收。

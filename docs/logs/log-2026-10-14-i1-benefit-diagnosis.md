@@ -53,8 +53,8 @@ train/valid 材料 ID 与目标数组在两模型间逐条对齐；既有 valid 
 eDOS 一条近零目标谱差对（TV<1e−6）单列；一条零总量 phDOS 仅从总量相对误差诊断排除。
 所有区间按组成组重采样 2,000 次，限单训练种子、所选 checkpoint，未校正多重比较。
 
-本地证据：[report.json](../../results/runs/i1_benefit_diagnosis_20261014/report.json)、
-[audit.json](../../results/runs/i1_benefit_diagnosis_20261014/audit.json)。目录另含完整 train 导出、
+本地证据：report.json（本地产物：`results/runs/i1_benefit_diagnosis_20261014/report.json`）、
+audit.json（本地产物：`results/runs/i1_benefit_diagnosis_20261014/audit.json`）。目录另含完整 train 导出、
 组成配对表、valid 分解与复现脚本；未改写旧实验产物。
 
 ## 结论与下一步

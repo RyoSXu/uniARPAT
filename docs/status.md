@@ -1,91 +1,48 @@
 # 当前项目状态
 
-更新日期：2026-11-02。本页只保留当前目标、工作参考、阶段结论与下一步；实验过程见[文档索引](index.md)。
+更新：2026-11-03。[接手步骤](handoff.md) · [固定契约](decisions.md) · [完整证据导航](index.md)
 
-## 当前目标
+## 目标与工作点
 
-固定eDOS/phDOS联合训练、两任务平等考虑，研究晶体结构差异能否转化为可泛化的谱预测收益。
-局部更新已有总体价值；全局骨架退化归因与本轮loss候选比较已完成。基础Encoder工作点保留，
-声子物理先验加普通读出修正未达到采用条件，用户已确认结束本候选。
-LR2向E＋S迁移35轮已完成，best ep29通过预设改善判据并独立核验；用户于2026-10-31确认采用为当前研究工作点。
-完整模型仍须满足[E(3)输出要求](design/design-2026-10-04-e3-output-invariance.md)。
+固定 eDOS/phDOS 联合训练、两任务平等考虑，研究结构差异能否转化为可泛化的谱预测收益。
+当前采用 **完整 A64 的 LR2 形式＋E＋S，staged L2/G6，best ep29**（用户于 2026-10-31 确认）。
+模型结构、loss、选点及数据契约集中在 [decisions.md](decisions.md)，具体产物位置见 [handoff.md](handoff.md)。
+这是研究工作点；I1 与旧模型的历史性能参照、原 checkpoint 契约继续保留。
 
-## 当前参考与口径
+## 当前主结果
 
-- **工作参考**：完整A64的LR2形式＋非负、无固定上限的每原子窗口总量＋独立谱形监督，参考checkpoint为LR2 E＋S ep29。训练为
-  `L=0.5 mean(E_e+S_e)+0.5 mean(E_p+S_p)`；E是train谱能量归一化的每原子blind全谱平方误差，
-  S是固定权重1的KL/W1/Huber，零谱S=0且仍接受E监督。[配方](design/design-2026-10-25-spectral-shape-supervision.md)
-- **骨架与预算工作点**：ZP；完整A 64/128、内部post-norm、完整状态读出、关闭四个内部加法，保留外层pre-norm残差；
-  staged L2/G6，全局post-norm、注意力概率dropout=0、Q/K/V/O恒等初值后继续学习；
-  8头、2048维GELU FFN、6层共享decoder。seed42、35轮、batch32、lr5e-5、FP32。
-  这是已运行研究配置，不宣称各项最优或跨seed稳定。[采用记录](logs/log-2026-10-30-spectral-residual-run.md#采用决定2026-10-31)
-- **选点**：完整valid先要求eDOS/phDOS失败数≤196/99、两任务中位R²分别不低于固定旧A64−0.02，
-  再最小化等权mean E；S不参与选点。无合格轮次报告`no_eligible_best`，latest仅供恢复。
-  分别报告E均值/中位/P90、R²中位/P10及失败率；Oracle与同组成谱差只作诊断。
-- **数据**：修复版`data/crystal_q1_v1/`，有效train/valid/test=18,704/2,313/2,287；
-  网格E0/P0、完整原子、coverage不参与当前loss，新blind重建不使用N_val侧车。[数据约定](data.md)
-- **历史参照保留**：I1及同数据重训原Encoder用于性能/架构对照，原A64 E＋S ep25保留为本轮匹配对照，旧H1 A64/LR2保留原选点与契约。
-  ZP100/B7是旧Q1和不同预算参考，不作同数据因果对照。工作配方更新不等于性能基线替换。
-- **代码入口**：工作配方须显式指定`--local_route LR2`、`per_atom`、冻结protocol、`--spectral_shape_aux`和`balanced_blind_energy`；
-  裸训练入口仍保留历史默认，不能当作获准研究配方。不同目标/总量/选点契约不混用checkpoint。
+修复版 Q1、完整 valid 2,313 条、blind；两组都用同一冻结协议、35 轮预算与选点规则，seed42。
+E 为按 train 谱能量归一化的每原子全谱平方误差，越低越好；失败定义为每材料 R²<0。
 
-## 已知结论
-
-固定完整valid、blind；纯E与E＋S使用相同归一化及选点，旧A64按历史blind中位R²选点；LR2 E＋S与A64 E＋S ep25配对：
-
-| 模型／选中轮 | 联合mean E↓ | eDOS中位R² | phDOS中位R² | eDOS／phDOS失败率 |
+| 模型／选中轮 | 联合 mean E↓ | eDOS 中位 R² | phDOS 中位 R² | eDOS／phDOS 失败数 |
 |---|---:|---:|---:|---:|
-| 旧A64／31 | 0.27848 | 0.4817 | 0.7407 | 8.47%／4.28% |
-| 纯E／32 | 0.28490 | 0.4621 | 0.7218 | 7.91%／2.72% |
-| E＋谱形辅助／25 | 0.27796 | 0.4891 | 0.7356 | 7.39%／3.20% |
-| LR2 E＋S／29 | 0.27191 | 0.4913 | 0.7434 | 7.52%／3.11% |
+| A64 E＋S／25（匹配对照） | 0.27795645 | 0.489122 | 0.735590 | 171／74 |
+| LR2 E＋S／29（工作点） | 0.27191453 | 0.491335 | 0.743409 | 174／72 |
 
-谱形辅助相对纯E联合误差差为−0.00695，材料配对95%区间[−0.01130, −0.00220]，支持本次改善；
-phDOS失败率则增加0.476 pp。相对旧A64，误差点差−0.00052、区间含零，只称恢复到参考附近，
-微小点差约97%来自5条待核材料，正式评分仍全部保留；不宣称突破、统计等效或跨seed稳定。
-第9轮后中断并按原契约恢复，原因未知，35轮及结果已独立核验。
-实现与本次结果已提交`66f2011`。[正式结果与边界](logs/log-2026-10-26-spectral-shape-aux-run.md)
+联合 E 差（LR2−对照）为 −0.00604192，材料配对 95% 区间 [−0.01163879, −0.00102599]；
+通过预设改善判据及固定双任务保护。eDOS 失败多 3 条、phDOS 少 2 条，R² P10 均下降，尾部没有一致改善。
+同组成 absolute/reduced × eDOS/phDOS 四项谱差误差区间均含 0，**尚不能宣称结构谱差泛化改善**。
+已独立复跑完整 valid 并从原谱复算。证据限本次已选 checkpoint 和单 seed，不能表示跨 seed 稳定性。
+[正式结果、核验与采用决定](logs/log-2026-10-30-spectral-residual-run.md)
 
-LR2 E＋S ep29相对A64 E＋S ep25的联合mean E差为−0.00604，材料配对95%区间[−0.01164,−0.00103]；双任务固定保护均通过，符合本次改善判据。完整valid独立复跑与原谱复算已核验。eDOS失败数较对照多3条、phDOS少2条，两任务R² P10点估计均下降；同组成谱差四项区间均含0。用户已采用为研究工作点，证据仍限本次单seed总体改善。[正式运行与核验](logs/log-2026-10-30-spectral-residual-run.md)
+## 已完成的阶段判断
 
-LR2＋E＋S中段编排（L1 G1 G2 G3 L2 G4 G5 G6）对staged ep29的seed42、35轮对照已完成；midpoint best ep24通过双任务固定保护。联合mean E差为−0.00152，材料配对95%区间[−0.00532,+0.00210]含0；同组成absolute/reduced eDOS/phDOS四项误差差区间均含0。2026-11-02已独立复跑完整valid并从原谱、晶体组成复算区间，结果吻合。按预设判据不升级工作点、不追加扫描；staged保持。[正式运行、分析与独立核验](logs/log-2026-11-01-local-global-layout-run.md)
-
-| 研究项 | 当前结论 |
+| 问题 | 已知结果与边界 |
 |---|---|
-| 局部A/B+ | 暂定完整A研究路线；没有证据证明A总体优于B+，实现均保留。[选型](logs/log-2026-10-16-local-module-run.md) |
-| 宽度、内外归一化、增量读出 | W1/LN1/LN2/LR1均未达各自升级条件；64/128、内部post-norm、外层pre-norm和完整状态读出保留。[索引](index.md#模型设计) |
-| 内部残差LR2 | E＋S迁移ep29通过本次联合误差判据及双任务保护，用户于2026-10-31确认采用；不据此宣称同组成谱差改善。[旧结果](logs/log-2026-10-22-local-internal-residual-run.md)、[设计](design/design-2026-10-30-spectral-residual.md)、[正式结果](logs/log-2026-10-30-spectral-residual-run.md) |
-| 全局模块与编排 | 三项骨架修正已有证据；头数、FFN及其他编排尚未选优，工作点不等于最优。[路线图](design/design-2026-09-19-structural-refinement.md) |
-| LR2＋E＋S中段编排 | midpoint ep24相对staged ep29未达到总体升级判据，同组成谱差四项区间均含0；staged工作点保留，不追加预算。[设计](design/design-2026-11-01-local-global-layout.md)、[正式结果](logs/log-2026-11-01-local-global-layout-run.md) |
-| 结构谱差 | 总体恢复没有解决同组成eDOS谱差。冻结逐阶段读出看到三层表示都分开，valid上线性探针和模型输出未检出优于零响应，不能指定单层瓶颈。有限组比较未检出验证组相对全部训练组的结构差明显更小，未定位原因；本轮诊断结束。[读出](logs/log-2026-10-27-shape-aux-stage-readout.md)、[比较](logs/log-2026-10-27-shape-gap-comparability.md) |
+| 局部更新与骨架退化 | 既有对照支持局部结构信息有价值；全局归一化、注意力 dropout、投影初始化三项归因已结束。保留 I1 历史性能参照。[证据入口](index.md#当前问题的证据) |
+| A/B+ 与局部细节 | 暂定完整 A 研究路线，未证明总体优于 B+；扩宽、内外 norm 和增量读出均未达到各自采用条件。[局部对照](index.md#模型设计) |
+| 新目标与 LR2 | 修正 H1 的科学范围，采用无固定上限每原子总量、等权 E＋S；LR2 迁移后通过本次总体改善判据。[目标](design/design-2026-10-23-balanced-blind-objective.md)、[谱形辅助](logs/log-2026-10-26-spectral-shape-aux-run.md) |
+| 中段编排 | `L1 G1 G2 G3 L2 G4 G5 G6` best ep24 对 staged ep29 的联合 E 与四项谱差区间均含 0；不升级工作点、不自动追加扫描。[结果](logs/log-2026-11-01-local-global-layout-run.md) |
+| 双 decoder、声子物理先验加读出修正 | 两项均未达到采用条件，候选已结束；六层共享 decoder 保留。[拆分](logs/log-2026-10-28-split-decoder-run.md)、[物理头](logs/log-2026-10-29-phonon-prior-run.md) |
+| 谱差归因 | 冻结读出与组比较未定位单层瓶颈；不能推断表示没有结构信息或 train/valid 分布相同。[读出](logs/log-2026-10-27-shape-aux-stage-readout.md)、[比较](logs/log-2026-10-27-shape-gap-comparability.md) |
+| 物理与晶胞一致性 | 16 条真实 train 结构的两精度有限检查通过；精确截断合成例有 FP32/FP64 硬计数反例，未证明影响真实性能。[验收与反例](logs/log-2026-11-02-crystal-model-invariance.md) |
+| 真实截断边界 | 全量有效 train 中距 6 Å ≤1e-6 Å 有 3 条、≤1e-4 Å 有 104 条；后者两个固定旋转未见成员或逐原子计数变化。调查结束，暂无依据优先追加平滑计数训练。[统计](logs/log-2026-11-02-cutoff-boundary-census.md) |
 
 ## 尚未解决与下一步
 
-1. 双 decoder 已跑完且不采用。best 为第 24 轮，联合 mean E 点差 −0.00130，配对区间含零。
-   共享 6 层 decoder 仍是工作点；不自动改成部分拆分或更深的共享 decoder。
-   [结果](logs/log-2026-10-28-split-decoder-run.md)
-2. 数据风险继续单列：5条电子谱待核材料、N_val来源差异、coverage物理含义及输入／DOS计算几何不一致；
-   未删除标签、改mask或重分箱。[语义审查](logs/log-2026-10-22-spectral-contract-audit.md)、[几何与来源](logs/log-2026-10-14-i1-pair-audit.md)
-3. 当前LR2的16条真实train结构在两精度下通过有限的E(3)、原子重排、等价晶胞和超胞检查；
-   精确6 Å的合成边界出现FP32／FP64反例，已定位显式硬计数通道，尚未证明影响真实数据性能。
-   全量train中1e-6 Å内仅3条、1e-4 Å内104条；后者两次固定旋转均无记录／计数翻转，
-   暂无依据把该风险作为主要性能归因或优先启动平滑计数训练。未改公式；全面验收与AMP仍未完成。
-   [实测与边界归因](logs/log-2026-11-02-crystal-model-invariance.md)、[全量覆盖与探针](logs/log-2026-11-02-cutoff-boundary-census.md)
-4. 结构预训练还不能开始：本机只有 Q1 的 23,306 条几何，没有额外结构。
-   去掉 valid/test 的 ID 和绝对同组成后，剩下的仍是现有 train。
-   [盘点](logs/log-2026-10-28-structure-pool-inventory.md)
-5. 已有两份模型的预测平均，联合mean E降0.0098，区间不含零；双decoder单独的本次点差为−0.0013。
-   这支持不同模型的误差互补，不能据此估计种子方差或认定随机性主导；架构与训练随机性仍未分离。
-   [诊断与复核](logs/log-2026-10-28-error-structure-ensemble.md)
-6. 纯物理头首轮第 8 轮的数值缺陷已修复；「物理先验加学习修正」按预检命令完成35轮，best为第26轮。
-   相对谱形辅助ep25，phDOS mean E差+0.00598（配对95%区间[+0.00187,+0.01022]），联合差+0.00327
-  （[−0.00191,+0.00812]，含0），不称改善；用户已确认结束本候选。eDOS、失败率及去均值logits后的修正谱形TV见
-   [正式运行与核验记录](logs/log-2026-10-29-phonon-prior-run.md)。模型选择只用valid，未评估test。
-   独立复算亦未检出同组成eDOS谱差改善，phDOS两种组成口径的谱差误差均增加；仅作诊断，不改变选点。
-   设计、修复、短检和接续核验见[设计](design/design-2026-10-28-phonon-lattice-head.md)、
-   [中断与修复](logs/log-2026-10-28-phonon-head-run-failure.md)、
-   [修正版短检](logs/log-2026-10-28-phonon-prior-preparation.md)、
-   [接续记录](logs/log-2026-10-28-cursor-takeover-review.md)。
+- 核心问题仍是同组成谱差泛化；下一项假设、对照和预算尚未选定。头数、FFN 等工作配置不等于最优，但不以穷举为推进前提。[方向地图](design/design-2026-09-19-structural-refinement.md)
+- 数据风险仍在：5 条电子谱待核材料、N_val 来源差异、coverage 含义，以及输入结构与 DOS 计算几何未逐条一致；正式评分保留全部材料与完整窗口。[语义审查](logs/log-2026-10-22-spectral-contract-audit.md)、[几何审查](logs/log-2026-10-14-i1-pair-audit.md)
+- 现有两模型平均只支持误差互补，未分离架构与训练随机性；外部结构池的 2026-10-28 本机盘点不支持直接启动预训练。[误差诊断](logs/log-2026-10-28-error-structure-ensemble.md)、[结构盘点](logs/log-2026-10-28-structure-pool-inventory.md)
+- E(3)、原子重排及等价晶胞目标不变；有限数值验收不等于全面保证，AMP 尚未验收。历史 test 曾用于诊断，不能称未触碰的留出集。
 
-模型选择只用train/valid；历史test曾用于诊断，不称完全未触碰的留出集。
-旧实验结论限各自数据、目标、选点和预算；历史设计或提示词不自动成为当前执行指令。
+新训练须另定方案。长时间训练与监控先生成提示词，由用户指定执行 agent；历史设计、日志及旧提示词不自动成为执行队列。

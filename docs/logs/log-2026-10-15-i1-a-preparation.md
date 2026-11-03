@@ -57,7 +57,7 @@ V100 32GB，完整预检 67.0 s。每个成本批次暖身 2 次，测量 3 次�
 本次 A 的普通批次约为其 1.44–1.55 倍。结合历史 A 的较重长尾，
 I3 35 轮训练**暂按约 3–5 h 规划**，这是推断，分析另计。正式首轮完成后重估，不自动改变预算。
 
-[最终预检](../../results/runs/i1_a_encoder_20261015/preflight_final.json) SHA256：
+最终预检（本地产物：`results/runs/i1_a_encoder_20261015/preflight_final.json`） SHA256：
 `6b7a5c3ee47927a95e9126b1b4177b0aa3d014c347fabfde0eddff999d8ac75e`。
 训练结束须核对 35 轮、latest/best 契约、队列完成和 `analysis_complete=true`。
 

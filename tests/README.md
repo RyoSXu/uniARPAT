@@ -1,23 +1,34 @@
-# 测试分类
+# 测试与验证
 
-| 目录 | 验证内容 |
+| 目录 | 主要职责 |
 |---|---|
-| `model/` | 当前模型、输出头、归一化、局部消息、谱形loss、几何缓存失效/预算/梯度及回归 |
-| `data/` | 完整 FP32 结构缓存、变长 batch/梯度累积、周期邻居和独立物理记录 |
-| `pipeline/` | checkpoint恢复与约束选点、blind全谱协议、谱形辅助接线、CIF推理、支持库、路径和Git数据边界 |
+| `model/` | 输出头、局部消息、全局模块、归一化、几何缓存、梯度及回归 |
+| `data/` | 完整 FP32 晶体、变长 batch、周期邻居与谱能量定义 |
+| `pipeline/` | 准备/恢复、选点、E＋S、导出、物理验收、路径和 Git 边界 |
+| [archive/code/tests/](../archive/code/tests/) | 历史兼容与退役候选测试，保留原语义 |
 
-历史候选测试集中于 [archive/code/tests](../archive/code/tests/)，不混入当前分类。
+按改动选择相关模块，例如只检查选点和 E 定义：
 
 ```bash
-python3 -m unittest discover -s tests -t .
-python3 -m unittest discover -s archive/code/tests -t .
+python -m unittest tests.pipeline.test_checkpoint_selection tests.data.test_spectral_balance
+```
+
+需要完整检查时使用已安装运行依赖及 Ruff 的环境：
+
+```bash
+python -m unittest discover -s tests -t .
+python -m unittest discover -s archive/code/tests -t .
 bash tools/checks/check-static.sh
 ```
 
-静态检查包含相关历史兼容契约，不加载完整训练或真实 checkpoint。
-数据依赖以各测试前置条件为准，并非缺少任意缓存都会跳过：完整迁移对照还需要历史Q1原数组。
-当前服务器缺少`data/train4ARPAT/train/train_index.npy`，该迁移检查无法完成；
-不能以新缓存替代或伪造旧文件。新协议及当前数据路径的相关回归结果见
-[119项检查记录](../docs/logs/log-2026-10-25-spectral-shape-preparation.md)。
-CPU/GPU成本与完整模型训练需要独立方案；文档同步不代表重新执行模型测试。
-测试通过只说明对应已执行检查通过，不能扩展为整个研究假设或训练复现已完成。
+静态入口执行 Ruff、内存语法编译、列出的 CPU/GPU 契约测试与仓库文件边界检查；其名称不表示所有测试都无数据依赖。
+`.github/workflows/ci.yml` 当前为手动触发，不把文档中的历史通过记录当本次 CI 已运行。
+
+## 已知前置条件
+
+- `TestCompleteQ1Cache.test_full_storage_dtype_order_labels_and_repairs` 在新 manifest 存在时会读取旧 Q1 原数组作逐项对照。
+  2026-11-03 本机缺少 `data/train4ARPAT/train/train_index.npy`，此项无法完成；其他依赖的跳过/失败由各测试实际前置条件决定。
+- 不能以新缓存替代、伪造旧文件或修改条件掩盖缺失。完整迁移历史结果见[原始实施记录](../docs/logs/log-2026-10-04-crystal-structure-input.md)。
+- GPU 短检和完整训练需相应方案与资源；短批通过不保证全程显存/吞吐或研究假设成立。
+
+报告具体执行的命令、通过/跳过/失败数量及数据条件；文档更新通常检查链接、示例与差异，不为此重跑完整训练。

@@ -23,7 +23,7 @@
 
 ## 数据、运行与校验
 
-正式产物：[lg_structure_diagnosis_20261009](../../results/runs/lg_structure_diagnosis_20261009/)。
+正式产物：lg_structure_diagnosis_20261009（本地产物：`results/runs/lg_structure_diagnosis_20261009`）。
 主要文件为 `report.json`、`manifest.json`、`verification_reproducible.json`、逐材料 CSV、谱数组 NPZ、
 逐配对 CSV 与 train/valid 几何表；大数组保留本地，不加入 Git。
 

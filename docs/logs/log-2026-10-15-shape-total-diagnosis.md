@@ -45,8 +45,8 @@ seed20261015，两任务与全部组合使用同一抽样索引。
 18 组 train/valid 组合的指标及 75 个区间重算通过，区间最大差 3.26e−16。
 12 项自身谱重建的 R² 中位数误差均 <1e−6，失败标记全部一致。
 零总量标签保留在主指标中，只从总量相对误差诊断排除。
-证据目录含可重放脚本、逐材料交叉指标与[报告](../../results/runs/i1_shape_total_diagnosis_20261015/report.json)、
-[独立核验](../../results/runs/i1_shape_total_diagnosis_20261015/verification.json)。
+证据目录含可重放脚本、逐材料交叉指标与报告（本地产物：`results/runs/i1_shape_total_diagnosis_20261015/report.json`）、
+独立核验（本地产物：`results/runs/i1_shape_total_diagnosis_20261015/verification.json`）。
 区间限历史所选 checkpoint、单训练种子；探索性比较未做多重校正。
 
 用户随后已确认[完整 B+ 局部状态直连读出](../design/design-2026-10-15-local-readout-interface.md)，

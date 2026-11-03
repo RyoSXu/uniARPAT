@@ -45,7 +45,7 @@ Embedding 提供可学习的元素身份向量；LayerNorm 规范通道分布；
 | ZP100 | 0.52460 | 0.48090 | 0.70987 | 0.69902 |
 
 来源：[ZP100 判读日志](../logs/log-2026-10-02-eid-zonlyproj.md)与
-[`eid_zproj_s42_valid_samples.csv`](../../results/runs/evidence/eid_zproj_s42_valid_samples.csv)。
+`eid_zproj_s42_valid_samples.csv`（本地产物：`results/runs/evidence/eid_zproj_s42_valid_samples.csv`）。
 
 采用 ZP 是用户在了解这些差异之后作出的研究取舍。历史判读仍记录：
 
@@ -74,7 +74,7 @@ ZP100 是后续结构研究的 baseline；B7 是用户指定的目前最优指�
 | phDOS blind | 0.69902 | 0.73787 | 6.66% | 4.37% |
 
 此表由已有 valid 逐样本 CSV 按同一材料 ID 顺序重汇总，未新增模型评估；B7 来源为
-[`eid_s42_valid_samples.csv`](../../archive/results/reports/eid_s42_valid_samples.csv) 中的 `b7_r2_*` 列。
+`eid_s42_valid_samples.csv`（本地产物：`archive/results/reports/eid_s42_valid_samples.csv`） 中的 `b7_r2_*` 列。
 ZP100 的 eDOS 中位 R²略高，B7 的 phDOS 中位 R²及四项失败率更好；“最优指标参考”是当前
 整体目标参照的角色，各指标的实际高低仍按表报告。
 B7 为 35 轮及 35 轮学习率调度，ZP100 为 100 轮及 100 轮调度；这项比较不是单因素因果实验。

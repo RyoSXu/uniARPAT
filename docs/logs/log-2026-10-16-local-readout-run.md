@@ -78,9 +78,9 @@ Codex 仅做 CPU 产物核验，未新增模型推理或参数更新：
 - 2026-10-16 提交前补跑局部直连、联合选点、完整 B+ 和完整 A 的 47 项相关回归，128.66 s 全部通过；
   相关源码 Ruff、语法、文档引用及 Git 文件边界检查通过。代码指纹仍匹配原真实预检，未重复正式训练。
 
-证据：[原始报告](../../results/runs/local_readout_interface_20261015/analysis/report.json)、
-[核验记录](../../results/runs/local_readout_interface_20261015/analysis/verification_codex.json)、
-[复算脚本](../../results/runs/local_readout_interface_20261015/analysis/verify_codex.py)。预检 SHA256
+证据：原始报告（本地产物：`results/runs/local_readout_interface_20261015/analysis/report.json`）、
+核验记录（本地产物：`results/runs/local_readout_interface_20261015/analysis/verification_codex.json`）、
+复算脚本（本地产物：`results/runs/local_readout_interface_20261015/analysis/verify_codex.py`）。预检 SHA256
 `64d3bdef336fa4bc44c02406860b3091949bef4d7342d6a76064c7a9795aa148`。
 
 ## 判读与边界

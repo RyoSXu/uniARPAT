@@ -19,7 +19,7 @@
 
 ## 实际核验
 
-预检：[preflight_final.json](../../results/runs/local_module_selection_20261016/preflight_final.json)，
+预检：preflight_final.json（本地产物：`results/runs/local_module_selection_20261016/preflight_final.json`），
 SHA256：`098127032d46b77b8cffebb8e2d5d0de9db46856c1d60fb4cd416c8875193572`。
 V100 32GB实测67.93秒；临时模型做有限批次更新，未产生正式checkpoint或epoch历史。
 

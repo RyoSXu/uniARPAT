@@ -88,7 +88,7 @@ E(3) 变换、固定框架误判的反例、逐记录表达对应、超胞中心
 
 - [摘要](../../results/reports/periodic_geometry_q1_r6_20261003_v2/summary.json)、
   [执行口径与哈希](../../results/reports/periodic_geometry_q1_r6_20261003_v2/manifest.json)。
-- [全量记录检查明细](../../results/runs/evidence/periodic_geometry_q1_r6_20261003_v2/full_record_contracts.csv)：
+- 全量记录检查明细（本地产物：`results/runs/evidence/periodic_geometry_q1_r6_20261003_v2/full_record_contracts.csv`）：
   21,019 行；[逐项 CSV](../../results/reports/periodic_geometry_q1_r6_20261003_v2/cases.csv)、
   [JSON](../../results/reports/periodic_geometry_q1_r6_20261003_v2/cases.json)及
   [增量 JSONL](../../results/reports/periodic_geometry_q1_r6_20261003_v2/cases.jsonl)：各 3,352 项。

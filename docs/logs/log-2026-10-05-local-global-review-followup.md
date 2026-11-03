@@ -43,7 +43,7 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONWARNINGS=ignore::DeprecationWarning \
 ```
 
 已执行 15 项，27.497 s 全部通过；涉及的四个代码/测试文件 ruff 通过。
-原始输出见 [专项测试日志](../../results/runs/local_global_review_followup_20261005/unit-tests.log)。
+原始输出见 专项测试日志（本地产物：`results/runs/local_global_review_followup_20261005/unit-tests.log`）。
 
 完整仓库检查命令：
 
@@ -53,7 +53,7 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONWARNINGS=ignore::DeprecationWarning \
 ```
 
 ruff、255 项测试（96.984 s）及 695 个候选仓库文件的文件策略检查全部通过。
-原始输出见 [仓库检查日志](../../results/runs/local_global_review_followup_20261005/static-check.log)。
+原始输出见 仓库检查日志（本地产物：`results/runs/local_global_review_followup_20261005/static-check.log`）。
 新增三项固定回归解释了原 252 项到当前 255 项的变化；两次检查不是两组独立用例。
 
 GPU 检查沿用相同 V100、seed 42、K=2、M1/Q1、512 维、六层共享 decoder、E0/P0，
@@ -73,15 +73,15 @@ python tools/checks/check_local_global.py \
 
 | 最终报告 | 四组完整模型 | E(3) 检查的输出最大绝对差 | 增强梯度检查 |
 |---|---|---|---|
-| [FP32](../../results/runs/local_global_review_followup_20261005/fp32.json) | 全部通过，含 192 原子个例 | 1.0728836e-6 | 每组 11 个模块前缀均通过 |
-| [FP64](../../results/runs/local_global_review_followup_20261005/fp64.json) | 全部通过，小批次 | 3.9968029e-15 | 每组 11 个模块前缀均通过 |
+| FP32（本地产物：`results/runs/local_global_review_followup_20261005/fp32.json`） | 全部通过，含 192 原子个例 | 1.0728836e-6 | 每组 11 个模块前缀均通过 |
+| FP64（本地产物：`results/runs/local_global_review_followup_20261005/fp64.json`） | 全部通过，小批次 | 3.9968029e-15 | 每组 11 个模块前缀均通过 |
 
 E(3) 变换使用小批次；192 原子个例检查完整前向/反向、梯度与固定批次成本。
 每组每种精度检查六个 E(3) 变换，共 48 次；物理记录拓扑保持，
 两类谱、尺度与 blind 重建输出有限并满足既定容差。每个被选参数可训练、梯度存在且有限，
 每个模块梯度总绝对值大于零。两类 Q1 trunk 各有两个首步零梯度张量（fc1 权重和偏置），
 符合零初始化；输出投影接受非零梯度。
-见 [GPU 运行日志](../../results/runs/local_global_review_followup_20261005/gpu-check.log)。
+见 GPU 运行日志（本地产物：`results/runs/local_global_review_followup_20261005/gpu-check.log`）。
 
 两份新报告的七个源码 SHA-256 均与最终工作区一致。相对原报告，仅检查器源码哈希改变，
 其余六个模型与辅助源码哈希不变；四组各自的初值记录与对应原报告完全一致。

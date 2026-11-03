@@ -1,62 +1,54 @@
-# 已确定的长期约定
+# 固定契约与历史边界
 
-进度同步：2026-10-31。本页只保留仍影响新工作的基准与数据/评估边界。单项实验结论和适用范围见各自日志；当前科学方向见
-[`status.md`](status.md) 与[路线图](design/design-2026-09-19-structural-refinement.md)。
+更新：2026-11-03。本页维护新开发须遵守的模型、数据与评价约定；结果及待决定事项只在[状态页](status.md)维护。
 
-## 比较基准
+## 当前研究配方
 
-- 当前元素初始化固定 ZP：原子序号 → Embedding → LayerNorm → Linear。结构与规则固定，参数继续训练。
-  ZP100 `_eidzproj100_s42` 是旧 Q1/M1 的已训练研究基线（seed 42、100 轮、best epoch 89）。
-  B7 `_e9ctl`（旧 Q1、seed 42、35 轮、best epoch 33）是用户指定的历史最优指标参考。
-  A100 为历史性能对照，B100/Z100 为元素入口对照。
-- 修复版数据上的I1保留为性能参照，同数据重训的原 Encoder 保留为历史架构锚点。
-  I1 的优势限已检验的 seed42、35 轮口径，结构谱差泛化尚未达标；具体对照见[当前设计](design/design-2026-10-14-i1-bplus-encoder.md)。
-  ZP100/B7 仍分别作为历史改进与差距参考，
-  列出各自 valid、best checkpoint 的 eDOS/phDOS × oracle/blind 中位 R²和失败率。
-  跨数据版本、预算或学习率调度的差异须注明，不能解释为同数据或单因素因果对照。
-  新候选的预算、选点与采用标准在执行前另定。
-- 用户选择 ZP 用于后续结构研究，接受其已报告的性能代价；历史实验采用门槛和未达标结论继续保留。
-  证据、初始化限制和后续范围见 [`design-2026-10-02-element-initialization.md`](design/design-2026-10-02-element-initialization.md)。
-- 已有实验配方为 SumNorm KL/W1/Huber 与 H1 eta/gamma，生产网格为 E0/P0；旧契约继续保留。
-  2026-10-23 用户确认后续完整A64新协议改为等权归一化blind全谱误差与每原子非负无固定上限总量，
-  通过独立开关启用，不混用旧 checkpoint。[设计](design/design-2026-10-23-balanced-blind-objective.md)
-- 固定谱形辅助及LR2向新配方迁移均已完成。用户于2026-10-31确认当前研究工作配方为完整A64的LR2形式、上述新总量与`E+S`：
-  两任务各50%，S复用KL/W1/Huber、辅助权重固定1，零目标S=0且E照常监督；S不参与选点。
-  关闭四个内部显式加法，保留内部post-norm、外层pre-norm与完整状态读出。参考为LR2 E＋S ep29，
-  原A64 E＋S ep25保留匹配对照；本次单seed联合误差改善，不宣称尾部或同组成谱差普遍改善。
-  这是研究工作点，不宣布替换I1的历史性能参照，也不改变固定旧A64 ep31的选点保护线。
-  命令行历史默认保留，工作配方须显式传入`--local_route LR2`、`per_atom`、谱形辅助、冻结协议及`balanced_blind_energy`。
-  [E＋S对照](logs/log-2026-10-26-spectral-shape-aux-run.md)、[LR2结果与采用决定](logs/log-2026-10-30-spectral-residual-run.md#采用决定2026-10-31)
-- 2026-10-15 用户明确固定 eDOS/phDOS 联合训练，单任务对照暂时搁置；完整 A/B+ 保留为研究候选和证据。该阶段按 blind 主表判读，保留 I1，不用完整 A替换性能参照；具体后续干预另定协议。
-  随后确认的[完整 B+ 局部状态直连读出](design/design-2026-10-15-local-readout-interface.md)已完成：I1/I2/I4 全部按新 blind 规则从头对照；I4 相对 I1/I2 的联合收益均未达到预设采用条件，继续保留 I1，不自动追加变体。[运行与独立核验](logs/log-2026-10-16-local-readout-run.md)
-- 2026-10-16 用户确认先完成基础 Encoder 的阶段性定型，范围包含局部路线/宽度/公式/残差、全局模块及层数/编排；I4 等增强暂停，已有局部价值和全局归因证据直接复用。
-  匹配选型后，用户暂定完整A作为局部研究路线，依据本轮eDOS失败率更低并接受较高成本；I1继续作为性能参照。联合R²未分胜负，不宣称A总体更优；B+实现与证据保留。[结果与阶段取舍](logs/log-2026-10-16-local-module-run.md)
-- pre-Q 与 Q1 口径不同，不可直接比较。Q1 数据量及标签约定见 `data.md`。
+| 部分 | 固定工作配置 |
+|---|---|
+| 元素入口 | ZP：原子序号 → Embedding → LayerNorm → Linear；参数继续训练 |
+| 几何 | 完整 FP32 晶体，6 Å 严格 `d<R` 有向周期镜像记录；几何由局部消息利用，不另接旧方向注意力打分旁路 |
+| 局部更新 | 完整 A 的 LR2 形式，标量/隐藏宽度 64/128；两次调用、每次两个内部块；关闭四个内部加法，保留内部 post-norm、外层 512 维 pre-norm 残差、完整状态读出 |
+| 全局与编排 | staged：`L1 L2 G1 G2 G3 G4 G5 G6`；全局 post-norm、8 头、2048 维 GELU FFN；注意力概率 dropout=0，残差/FFN dropout=0.05；Q/K/V/O 恒等初值后继续学习 |
+| 输出 | 六层共享 decoder；E0/P0 为 128/64 箱；结构预测非负、无固定上限的每原子窗口总量 |
+| 训练预算 | M1、启用 q1_coord、q1_hidden=128、seed42、35 轮、batch32、lr5e-5、FP32；其他参数以冻结准备报告与有效配置为准 |
 
-## 数据与评估
+用户于 2026-10-31 确认采用，参照为 LR2 E＋S ep29；A64 E＋S ep25 是匹配对照。
+这些是已检验的工作配置，不宣称每个细节最优或 A 总体优于 B+。
+[采用记录](logs/log-2026-10-30-spectral-residual-run.md#采用决定2026-10-31)
 
-- 生产推理特征来自 CIF。训练阶段使用 eDOS-only 标签、预训练权重或其他数据是可研究的方向；须在具体方案中说明来源、划分、用途和泄漏防护，不代表推理依赖标签。
-- 缺失值保持缺失；coverage mask标记该箱是否有有限源采样点，不等于物理非零范围或标签可靠性认证，
-  不参与当前损失和正式全窗评分。不同归一化方案不共用 checkpoint。
-- 报告 eDOS/phDOS 中位 R²与失败率，并写明数据版本、split、模型选择口径和 blind/oracle。不同谱任务的 R²不能仅凭绝对值直接比较难度。
-- 2026-10-15阶段用户确认两任务平等选点：使用 `balanced_blind_r2`，取完整 valid 的 eDOS/phDOS blind 中位 R² 等权平均最大值，并列保留较早轮次。分别报告两任务 R² 和失败率；Oracle MAE 与同组成谱差仅作诊断。该阶段对照要求选点契约一致，联合增益区间下界>0且两任务各自满足 R² 下降≤0.02、失败率增加≤1 pp，才满足数值采用条件；人决定是否替换基线。已完成实验的旧 checkpoint 与契约保留，不追溯改选点。[实现与验证](logs/log-2026-10-15-joint-blind-selection.md)
-- 2026-10-23 用户确认下一版使用 `balanced_blind_energy`：两任务每原子blind全谱平方误差分别除以
-  train冻结谱能量，各占50%，完整valid取平均最小。选点前分别要求失败率不高于固定A64参考、
-  中位R²下降≤0.02；无合格轮次不保存/宣称best，latest仅供恢复。旧规则已完成实验不重判。
-  R²/P10/失败率、误差均值/中位数/P90继续分别报告；单seed与valid点估计保护不等于泛化保证。
-  采用权仍归人，不自动复用旧规则的“联合R²增益”作为新目标的采用判据。[公式与边界](design/design-2026-10-23-balanced-blind-objective.md)
-- 模型选择用 train/valid；test 不用于调参或选型。历史工作已查看部分 test，后续报告应说明这一限制，不将它称为未触碰的独立验收集。
+## 损失与最佳 checkpoint
 
-## 输出对称性
+任务 t、材料 i 的误差为 `E_it = Δx_t × Σ_b[(ŷ_itb−y_itb)/N_i]² / C_t`；
+`C_t = mean_train{Δx_t × Σ_b(y_itb/N_i)²}`，只用有效 train 拟合并冻结。
+E 使用完整窗口，包括零箱和零谱；train 全零预测的平均 E 为 1，这不是单材料 R² 的零线。
 
-- 用户于 2026-10-03 明确最终 eDOS/phDOS 输出须满足 E(3) 不变性：整体平移、旋转或反射晶体
-  后预测谱一致。中间可以使用等变特征，最终经保持对称性的运算生成不变输出。
-- 几何验收、完整模型的数值验收及架构保证分别报告；原子重排和等价晶胞表达另作一致性检查。
-  Encoder 设计须比较不变量消息与等变中间特征加不变读出两条路线的依据、表达能力和成本。
-  目标与后续验收要求见 [`design-2026-10-04-e3-output-invariance.md`](design/design-2026-10-04-e3-output-invariance.md)。
+- **训练 loss**：`0.5 mean(E_e+S_e) + 0.5 mean(E_p+S_p)`。S 为非零目标 SumNorm 形状的 KL＋W1＋Huber，权重各 1、Huber delta=0.02；零谱 S=0，仍计入 batch 分母并接受 E 监督。
+- **blind 重建**：形状 softmax × N × 每原子窗口总量 / 箱宽；总量用 softplus 与冻结 train 参考尺度产生。它描述处理后窗口面积，不套价电子数或 3N 上限，不使用逐材料 N_val、目标总量或 coverage。
+- **选点**：`balanced_blind_energy`，完整 valid 2,313 条。先分别满足 eDOS/phDOS 失败数≤196/99、中位 R²≥固定旧 A64 ep31−0.02，再最小化 `0.5 mean(E_e)+0.5 mean(E_p)`，并列保留较早轮次。S 不参与选点；保护线不随工作点更新。
+- **没有合格轮次**：报告 `no_eligible_best`；不保存/宣称 best，不用 latest 替代。latest 只供按原契约恢复。
+- **报告**：分任务给 E 均值/中位/P90、R² 中位/P10、失败数/率；Oracle 和同组成谱差仅作诊断。失败是每材料 R²<0，R²受目标方差与零背景影响，不能直接比较任务难度。
 
-## 实验判读
+原公式与边界见[全谱协议](design/design-2026-10-23-balanced-blind-objective.md)及[谱形辅助](design/design-2026-10-25-spectral-shape-supervision.md)。
+源码分别在 `utils/spectral_balance.py`、`model/losses.py` 与 `utils/checkpoint_selection.py`。
+工作命令必须显式启用 `--local_route LR2 --scale_mode per_atom --spectral_shape_aux --selection_metric balanced_blind_energy`、冻结 `--spectral_balance_config` 及获准结构配置；CLI 历史默认不代表当前配方。
 
-- 单因素对照和完整架构包都可采用；选择能回答所研究问题的设计，不规定固定 pilot epoch 数。实验前应写清它服务的决策、预算、指标，以及不同结果对应的行动。
-- 项目当前平局描述线为 `|Δ中位 R²| < 0.02` 且 `|Δ失败率| < 1 个百分点`。它描述单次比较，不能自动关闭更大的研究假设。
-- `park` 表示暂不采用被测候选；`closed` 表示当前有意暂停；二者都不自动否定未被该实验检验的路线。
+## 数据、输出与兼容性
+
+- 输入使用[修复版 Q1](data.md)，固定完整原子、划分、行序和 E0/P0。缺失保持缺失；coverage 只说明有限源点覆盖，不认证物理零或标签可靠性，不用于当前 loss/正式评分删箱。
+- 目标为 eDOS/phDOS 联合训练，单任务研究暂搁置。推理输入来自晶体结构；额外数据、预训练及 eDOS-only 监督属于另行设计的研究方案，须明确来源、用途和泄漏防护。
+- 最终谱要求 E(3) 不变，原子重排、等价晶胞与超胞一致性分别检验。区分几何验收、完整模型有限数值检查与架构保证。[输出要求](design/design-2026-10-04-e3-output-invariance.md)
+- checkpoint 绑定数据、归一化、模型、loss、总量与选点契约；不同契约不得混用。冻结 JSON/YAML、指纹和原始报告不因文档整理改写。
+- 用 train/valid 开发与选型；test 不用于调参。历史 test 已有诊断暴露，不能宣称完全未触碰。
+
+## 历史参照与判读
+
+| 历史项 | 保留用途与限制 |
+|---|---|
+| I1、同数据原 Encoder | 历史性能/架构参照；工作点更新不代表已超越其全部指标 |
+| ZP100、B7 `_e9ctl` | 旧 Q1、100/35 轮、best89/33；跨版本与预算仅作历史参照，不作单因素因果比较 |
+| H1、`balanced_oracle_mae`、`balanced_blind_r2` | 保留原总量、loss 与选点语义，不追溯改选已完成实验。[历史选点](logs/log-2026-10-15-joint-blind-selection.md) |
+
+新候选执行前明确主目标、配对对照、预算、保护条件和采用判据；不沿用旧中位 R²“平局线”替代当前 E 判据。
+材料配对区间条件于已选 checkpoint，不代表训练 seed 方差或消除 valid 反复选型偏差；同组成材料对按组成组处理相关性。
+人决定是否采用；`park/closed` 只限定实际候选及实验范围，不自动否定更大研究方向，也不自动启动下一项。

@@ -20,7 +20,7 @@
 - 主表 bootstrap：2000 次，seed 20261016，按材料配对（2,313 个材料）。谱差诊断沿用历史组成组 bootstrap，2000 次，seed 42。
 - Codex 独立核验通过：57份源码及数据/初值/RNG/契约匹配，三模型的35轮历史与best/latest一致；I1/I2的12份复用预测/摘要导出指纹未变。
 - 从原始NPZ重算物理谱指标及252,204个失败标记，标记完全一致，中位数最大误差1.19e−7；从数据集原子计数与目标重建24张谱差表、40组区间，复算36项材料对比和3组联合区间，联合区间误差为0。未增加模型推理、参数更新或test评估，原始报告及导出指纹未变。
-- 本地证据：[核验结果](../../results/runs/local_module_selection_20261016/analysis/verification_codex.json)、[复算脚本](../../results/runs/local_module_selection_20261016/analysis/verify_codex.py)。包装状态、启动脚本与输出已保存在[monitor](../../results/runs/local_module_selection_20261016/monitor/)；状态记录确认退出码0。
+- 本地证据：核验结果（本地产物：`results/runs/local_module_selection_20261016/analysis/verification_codex.json`）、复算脚本（本地产物：`results/runs/local_module_selection_20261016/analysis/verify_codex.py`）。包装状态、启动脚本与输出已保存在monitor（本地产物：`results/runs/local_module_selection_20261016/monitor`）；状态记录确认退出码0。
 
 ## 结果（valid blind 中位 R²，选点后）
 

@@ -48,16 +48,16 @@
 - [汇总 CSV](../../results/reports/periodic_neighbor_radius_q1_20261003/summary.csv)、
   [完整摘要](../../results/reports/periodic_neighbor_radius_q1_20261003/summary.json)、
   [执行与输入/源码哈希](../../results/reports/periodic_neighbor_radius_q1_20261003/manifest.json)。
-- [原子明细](../../results/runs/evidence/periodic_neighbor_radius_q1_20261003/atoms.csv.gz)：train/valid
-  219,505/27,437 行；[结构与半径明细](../../results/runs/evidence/periodic_neighbor_radius_q1_20261003/structures.csv.gz)
+- 原子明细（本地产物：`results/runs/evidence/periodic_neighbor_radius_q1_20261003/atoms.csv.gz`）：train/valid
+  219,505/27,437 行；结构与半径明细（本地产物：`results/runs/evidence/periodic_neighbor_radius_q1_20261003/structures.csv.gz`）
   共 231,209 行，均保留样本编号与索引。
 - [CPU 独立计时](../../results/reports/periodic_neighbor_radius_q1_20261003/cpu_benchmark.csv)：各划分实际
   67 个固定结构、11 个半径、每项三次；1,474 项直接枚举的记录数与最大半径筛选结果一致。
 - [复核记录](../../results/reports/periodic_neighbor_radius_q1_20261003/verification.json)：从原子和结构
   明细独立汇总，核对记录总数、入度中位数/p99、空邻域、壳层覆盖和邻边对数，均与摘要一致；
   输入及执行源码哈希未变。4.5/5.5 Å 分别对照
-  [历史周期多体计数](../../archive/results/reports/periodic_manybody_edge_audit_q1.csv)和
-  [历史 G2 计数](../../archive/results/reports/g2_edge_audit_q1.csv)，每个半径的 21,019 个结构的原子数、记录数、
+  历史周期多体计数（本地产物：`archive/results/reports/periodic_manybody_edge_audit_q1.csv`）和
+  历史 G2 计数（本地产物：`archive/results/reports/g2_edge_audit_q1.csv`），每个半径的 21,019 个结构的原子数、记录数、
   最大入度均一致。历史文件中的 test 行不参与比较或选型。
 
 复现入口（拒绝覆盖已有目录，重跑时指定新的输出目录）：

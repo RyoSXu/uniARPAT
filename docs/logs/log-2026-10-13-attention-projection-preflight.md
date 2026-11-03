@@ -41,13 +41,13 @@ Ruff 与差异空白检查通过。全仓检查与真实 V100 两组预检随后
 ## 最终准入与证据
 
 - **全仓检查通过**：实际运行 `tools/checks/check-static.sh`，Ruff、内存语法编译、391 项测试和仓库边界检查全部通过，测试耗时 214.744 秒。新增的 16 项投影检查在此轮均通过；此前失败的夹具项已修正，未把首次失败写成通过。
-- **真实 V100 预检通过**：[preflight_final.json](../../results/runs/attention_projection_attribution_20261013/preflight_final.json)，总耗时 239.12 秒；绑定 40 份当前源码、7 组历史参考，两个候选均未有正式历史或 checkpoint。两组嵌套 `d1_initialization` 与已完成 D1 的未训练初始化记录完全相同，不使用已训练 D1 权重作起点。
+- **真实 V100 预检通过**：preflight_final.json（本地产物：`results/runs/attention_projection_attribution_20261013/preflight_final.json`），总耗时 239.12 秒；绑定 40 份当前源码、7 组历史参考，两个候选均未有正式历史或 checkpoint。两组嵌套 `d1_initialization` 与已完成 D1 的未训练初始化记录完全相同，不使用已训练 D1 权重作起点。
 - **初值和容量**：两组均有 271 个状态张量、75,894,212 个总参数，完整初始状态 SHA-256 均为 `47c689c450504d3ebbf4051664bbccfea48cd639cc574b2a761e1206ae07a370`。复制 D1 的 247 个非投影初始张量，仅 12 个投影权重张量初值改变。I1 全部可训练；I0 固定 24 个投影权重/偏置张量，可训练参数为 69,590,468，其余参数全部保持可训练。
 - **真实训练模式和梯度**：相同的两批 train，各 32 个结构，352/380 个原子，实际微批为 `[32]`、`[23,9]`。六层注意力均在 train 模式；所有可训练参数的梯度存在且有限。I1 损失为 2.88304305 / 2.50405803，I0 为 2.88304305 / 2.50869317。第一批共同起点相同、更新后轨迹开始分开；这些损失只用于有限性检查，不作为准确率比较。
 - **固定映射和恢复**：I0 经真实更新和成本短测后恒等映射仍逐值保持，无固定投影梯度或 AdamW 状态；输入和局部更新仍有梯度。两组模型权重、AdamW 与 RNG 的内存保存/恢复逐值通过，I0 固定标志保持；定向检查验证跨组 checkpoint 拒绝。
 - **有限对称性**：真实 valid 批次的两类谱及 blind 重构在所测平移、旋转、反射下通过。I1 的 FP32 最差相对差 2.12×10⁻⁶、FP64 3.93×10⁻¹⁵；I0 分别为 2.05×10⁻⁶、4.04×10⁻¹⁵，均低于 1e-4 / 1e-9 阈值。定向检查另覆盖原子重排、空行与 C1 几何缓存；有限检查与架构不变性依据分开判读。
-- **只读初值核对**：[initialization_comparison.json](../../results/runs/attention_projection_attribution_20261013/initialization_comparison.json) 再次独立重建 D1/O1，确认 199 个非全局张量相同，48 个保留全局张量中的 24 个 FFN 权重/偏置不同。未替换 FFN 或读取已训练权重作为初值。
-- **正式入口准入通过**：[admission.json](../../results/runs/attention_projection_attribution_20261013/admission.json) 实际调用 `verify_preflight`，源码、数据和参考身份均通过，耗时 47.93 秒；`summarize` 显示 I1/I0 都为 pending。训练开始 RNG 同为 `d7e698b5c9fabbd10ec02394dbe8df9eca101cfcea47c0f5fbe259ee5d1a6dbf`，与原协议相同。没有启动正式队列或训练进程。
+- **只读初值核对**：initialization_comparison.json（本地产物：`results/runs/attention_projection_attribution_20261013/initialization_comparison.json`） 再次独立重建 D1/O1，确认 199 个非全局张量相同，48 个保留全局张量中的 24 个 FFN 权重/偏置不同。未替换 FFN 或读取已训练权重作为初值。
+- **正式入口准入通过**：admission.json（本地产物：`results/runs/attention_projection_attribution_20261013/admission.json`） 实际调用 `verify_preflight`，源码、数据和参考身份均通过，耗时 47.93 秒；`summarize` 显示 I1/I0 都为 pending。训练开始 RNG 同为 `d7e698b5c9fabbd10ec02394dbe8df9eca101cfcea47c0f5fbe259ee5d1a6dbf`，与原协议相同。没有启动正式队列或训练进程。
 
 预检捕获配置时会打印训练入口横幅，但 `captured_config` 在真实模型/训练构建前受控停止，不执行 35 轮训练；只读学习率轨迹辅助仍产生已记录的 PyTorch scheduler 警告，正式优化器/调度执行顺序未改。
 

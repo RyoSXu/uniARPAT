@@ -178,7 +178,7 @@ A 单块是三个 MLP 加 128 个 LN 参数；B 单块为径向门控、标量�
 5,856 个张量积权重及 4,176 个等变线性权重之和；末块不含方向门控。共同投影有 66,112 个参数。
 这些数不含 ZP、全局 attention、decoder/head、优化器状态及调试张量，不能据此排定训练速度。
 
-成本来源为 [6.0 Å 全量结构表](../../results/runs/evidence/periodic_neighbor_radius_q1_20261003/structures.csv.gz)，
+成本来源为 6.0 Å 全量结构表（本地产物：`results/runs/evidence/periodic_neighbor_radius_q1_20261003/structures.csv.gz`），
 按 `radius_A=6.0` 筛选后汇总；其输入与源码版本见
 [manifest](../../results/reports/periodic_neighbor_radius_q1_20261003/manifest.json)。
 

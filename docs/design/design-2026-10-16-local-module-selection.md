@@ -42,7 +42,7 @@
 I1/I2 来自[新规则运行与核验](../logs/log-2026-10-16-local-readout-run.md)；I4 不参与本轮。
 2026-10-16 方案阶段的只读复核通过：当时52份源码、95项文件指纹（含两参考的28份分析文件），
 两参考的配置/权重/历史未变；数据契约、共同未训练初值、起始 RNG 与采样顺序支持匹配比较。
-本地明细见[复用审查](../../results/runs/local_module_review_20261016/reuse_audit.json)；该次方案审查未重算统计或重新推理。
+本地明细见复用审查（本地产物：`results/runs/local_module_review_20261016/reuse_audit.json`）；该次方案审查未重算统计或重新推理。
 
 **旧 A 无法直接补齐新规则对照。**其35轮 history 按等权 blind 分数应选 ep29（S=0.612284），
 现存 best/latest 仅为 ep35，旧 best 按 Oracle MAE 选择；缺少 ep29 权重，无法恢复逐材料预测及配对区间。

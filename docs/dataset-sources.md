@@ -1,19 +1,21 @@
 # 数据来源、引用与许可 / Sources, attribution and licensing
 
-核查日期 / Reviewed: **2026-10-19**。配套说明：[中文](dataset-card-zh.md) · [English](dataset-card-en.md)。
+来源许可核查 / Licensing reviewed: **2026-10-19**。文档整理 / Documentation: **2026-11-03**。
+以下为原核查快照，本次未重新核查外部条款或实时发布状态。 / This preserves the original audit; external terms and live release status were not rechecked.
+配套说明：[中文](dataset-card-zh.md) · [English](dataset-card-en.md)。
 
 ## 发布状态 / Release status
 
 本说明区分已确认来源、许可证据和未补齐凭据，不对整包额外授予统一许可证。
 MP 本版本的数据许可已补核：23,306 个材料在官方 2026-04-13 summary 快照中均为 `BY-C`，无缺失、无 `BY-NC`。
 发布范围已收回当前主线所需的冻结数据和 8 个配套参考文件；旧周期表、mendeleev 特征快照及旧表审计不纳入本次附件。
-这些历史表的来源问题不再作为本包的许可待办。尚未上传、创建远端标签或发布。
+这些历史表的来源问题不再作为本包的许可待办。当次准备结束时尚未上传、创建远端标签或发布。
 
 This notice distinguishes provenance, verified licensing evidence, and missing evidence. It does not grant a new uniform
 license over the archive. All 23,306 materials have `BY-C` metadata in MP's official 2026-04-13 summary snapshot,
 with no missing IDs or `BY-NC` entries. Release scope is limited to the frozen current data and 8 companion reference files.
 The legacy periodic table, mendeleev feature snapshots, and element-table audit are excluded; their historical provenance
-questions are outside this package. Nothing has been uploaded or published.
+questions are outside this package. Nothing had been uploaded or published at the recorded preparation stage.
 
 | 组成 / Component | 当前证据 / Evidence | 边界与待办 / Boundary and remaining evidence |
 |---|---|---|
