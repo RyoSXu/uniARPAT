@@ -36,7 +36,7 @@ from utils.local_global_experiment import (
 from utils.lg_baseline_experiment import (
     validate_baseline_config, initialize_baseline_model, baseline_contract,
 )
-from utils.spectral_balance import ENERGY_METRIC, balanced_checkpoint_eligible
+from utils.spectral_balance import ENERGY_METRIC, REFERENCE_ENERGY_METRICS, balanced_checkpoint_eligible
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger('ablation')
@@ -376,7 +376,7 @@ def configure_local_global_execution(transformer, *, augment=False):
     configure = getattr(transformer, "enable_local_geometry_cache", None)
     if configure is not None:
         cuda = next(transformer.parameters()).device.type == "cuda"
-        no_geometry = getattr(transformer, "local_route", None) in ("C0", "G0", "O0")
+        no_geometry = getattr(transformer, "local_route", None) in ("C0", "G0", "O0", "S0")
         configure(enabled=cuda and not augment and not no_geometry)
         transformer._local_geometry_cache_disabled_reason = (
             "no_geometry" if no_geometry else "augmentation" if augment else "cpu" if not cuda else None)
@@ -599,6 +599,8 @@ def train_and_eval(cfg: ExperimentConfig):
         yaml_cfg['model']['params'].update(loss_form=ENERGY_METRIC, spectral_balance=spectral_balance)
         if cfg.spectral_shape_aux:
             yaml_cfg['model']['params']['spectral_shape_aux'] = True
+        if cfg.single_task is not None:
+            yaml_cfg['model']['params']['single_task'] = cfg.single_task
     _sn =(cfg.norm =="sumnorm")
     yaml_cfg ['model']['params']['sub_model']['transformer']['energy_code']=cfg.energy_code
     if cfg.energy_code =="edos":
@@ -617,7 +619,7 @@ def train_and_eval(cfg: ExperimentConfig):
     model_contract = (baseline_contract(cfg, transformer_params) if cfg.lg_baseline
                       else comparison_contract(cfg, transformer_params))
 
-    train_loader =builder .get_dataloader (split ='train',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn ,use_bucket_batch =cfg .use_bucket_batch )
+    train_loader =builder .get_dataloader (split ='train',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn ,use_bucket_batch =cfg .use_bucket_batch ,sampler_seed =cfg .data_order_seed )
     pair_loader ,pair_sampler =maybe_get_pair_aux_loader (train_loader ,cfg )
     val_loader =builder .get_dataloader (split ='valid',dos_minmax =True ,batch_size =cfg.batch_size ,dos_sumnorm =_sn )
     test_loader =maybe_get_test_loader(builder, cfg, _sn)
@@ -824,6 +826,8 @@ def train_and_eval(cfg: ExperimentConfig):
             **({'split_decoder': True} if cfg.split_decoder else {}),
             **({'phonon_head': True} if cfg.phonon_head else {}),
             **({'phonon_correction': True} if cfg.phonon_correction else {}),
+            **({'data_order_seed': cfg.data_order_seed} if cfg.data_order_seed is not None else {}),
+            **({'single_task': cfg.single_task} if cfg.single_task is not None else {}),
             'delta_edos':cfg.delta_edos ,'delta_phdos':cfg.delta_phdos ,
             'scalar_mode':cfg.scalar_mode ,'scalar_sup_w':cfg.scalar_sup_w ,
             'use_g1':cfg.use_g1 ,'g1_r_cut':cfg.g1_r_cut ,
@@ -908,7 +912,7 @@ def train_and_eval(cfg: ExperimentConfig):
             setup_ablation_seed(cfg.seed)
         else:
             restore_training_rng(comparison_resume_rng)
-        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2") and start_epoch < cfg.epochs:
+        if cfg.local_route in ("C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2", "S0") and start_epoch < cfg.epochs:
             from utils.zproj_alignment import rng_digest, rng_snapshot
             with open(config_path, encoding="utf-8") as stream:
                 record = yaml.safe_load(stream)
@@ -1002,13 +1006,20 @@ def train_and_eval(cfg: ExperimentConfig):
         val_metrics =evaluate_split (model ,val_loader ,is_m5 =(cfg.model_name =='M5'),ph_grid =_ph_grid_centers (cfg.phdos_num ),sumnorm =(cfg.norm =='sumnorm'),pair_budget=cfg.pair_budget)
         balanced =validation_score(val_metrics, cfg.selection_metric)
         eligible = True
+        selection_eligible = True
         if spectral_balance is not None:
             eligible = balanced_checkpoint_eligible(val_metrics, spectral_balance)
-            val_metrics.update({ENERGY_METRIC: balanced, 'checkpoint_eligible': eligible})
+            if cfg.selection_metric == ENERGY_METRIC:
+                val_metrics.update({ENERGY_METRIC: balanced, 'checkpoint_eligible': eligible})
+                selection_eligible = eligible
+            else:
+                # Reference controls: guards are recorded, not applied.
+                val_metrics.update({cfg.selection_metric: balanced, 'checkpoint_eligible': eligible})
         if cfg.selection_metric == BLIND_R2_METRIC:
             val_metrics[BLIND_R2_METRIC] = balanced
-        display_prefix = 'blind_' if cfg.selection_metric in (BLIND_R2_METRIC, ENERGY_METRIC) else ''
-        displayed_mode = 'blind' if cfg.selection_metric in (BLIND_R2_METRIC, ENERGY_METRIC) else 'oracle'
+        blind_selection = cfg.selection_metric in (BLIND_R2_METRIC, ENERGY_METRIC, *REFERENCE_ENERGY_METRICS)
+        display_prefix = 'blind_' if blind_selection else ''
+        displayed_mode = 'blind' if blind_selection else 'oracle'
 
         log_str =(
         f"[{cfg.model_name }] Epoch [{epoch +1 :03d}/{cfg.epochs :03d}] ({ep_time :.1f}s) | "
@@ -1084,7 +1095,7 @@ def train_and_eval(cfg: ExperimentConfig):
                 data_contract=data_contract, model_contract=model_contract,
                 training_rng=(capture_training_rng() if model_contract is not None else None))
 
-        if eligible and is_better_score(balanced, best_val_score, cfg.selection_metric):
+        if selection_eligible and is_better_score(balanced, best_val_score, cfg.selection_metric):
             best_val_score =balanced
             best_epoch =epoch +1
             atomic_torch_save (_ckpt (epoch +1 ,balanced ),os .path .join (save_dir ,'checkpoint_best.pth'))
@@ -1452,7 +1463,7 @@ def build_arg_parser():
     parser.add_argument('--phdos_num', type=int, default=64, help='Number of phDOS output bins')
     parser.add_argument('--decoder_layers', type=int, default=6,
                         help='Shared Transformer decoder depth; 6 is the B7 default')
-    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3', 'I4', 'W1', 'LN1', 'LN2', 'LR1', 'LR2'], default='none',
+    parser.add_argument('--local_route', choices=['none', 'A', 'B+', 'C0', 'C1', 'G0', 'O0', 'O1', 'N1', 'D1', 'I1', 'I0', 'I2', 'I3', 'I4', 'W1', 'LN1', 'LN2', 'LR1', 'LR2', 'S0'], default='none',
                         help='Frozen comparisons: G0 no local; O0/O1 old globals without geometry scoring')
     parser.add_argument('--local_layout', choices=['staged', 'alternating', 'midpoint'], default=None,
                         help='Explicit local/global execution order')
@@ -1508,6 +1519,8 @@ def build_arg_parser():
     parser.add_argument('--split_decoder', action='store_true', help='Replace the shared 6-layer decoder with two copies of its initial weights')
     parser.add_argument('--phonon_head', action='store_true', help='phDOS shape from learned springs and exact harmonic lattice dynamics')
     parser.add_argument('--phonon_correction', action='store_true', help='Add the original phDOS readout as a zero-initialized correction to the physics shape')
+    parser.add_argument('--data_order_seed', type=int, default=None, help='Training sampler seed for LR2 E+S seed replicates; default keeps the historical order (0)')
+    parser.add_argument('--single_task', choices=['edos', 'phdos'], default=None, help='LR2 E+S reference control: supervise only one task with the full joint architecture')
     parser.add_argument('--eta_sup_w', type=float, default=1.0, help='Eta/gamma auxiliary-loss weight')
     parser.add_argument('--delta_edos', type=float, default=0.09375, help='eDOS bin width in eV for eta/gamma supervision')
     parser.add_argument('--delta_phdos', type=float, default=19.6875, help='phDOS bin width in cm^-1 for eta/gamma supervision')

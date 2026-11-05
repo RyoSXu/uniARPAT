@@ -76,6 +76,12 @@ class basemodel(nn.Module):
             validate_balance_protocol(self.spectral_balance)
             if self.use_mask or self.lambda_ph != 1.0:
                 raise ValueError("balanced blind spectra require full-window equal-task loss")
+        # Reference control: the full joint architecture with one task unsupervised.
+        self.single_task = self.params.get("single_task")
+        if self.single_task is not None and (self.single_task not in ("edos", "phdos")
+                                             or self.loss_form != "balanced_blind_energy"
+                                             or not self.spectral_shape_aux):
+            raise ValueError("single-task control requires edos/phdos on the balanced E+S objective")
         self.w_w1 = float(self.params.get("w_w1", 1.0))
         self.w_huber = float(self.params.get("w_huber", 1.0))
         self.huber_delta = float(self.params.get("huber_delta", 0.02))
@@ -435,6 +441,9 @@ class basemodel(nn.Module):
         total_loss = loss_edos + self.lambda_ph * loss_phdos
         if self.loss_form == "balanced_blind_energy":
             total_loss = .5 * total_loss
+            if self.single_task is not None:
+                # mean(E_t + S_t): the same total scale as the joint 0.5*(sum of both tasks).
+                total_loss = loss_edos if self.single_task == "edos" else loss_phdos
         loss_c5_moe_balance = torch.tensor(0.0, device=total_loss.device)
         if "c5_moe_balance" in outputs:
             loss_c5_moe_balance = outputs["c5_moe_balance"]

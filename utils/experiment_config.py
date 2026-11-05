@@ -83,6 +83,10 @@ class ExperimentConfig:
     split_decoder: bool = False
     phonon_head: bool = False
     phonon_correction: bool = False
+    # Reference controls on the adopted LR2 E+S recipe. None keeps the
+    # historical DistributedSampler seed 0 and joint supervision.
+    data_order_seed: Optional[int] = None
+    single_task: Optional[str] = None
     delta_edos: float = 0.09375
     delta_phdos: float = 19.6875
     freeze_backbone: bool = False

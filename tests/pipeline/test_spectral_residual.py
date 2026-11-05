@@ -85,10 +85,13 @@ class SpectralResidualTests(unittest.TestCase):
         with patch('utils.spectral_balance_experiment.load_balance_protocol', return_value=policy):
             validate_balance_config(cfg)
             for changes in ({'spectral_shape_aux': False}, {'split_decoder': True}, {'phonon_head': True},
-                            {'phonon_correction': True}, {'local_route': 'LR1'}, {'seed': 43},
+                            {'phonon_correction': True}, {'local_route': 'LR1'},
+                            {'seed': 43, 'local_layout': 'midpoint'},
                             {'selection_metric': 'balanced_blind_r2'}, {'scale_mode': 'eta'}):
                 with self.subTest(changes=changes), self.assertRaises(ValueError):
                     validate_balance_config(replace(cfg, **changes))
+            # A seed replicate of the staged recipe is a declared reference control.
+            validate_balance_config(replace(cfg, seed=43))
         legacy = ExperimentConfig(**{**FROZEN, 'local_route': 'LR2', 'selection_metric': 'balanced_blind_r2',
                                      'tag': '_unit_legacy_residual'})
         validate_residual_config(legacy)

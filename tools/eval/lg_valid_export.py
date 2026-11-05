@@ -36,7 +36,8 @@ def load_run(run_dir: Path):
         raise ValueError(f'configuration does not describe its own contract: {run_dir}')
     if 'spectral_balance' in contract:
         from utils.spectral_balance import ENERGY_METRIC, validate_balance_protocol
-        from utils.spectral_balance_experiment import BALANCE_RESIDUAL_SCHEMA, shape_supervision_contract
+        from utils.spectral_balance_experiment import (
+            BALANCE_RESIDUAL_SCHEMA, REFERENCE_CONTROL_SCHEMA, STRUCTURE_BLIND_SCHEMA, shape_supervision_contract)
         from utils.spectral_layout_experiment import MIDPOINT_SCHEMA, layout_ablation_contract
         protocol = validate_balance_protocol(contract['spectral_balance'])
         model_params = saved['config']['model']['params']
@@ -48,7 +49,23 @@ def load_run(run_dir: Path):
         shape_schema = contract.get('schema') in {
             'joint-spectral-balance-shape-model-v1', 'joint-spectral-balance-split-decoder-v1',
             'joint-spectral-balance-phonon-head-v1', 'joint-spectral-balance-phonon-prior-v1',
-            BALANCE_RESIDUAL_SCHEMA, MIDPOINT_SCHEMA}
+            BALANCE_RESIDUAL_SCHEMA, MIDPOINT_SCHEMA, STRUCTURE_BLIND_SCHEMA}
+        blind = contract.get('schema') == STRUCTURE_BLIND_SCHEMA
+        training = contract.get('training', {})
+        if blind != (params.get('local_route') == 'S0') or blind and (
+                training.get('local_route') != 'S0' or params.get('local_depth') != 0
+                or params.get('global_depth') != 6 or params.get('local_layout') != 'staged'):
+            raise ValueError('structure-blind route or depth differs from its contract')
+        control = contract.get('reference_control')
+        if control is not None and (control.get('schema') != REFERENCE_CONTROL_SCHEMA
+                or control.get('seed') != training.get('seed')
+                or control.get('data_order_seed') != (training.get('data_order_seed') or 0)
+                or model_params.get('single_task') != training.get('single_task')
+                or (training.get('single_task') is None) != (control.get('kind') in ('seed_replicate', 'structure_blind'))):
+            raise ValueError('reference control differs from its training/loss contract')
+        if control is None and (blind or training.get('single_task') or training.get('seed', 42) != 42
+                                or training.get('data_order_seed') is not None):
+            raise ValueError('reference-control runs must carry their control contract')
         residual = contract.get('schema') == BALANCE_RESIDUAL_SCHEMA
         midpoint = contract.get('schema') == MIDPOINT_SCHEMA
         if residual or midpoint or params.get('local_route') == 'LR2':
@@ -141,10 +158,13 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
     if not np.isfinite(frame.select_dtypes('number').to_numpy()).all():
         raise ValueError(f'non-finite exported metrics: {run_dir}')
     if 'spectral_balance' in contract:
+        from utils.checkpoint_selection import validation_score
         from utils.spectral_balance import ENERGY_METRIC, balanced_checkpoint_eligible
-        if not balanced_checkpoint_eligible(metrics, contract['spectral_balance']):
+        guarded = selection_metric == ENERGY_METRIC
+        if guarded and not balanced_checkpoint_eligible(metrics, contract['spectral_balance']):
             raise ValueError('recomputed best checkpoint no longer passes the frozen task guards')
-        if not np.isclose(metrics[ENERGY_METRIC], float(picked['row'].balanced_score), rtol=3e-6, atol=1e-7):
+        if not np.isclose(validation_score(metrics, selection_metric), float(picked['row'].balanced_score),
+                          rtol=3e-6, atol=1e-7):
             raise ValueError('recomputed best checkpoint differs from its selected energy score')
 
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -407,7 +407,8 @@ def training_record(cfg: ExperimentConfig) -> dict:
             and (key != 'split_decoder' or value)
             and (key != 'phonon_head' or value)
             and (key != 'phonon_correction' or value)
-            and (key != 'global_depth' or value is not None)}
+            and (key != 'global_depth' or value is not None)
+            and (key not in ('data_order_seed', 'single_task') or value is not None)}
 
 
 def comparison_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict | None:

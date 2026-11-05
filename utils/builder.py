@@ -125,7 +125,10 @@ class ConfigBuilder(object):
             raise AttributeError('Invalid dataset format.')
         return dataset
     
-    def get_sampler(self, dataset, split = 'train'):
+    def get_sampler(self, dataset, split = 'train', seed = None):
+        # None keeps the historical training order (DistributedSampler seed 0).
+        if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int) or seed < 0):
+            raise ValueError("data order seed must be a nonnegative integer")
         if split == 'train':
             shuffle = True
         else:
@@ -133,12 +136,12 @@ class ConfigBuilder(object):
 
         rank = get_rank()
         num_gpus = get_world_size()
-        sampler = DistributedSampler(dataset, rank=rank, shuffle=shuffle, num_replicas=num_gpus, seed=0)
+        sampler = DistributedSampler(dataset, rank=rank, shuffle=shuffle, num_replicas=num_gpus, seed=0 if seed is None else seed)
 
         return sampler
    
 
-    def get_dataloader(self, dataset_params = None, split = 'train', smear = 0, choice=[],batch_size = None, dataloader_params = None, dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, dos_sumnorm=False, use_bucket_batch=False):
+    def get_dataloader(self, dataset_params = None, split = 'train', smear = 0, choice=[],batch_size = None, dataloader_params = None, dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, dos_sumnorm=False, use_bucket_batch=False, sampler_seed=None):
         """
         Get the dataloader from configuration.
 
@@ -172,7 +175,9 @@ class ConfigBuilder(object):
         dataset = self.get_dataset(dataset_params, split=split, choice=choice, dos_minmax = dos_minmax, dos_zscore=dos_zscore, scale_factor=scale_factor, apply_log=apply_log, dos_sumnorm=dos_sumnorm)
         if dataset is None:
             return None
-        sampler = self.get_sampler(dataset, split)
+        if sampler_seed is not None and split != 'train':
+            raise ValueError("a data order seed applies only to the training split")
+        sampler = self.get_sampler(dataset, split, seed=sampler_seed)
         if use_bucket_batch:
             if split != 'train':
                 raise ValueError("length bucketing is training-only")

@@ -158,7 +158,7 @@ class Transformer(nn.Module):
         self._local_geometry_cache = None
         if local_layout == "midpoint" and (local_route != "LR2" or scale_mode != "per_atom"):
             raise ValueError("midpoint requires the LR2 per-atom spectral candidate")
-        if local_route not in ("none", "A", "B+", "C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2"):
+        if local_route not in ("none", "A", "B+", "C0", "C1", "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2", "S0"):
             raise ValueError("unknown local/global comparison route")
         if local_route != "W1" and (local_scalar_channels is not None or local_hidden_channels is not None):
             raise ValueError("explicit full-model local widths require W1")
@@ -472,7 +472,7 @@ class Transformer(nn.Module):
             raise ValueError("phonon correction needs the phonon head")
         self.phonon_correction = bool(phonon_correction)
         if phonon_head:
-            if local_route in ("none", "C0", "G0", "O0") or scale_mode != "per_atom":
+            if local_route in ("none", "C0", "G0", "O0", "S0") or scale_mode != "per_atom":
                 raise ValueError("phonon head needs periodic local records and the per-atom total head")
             if (decoupled_decoder or use_gated_cross_attn or atom_additive_phdos or self.r1a_point
                     or self.c5_moe or predict_scale):
@@ -523,7 +523,7 @@ class Transformer(nn.Module):
             self._local_geometry_cache.clear()
         self._local_geometry_cache = None
         if enabled:
-            if self.local_route in ("none", "C0", "G0", "O0"):
+            if self.local_route in ("none", "C0", "G0", "O0", "S0"):
                 raise ValueError("geometry caching requires a geometry-consuming local route")
             from model.periodic_geometry_cache import PeriodicGeometryCache
 
@@ -572,7 +572,7 @@ class Transformer(nn.Module):
 
         # Compute relative geometry features
         records = None
-        if self.local_route in ("C0", "G0", "O0"):
+        if self.local_route in ("C0", "G0", "O0", "S0"):
             memory = self.encoder(atom_src, None, mask_atom)
         elif self.local_route != "none":
             from model.local_global_encoder import LOCAL_RADIUS

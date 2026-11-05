@@ -13,7 +13,7 @@ from model.periodic_messages import PeriodicLocalMessage, prepare_shared_message
 from model.local_structure_controls import CONTROL_ROUTES, ControlLocalMessage
 from utils.periodic_geometry import PeriodicNeighborRecords
 
-LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2")
+LOCAL_ROUTES = ("A", "B+", *CONTROL_ROUTES, "G0", "O0", "O1", "N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2", "S0")
 LOCAL_LAYOUTS = ("staged", "alternating", "midpoint")
 MIDPOINT_ORDER = (("local", 0), ("global", 0), ("global", 1), ("global", 2),
                   ("local", 1), ("global", 3), ("global", 4), ("global", 5))
@@ -157,7 +157,7 @@ class LocalGlobalEncoder(nn.Module):
         self.local_scalar_channels, self.local_hidden_channels = widths
         if route == "I4" and layout != "staged":
             raise ValueError("I4 local readout requires staged local-then-global updates")
-        if route in ("G0", "O0"):
+        if route in ("G0", "O0", "S0"):
             if isinstance(depth, bool) or depth != 0 or not isinstance(depth, int):
                 raise ValueError(f"{route} requires local_depth=0")
             if layout != "staged" or global_depth is None:
@@ -175,7 +175,7 @@ class LocalGlobalEncoder(nn.Module):
         self.d_model = d_model
         self.geometry_route = ("A" if route in ("I3", "W1", "LN1", "LN2", "LR1", "LR2") else "B+" if route in ("I2", "I4") else
                                "C1" if route in ("O1", "N1", "D1", "I1", "I0") else route)
-        self.shared_geometry = route not in ("C0", "G0", "O0")
+        self.shared_geometry = route not in ("C0", "G0", "O0", "S0")
         self.local_layers = nn.ModuleList(
             LocalResidualLayer(self.geometry_route, d_model,
                 scalar_channels=widths[0], hidden_channels=widths[1], norm_first=route == "LN1",
@@ -184,9 +184,9 @@ class LocalGlobalEncoder(nn.Module):
         global_layer = LegacyContentGlobalLayer if route in ("O0", "O1") else ScalarGlobalLayer
         self.global_layers = nn.ModuleList(
             global_layer(d_model, nhead, dim_feedforward, dropout, activation,
-                         **({"norm_first": False} if route in ("N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2") else {}))
+                         **({"norm_first": False} if route in ("N1", "D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2", "S0") else {}))
             for _ in range(global_depth))
-        if route in ("D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2"):
+        if route in ("D1", "I1", "I0", "I2", "I3", "I4", "W1", "LN1", "LN2", "LR1", "LR2", "S0"):
             # Change attention probabilities only; residual/FFN dropout stays.
             for layer in self.global_layers:
                 layer.attn.dropout = 0.0
@@ -224,7 +224,7 @@ class LocalGlobalEncoder(nn.Module):
             raise ValueError("atom state does not match the local/global atom layout")
         if padding_mask.dtype != torch.bool or padding_mask.device != h.device:
             raise ValueError("boolean atom mask must share the state device")
-        if self.route in ("C0", "G0", "O0"):
+        if self.route in ("C0", "G0", "O0", "S0"):
             if records is not None or prepared_geometry is not None:
                 raise ValueError(f"{self.route} must receive no geometry")
         elif records is None or records.radius != LOCAL_RADIUS:

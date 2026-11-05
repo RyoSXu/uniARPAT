@@ -192,6 +192,63 @@ def selected_energy_history_row(history, protocol):
     return None if feasible.empty else feasible.iloc[0]
 
 
+# Reference controls select by their own blind objective. The frozen task
+# guards are recorded for every epoch but do not filter these selections.
+REFERENCE_ENERGY_METRICS = {
+    "unguarded_blind_energy": {"edos": .5, "phdos": .5},
+    "edos_blind_energy": {"edos": 1., "phdos": 0.},
+    "phdos_blind_energy": {"edos": 0., "phdos": 1.},
+}
+
+
+def reference_energy_score(metrics, metric):
+    weights = REFERENCE_ENERGY_METRICS[metric]
+    values = {task: float(metrics[f"blind_energy_{task}_mean"]) for task in TASKS if weights[task]}
+    if not all(math.isfinite(value) and value >= 0 for value in values.values()):
+        raise ValueError("finite nonnegative mean blind errors required for the selected tasks")
+    return sum(weights[task] * value for task, value in values.items())
+
+
+def reference_selection_contract(protocol, metric):
+    validate_balance_protocol(protocol)
+    weights = REFERENCE_ENERGY_METRICS[metric]
+    terms = [f"{weight:g}*mean(blind_energy_{task})" for task, weight in weights.items() if weight]
+    return {"checkpoint_selection": {
+        "schema": "reference-blind-energy-selection-v1", "metric": metric,
+        "mode": "min", "split": "valid", "task_weights": dict(weights),
+        "formula": " + ".join(terms), "tie_break": "earliest_epoch",
+        "reference": deepcopy(protocol["reference"]),
+        "task_guards": "recorded per epoch as checkpoint_eligible; not applied to selection",
+        "diagnostics_only": ["oracle_mae", "same_composition_spectral_difference"],
+    }}
+
+
+def selected_reference_history_row(history, protocol, metric):
+    """Re-derive the unguarded reference score; guards must still match the record."""
+    required = {"epoch", "balanced_score", metric, ENERGY_METRIC, "selection_samples",
+                "checkpoint_eligible"} | {f"{prefix}_{task}{suffix}" for task in TASKS
+        for prefix, suffix in (("blind_energy", "_mean"), ("blind_r2", "_median"),
+                               ("blind_fail_rate", ""))}
+    if history.empty or not required.issubset(history.columns) or history.epoch.duplicated().any():
+        raise ValueError("incomplete or duplicated reference blind energy history")
+    epochs = history.epoch.to_numpy(float)
+    if not np.isfinite(epochs).all() or sorted(epochs.tolist()) != list(range(1, int(epochs.max()) + 1)):
+        raise ValueError("reference selection requires an unbroken history from epoch one")
+    records = history.to_dict("records")
+    expected = np.asarray([reference_energy_score(row, metric) for row in records])
+    joint = np.asarray([balanced_energy_score(row) for row in records])
+    eligible = np.asarray([balanced_checkpoint_eligible(row, protocol) for row in records])
+    stored = history.checkpoint_eligible.to_numpy()
+    if not all(isinstance(value, (bool, np.bool_)) for value in stored):
+        raise ValueError("checkpoint eligibility must be stored as booleans")
+    if (not np.array_equal(stored, eligible)
+            or not np.allclose(history.balanced_score, expected, rtol=1e-12, atol=1e-12)
+            or not np.allclose(history[metric], expected, rtol=1e-12, atol=1e-12)
+            or not np.allclose(history[ENERGY_METRIC], joint, rtol=1e-12, atol=1e-12)):
+        raise ValueError("recorded reference score, joint energy or guard flag differs from the protocol")
+    return history.sort_values(["balanced_score", "epoch"], kind="stable").iloc[0]
+
+
 def load_balance_protocol(path, data_dir=None):
     protocol = validate_balance_protocol(json.loads(input_path(path).read_text()))
     if data_dir is not None:

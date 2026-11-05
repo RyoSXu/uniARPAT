@@ -7,9 +7,11 @@ from dataclasses import replace
 import torch
 
 from utils.paths import file_sha256, input_path
-from utils.spectral_balance import ENERGY_METRIC, energy_selection_contract, load_balance_protocol
+from utils.spectral_balance import ENERGY_METRIC, load_balance_protocol
 
 BALANCE_RESIDUAL_SCHEMA = "joint-spectral-balance-residual-model-v1"
+STRUCTURE_BLIND_SCHEMA = "joint-spectral-balance-structure-blind-v1"
+REFERENCE_CONTROL_SCHEMA = "lr2-es-reference-control-v1"
 
 
 def shape_supervision_contract(enabled):
@@ -31,7 +33,12 @@ def legacy_balance_config(cfg):
     # Legacy factories compare this path as a string. The new protocol checks
     # the actual manifest/payload hashes independently, so equivalent absolute
     # paths need not be rejected by the historical recipe's spelling.
-    return replace(cfg, local_route="I3" if cfg.local_route == "LR2" else cfg.local_route,
+    # Reference controls validate the frozen seed-42 structural recipe; their
+    # own seed, data order, route and supervision are recorded in the contract.
+    structure_blind = cfg.local_route == "S0"
+    return replace(cfg, local_route="I3" if cfg.local_route in ("LR2", "S0") else cfg.local_route,
+                   local_depth=2 if structure_blind else cfg.local_depth,
+                   seed=42, data_order_seed=None, single_task=None,
                    local_layout="staged" if cfg.local_layout == "midpoint" else cfg.local_layout,
                    spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
                    phonon_head=False, phonon_correction=False, scale_mode="eta",
@@ -41,7 +48,9 @@ def legacy_balance_config(cfg):
 def _backbone_params(params):
     """A64 reference parameters without the opt-in readout changes."""
     base = {**params, "scale_mode": "eta", "decoupled_decoder": False}
-    if base.get("local_route") == "LR2":
+    if base.get("local_route") == "S0":
+        base["local_depth"] = 2
+    if base.get("local_route") in ("LR2", "S0"):
         base["local_route"] = "I3"
     if base.get("local_layout") == "midpoint":
         base["local_layout"] = "staged"
@@ -60,15 +69,54 @@ def _final_phdos_conv(state):
     return f"phdos_out_head.layers.{last}.weight", f"phdos_out_head.layers.{last}.bias"
 
 
+def reference_control_kind(cfg):
+    """None for every historical trial; otherwise the LR2 E+S reference control."""
+    if cfg.local_route == "S0":
+        return "structure_blind"
+    if cfg.single_task is not None:
+        return f"{cfg.single_task}_only"
+    if cfg.seed != 42 or cfg.data_order_seed is not None:
+        return "seed_replicate"
+    return None
+
+
+def expected_selection_metric(cfg):
+    kind = reference_control_kind(cfg)
+    if kind == "structure_blind":
+        return "unguarded_blind_energy"
+    if kind in ("edos_only", "phdos_only"):
+        return f"{cfg.single_task}_blind_energy"
+    return ENERGY_METRIC
+
+
+def validate_reference_control(cfg):
+    kind = reference_control_kind(cfg)
+    if kind is None:
+        return None
+    if (cfg.local_route not in ("LR2", "S0") or cfg.local_layout != "staged" or not cfg.spectral_shape_aux
+            or cfg.split_decoder or cfg.phonon_head or cfg.phonon_correction):
+        raise ValueError("reference controls apply only to the adopted staged LR2 E+S recipe")
+    if cfg.single_task is not None and (cfg.single_task not in ("edos", "phdos") or cfg.local_route != "LR2"):
+        raise ValueError("single-task controls keep the full LR2 architecture")
+    if cfg.local_route == "S0" and (cfg.local_depth != 0 or cfg.global_depth != 6):
+        raise ValueError("structure-blind S0 requires zero local calls and the six corrected global layers")
+    for name in ("seed", "data_order_seed"):
+        value = getattr(cfg, name)
+        if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 0):
+            raise ValueError(f"{name} must be a nonnegative integer")
+    return kind
+
+
 def validate_balance_config(cfg):
     from utils.local_global_experiment import validate_local_global_config
 
-    if (not cfg.spectral_balance_config or cfg.local_route not in ("I3", "LR2")
-            or cfg.scale_mode != "per_atom" or cfg.selection_metric != ENERGY_METRIC):
-        raise ValueError("balanced spectra require I3/A64 or LR2, per_atom scale and balanced_blind_energy")
+    validate_reference_control(cfg)
+    if (not cfg.spectral_balance_config or cfg.local_route not in ("I3", "LR2", "S0")
+            or cfg.scale_mode != "per_atom" or cfg.selection_metric != expected_selection_metric(cfg)):
+        raise ValueError("balanced spectra require I3/A64, LR2 or S0, per_atom scale and the matching blind-energy selection")
     if cfg.local_layout == "midpoint" and cfg.local_route != "LR2":
         raise ValueError("midpoint changes scheduling only on the fixed LR2 E+S recipe")
-    if cfg.local_route == "LR2" and (not cfg.spectral_shape_aux or cfg.split_decoder
+    if cfg.local_route in ("LR2", "S0") and (not cfg.spectral_shape_aux or cfg.split_decoder
                                     or cfg.phonon_head or cfg.phonon_correction):
         raise ValueError("balanced LR2 changes only internal additions on the shared-decoder E+S recipe")
     if cfg.split_decoder and not cfg.spectral_shape_aux:
@@ -90,6 +138,7 @@ def validate_balance_config(cfg):
 
 
 def balance_model_contract(cfg, params):
+    from utils.checkpoint_selection import selection_contract
     from utils.local_global_experiment import comparison_contract, training_record
 
     protocol = validate_balance_config(cfg)
@@ -100,7 +149,7 @@ def balance_model_contract(cfg, params):
     base = comparison_contract(legacy_balance_config(cfg), _backbone_params(params))
     contract = {"schema": "joint-spectral-balance-model-v1", "init_protocol": "joint-spectral-balance-init-v1",
             "seed": cfg.seed, "transformer": deepcopy(params), "normalization": cfg.norm,
-            "selection_metric": ENERGY_METRIC, **energy_selection_contract(protocol),
+            "selection_metric": cfg.selection_metric, **selection_contract(cfg.selection_metric, protocol),
             "spectral_balance": protocol,
             "spectral_balance_config_sha256": file_sha256(input_path(cfg.spectral_balance_config)),
             "training": training_record(cfg), "backbone_reference": base,
@@ -158,6 +207,22 @@ def balance_model_contract(cfg, params):
                             scope="only second-local-call placement differs from staged LR2 E+S; "
                                   "L1 G1 G2 G3 L2 G4 G5 G6; all modules, initial tensors, "
                                   "loss, data, budget and checkpoint guards unchanged")
+    if cfg.local_route == "S0":
+        contract.update(schema=STRUCTURE_BLIND_SCHEMA,
+                        scope="no local update and no geometry; the six corrected global layers, ZP, "
+                              "shared decoder, per-atom total head, E+S loss and data unchanged; "
+                              "removing the local branch also removes its parameters")
+    kind = reference_control_kind(cfg)
+    if kind is not None:
+        contract["reference_control"] = {
+            "schema": REFERENCE_CONTROL_SCHEMA, "kind": kind, "seed": cfg.seed,
+            "data_order_seed": 0 if cfg.data_order_seed is None else cfg.data_order_seed,
+            "supervised_tasks": [cfg.single_task] if cfg.single_task else ["edos", "phdos"],
+            "loss": ("mean(E_t+S_t) for the supervised task; other task coefficient 0"
+                     if cfg.single_task else "0.5*mean(E_edos+S_edos) + 0.5*mean(E_phdos+S_phdos)"),
+            "backbone_reference": "validated against the frozen seed-42 staged recipe",
+            "selection": "guards applied" if cfg.selection_metric == ENERGY_METRIC
+                         else "own blind objective; guards recorded, not applied"}
     return contract
 
 
@@ -177,8 +242,54 @@ def _install_split_decoder(shared_state, target):
     return mapped
 
 
+LOCAL_PREFIX = "encoder.local_layers."
+
+
+def initialize_structure_blind_model(transformer, params, seed):
+    """S0 copies every non-local tensor of the same-seed untrained LR2 E+S model."""
+    from model.transformer import Transformer
+    from utils.zproj_alignment import state_hash
+
+    if (params.get("local_route") != "S0" or params.get("local_depth") != 0
+            or params.get("global_depth") != 6 or params.get("local_layout") != "staged"
+            or any(params.get(key) for key in ("decoupled_decoder", "phonon_head", "phonon_correction"))):
+        raise ValueError("structure-blind initialization requires S0, staged K0/G6 and the shared decoder")
+    reference_params = {**params, "local_route": "LR2", "local_depth": 2}
+    with torch.random.fork_rng(devices=[]):
+        torch.random.default_generator.manual_seed(seed)
+        reference = Transformer(**reference_params)
+        reference_info = initialize_balance_model(reference, reference_params, seed)
+    shared = {key: value for key, value in reference.state_dict().items() if not key.startswith(LOCAL_PREFIX)}
+    target = transformer.state_dict()
+    if target.keys() != shared.keys() or any(target[key].shape != shared[key].shape for key in target):
+        raise ValueError("S0 must equal the LR2 reference without its local layers")
+    transformer.load_state_dict(shared, strict=True)
+    current = transformer.state_dict()
+    if any(not torch.equal(current[key], value.to(current[key])) for key, value in shared.items()):
+        raise ValueError("S0 shared tensors were not copied verbatim")
+    encoder = transformer.encoder
+    if encoder.local_layers or len(encoder.global_layers) != 6:
+        raise ValueError("S0 must have no local layers and six global layers")
+    for layer in encoder.global_layers:
+        attn = layer.attn
+        eye = torch.eye(attn.embed_dim, dtype=attn.in_proj_weight.dtype)
+        if (layer.norm_first or attn.dropout != 0.0 or not torch.equal(attn.in_proj_weight, eye.repeat(3, 1))
+                or not torch.equal(attn.out_proj.weight, eye) or torch.count_nonzero(attn.in_proj_bias)
+                or torch.count_nonzero(attn.out_proj.bias)):
+            raise ValueError("S0 must keep post-norm, zero attention dropout and identity Q/K/V/O")
+    return {"protocol": "lr2-es-structure-blind-init-v1", "seed": seed, "route": "S0",
+            "lr2_initialization": reference_info, "reference_state_sha256": state_hash(reference.state_dict()),
+            "state_sha256": state_hash(current), "n_shared_tensors": len(shared),
+            "parameter_count": sum(p.numel() for p in transformer.parameters()),
+            "reference_parameter_count": sum(p.numel() for p in reference.parameters()),
+            "update_counts": encoder.update_counts,
+            "execution_order": [list(step) for step in encoder.execution_order]}
+
+
 def initialize_balance_model(transformer, params, seed):
     """Preserve A64 initial tensors; map eta MLP weights to the raw mass MLP."""
+    if params.get("local_route") == "S0":
+        return initialize_structure_blind_model(transformer, params, seed)
     from model.transformer import Transformer
     from utils.i1_a_experiment import initialize_i1_a_model, validate_i3_model
     from utils.zproj_alignment import state_hash

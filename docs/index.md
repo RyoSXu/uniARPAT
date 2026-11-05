@@ -28,6 +28,7 @@
 | 当前完整 A 的 LR2＋E＋S | [设计](design/design-2026-10-30-spectral-residual.md)、[运行、独立核验与采用](logs/log-2026-10-30-spectral-residual-run.md) |
 | 等权 blind E 与谱形辅助 | [E 协议](design/design-2026-10-23-balanced-blind-objective.md)、[E＋S 设计](design/design-2026-10-25-spectral-shape-supervision.md)、[原 A64 对照](logs/log-2026-10-26-spectral-shape-aux-run.md) |
 | staged 与 midpoint 编排 | [设计](design/design-2026-11-01-local-global-layout.md)、[结果：保持 staged](logs/log-2026-11-01-local-global-layout-run.md) |
+| 训练随机性、无结构参照与单任务 | [设计](design/design-2026-11-03-variance-and-reference-controls.md)、[准备与预检](logs/log-2026-11-03-reference-controls-preparation.md)、[完整运行、独立核验与判读](logs/log-2026-11-03-reference-controls-run.md) |
 | E(3)、晶胞一致性与截断边界 | [输出要求](design/design-2026-10-04-e3-output-invariance.md)、[完整模型有限验收](logs/log-2026-11-02-crystal-model-invariance.md)、[全量边界统计](logs/log-2026-11-02-cutoff-boundary-census.md) |
 
 ## 当前问题的证据

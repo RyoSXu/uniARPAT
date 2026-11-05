@@ -1,6 +1,6 @@
 # 当前项目状态
 
-更新：2026-11-03。[接手步骤](handoff.md) · [固定契约](decisions.md) · [完整证据导航](index.md)
+更新：2026-11-04。[接手步骤](handoff.md) · [固定契约](decisions.md) · [完整证据导航](index.md)
 
 ## 目标与工作点
 
@@ -40,6 +40,8 @@ E 为按 train 谱能量归一化的每原子全谱平方误差，越低越好�
 
 ## 尚未解决与下一步
 
+- 已完成（2026-11-04）：LR2 三 seed 联合 E 极差 0.001319，低于0.00604192门槛，不触发 A64 seed43/44 补跑；S0 对照的联合/phDOS 结构贡献达到固定判据，eDOS 为方向性证据；eDOS-only 未分辨，phDOS-only 在受监督任务上较好。结论限单数据集、35轮、valid-only。未来候选是否加入同配方 seed 极差门槛，待用户确认后再写入决策契约。
+  [方案](design/design-2026-11-03-variance-and-reference-controls.md)、[准备与预检](logs/log-2026-11-03-reference-controls-preparation.md)、[完整运行、独立核验与判读](logs/log-2026-11-03-reference-controls-run.md)
 - 核心问题仍是同组成谱差泛化；下一项假设、对照和预算尚未选定。头数、FFN 等工作配置不等于最优，但不以穷举为推进前提。[方向地图](design/design-2026-09-19-structural-refinement.md)
 - 数据风险仍在：5 条电子谱待核材料、N_val 来源差异、coverage 含义，以及输入结构与 DOS 计算几何未逐条一致；正式评分保留全部材料与完整窗口。[语义审查](logs/log-2026-10-22-spectral-contract-audit.md)、[几何审查](logs/log-2026-10-14-i1-pair-audit.md)
 - 现有两模型平均只支持误差互补，未分离架构与训练随机性；外部结构池的 2026-10-28 本机盘点不支持直接启动预训练。[误差诊断](logs/log-2026-10-28-error-structure-ensemble.md)、[结构盘点](logs/log-2026-10-28-structure-pool-inventory.md)

@@ -64,6 +64,7 @@ PY
     tests.pipeline.test_spectral_shape_aux \
     tests.pipeline.test_spectral_residual \
     tests.pipeline.test_spectral_layout \
+    tests.pipeline.test_reference_controls \
     tests.pipeline.test_crystal_model_invariance \
     tests.pipeline.test_cutoff_boundary_census \
     archive.code.tests.test_c2_1b_loss_attribution \

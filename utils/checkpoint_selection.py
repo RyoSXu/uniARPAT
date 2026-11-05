@@ -6,11 +6,14 @@ import math
 import numpy as np
 
 from utils.spectral_balance import (
-    ENERGY_METRIC, balanced_energy_score, energy_selection_contract, selected_energy_history_row,
+    ENERGY_METRIC, REFERENCE_ENERGY_METRICS, balanced_energy_score, energy_selection_contract,
+    reference_energy_score, reference_selection_contract, selected_energy_history_row,
+    selected_reference_history_row,
 )
 
 BLIND_R2_METRIC = "balanced_blind_r2"
-SELECTION_METRICS = ("balanced_oracle_mae", "balanced_blind_mae", BLIND_R2_METRIC, ENERGY_METRIC)
+SELECTION_METRICS = ("balanced_oracle_mae", "balanced_blind_mae", BLIND_R2_METRIC, ENERGY_METRIC,
+                     *REFERENCE_ENERGY_METRICS)
 
 
 def selection_mode(metric):
@@ -26,6 +29,8 @@ def selection_contract(metric, protocol=None):
     selection_mode(metric)
     if metric == ENERGY_METRIC:
         return energy_selection_contract(protocol)
+    if metric in REFERENCE_ENERGY_METRICS:
+        return reference_selection_contract(protocol, metric)
     if metric != BLIND_R2_METRIC:
         return {}
     return {"checkpoint_selection": {
@@ -49,6 +54,8 @@ def validation_score(metrics, metric):
         value = blind_joint_score(metrics)
     elif metric == ENERGY_METRIC:
         value = balanced_energy_score(metrics)
+    elif metric in REFERENCE_ENERGY_METRICS:
+        value = reference_energy_score(metrics, metric)
     elif metric is None:
         value = .5 * metrics["mae_edos_median"] + .5 * metrics["mae_phdos_median"]
     else:
@@ -72,6 +79,8 @@ def selected_history_row(history, metric, protocol=None):
     """Validate the recorded score before choosing one epoch for every reader."""
     if metric == ENERGY_METRIC:
         return selected_energy_history_row(history, protocol)
+    if metric in REFERENCE_ENERGY_METRICS:
+        return selected_reference_history_row(history, protocol, metric)
     mode = selection_mode(metric)
     required = {"epoch", "balanced_score"} | ({metric} if metric is not None else set())
     if history.empty or not required.issubset(history.columns):
