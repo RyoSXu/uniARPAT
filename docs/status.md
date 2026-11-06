@@ -1,50 +1,39 @@
 # 当前项目状态
 
-更新：2026-11-04。[接手步骤](handoff.md) · [固定契约](decisions.md) · [完整证据导航](index.md)
+更新：2026-11-06。只记录大事件与当前判断；细节见链接。[接手步骤](handoff.md) · [固定契约](decisions.md) · [证据导航](index.md)
 
 ## 目标与工作点
 
-固定 eDOS/phDOS 联合训练、两任务平等考虑，研究结构差异能否转化为可泛化的谱预测收益。
-当前采用 **完整 A64 的 LR2 形式＋E＋S，staged L2/G6，best ep29**（用户于 2026-10-31 确认）。
-模型结构、loss、选点及数据契约集中在 [decisions.md](decisions.md)，具体产物位置见 [handoff.md](handoff.md)。
-这是研究工作点；I1 与旧模型的历史性能参照、原 checkpoint 契约继续保留。
+从晶体结构联合预测 eDOS 与 phDOS，两任务等权，目标是提升模型性能、设计与方法（含数据）。
+工作点：**LR2＋E＋S，staged L2/G6，best ep29**（2026-10-31 确认），配置见 [decisions.md](decisions.md)。
 
-## 当前主结果
+| 模型（修复版 Q1，完整 valid，blind） | 联合 mean E↓ | eDOS 中位 R² | phDOS 中位 R² |
+|---|---:|---:|---:|
+| A64 E＋S（对照） | 0.2780 | 0.489 | 0.736 |
+| LR2 E＋S（工作点） | 0.2719 | 0.491 | 0.743 |
 
-修复版 Q1、完整 valid 2,313 条、blind；两组都用同一冻结协议、35 轮预算与选点规则，seed42。
-E 为按 train 谱能量归一化的每原子全谱平方误差，越低越好；失败定义为每材料 R²<0。
+改善 0.006，配对区间不含 0；同组成谱差未见改善。[结果与采用](logs/log-2026-10-30-spectral-residual-run.md)
 
-| 模型／选中轮 | 联合 mean E↓ | eDOS 中位 R² | phDOS 中位 R² | eDOS／phDOS 失败数 |
-|---|---:|---:|---:|---:|
-| A64 E＋S／25（匹配对照） | 0.27795645 | 0.489122 | 0.735590 | 171／74 |
-| LR2 E＋S／29（工作点） | 0.27191453 | 0.491335 | 0.743409 | 174／72 |
+## 大事件
 
-联合 E 差（LR2−对照）为 −0.00604192，材料配对 95% 区间 [−0.01163879, −0.00102599]；
-通过预设改善判据及固定双任务保护。eDOS 失败多 3 条、phDOS 少 2 条，R² P10 均下降，尾部没有一致改善。
-同组成 absolute/reduced × eDOS/phDOS 四项谱差误差区间均含 0，**尚不能宣称结构谱差泛化改善**。
-已独立复跑完整 valid 并从原谱复算。证据限本次已选 checkpoint 和单 seed，不能表示跨 seed 稳定性。
-[正式结果、核验与采用决定](logs/log-2026-10-30-spectral-residual-run.md)
-
-## 已完成的阶段判断
-
-| 问题 | 已知结果与边界 |
+| 日期 | 事件与结论 |
 |---|---|
-| 局部更新与骨架退化 | 既有对照支持局部结构信息有价值；全局归一化、注意力 dropout、投影初始化三项归因已结束。保留 I1 历史性能参照。[证据入口](index.md#当前问题的证据) |
-| A/B+ 与局部细节 | 暂定完整 A 研究路线，未证明总体优于 B+；扩宽、内外 norm 和增量读出均未达到各自采用条件。[局部对照](index.md#模型设计) |
-| 新目标与 LR2 | 修正 H1 的科学范围，采用无固定上限每原子总量、等权 E＋S；LR2 迁移后通过本次总体改善判据。[目标](design/design-2026-10-23-balanced-blind-objective.md)、[谱形辅助](logs/log-2026-10-26-spectral-shape-aux-run.md) |
-| 中段编排 | `L1 G1 G2 G3 L2 G4 G5 G6` best ep24 对 staged ep29 的联合 E 与四项谱差区间均含 0；不升级工作点、不自动追加扫描。[结果](logs/log-2026-11-01-local-global-layout-run.md) |
-| 双 decoder、声子物理先验加读出修正 | 两项均未达到采用条件，候选已结束；六层共享 decoder 保留。[拆分](logs/log-2026-10-28-split-decoder-run.md)、[物理头](logs/log-2026-10-29-phonon-prior-run.md) |
-| 谱差归因 | 冻结读出与组比较未定位单层瓶颈；不能推断表示没有结构信息或 train/valid 分布相同。[读出](logs/log-2026-10-27-shape-aux-stage-readout.md)、[比较](logs/log-2026-10-27-shape-gap-comparability.md) |
-| 物理与晶胞一致性 | 16 条真实 train 结构的两精度有限检查通过；精确截断合成例有 FP32/FP64 硬计数反例，未证明影响真实性能。[验收与反例](logs/log-2026-11-02-crystal-model-invariance.md) |
-| 真实截断边界 | 全量有效 train 中距 6 Å ≤1e-6 Å 有 3 条、≤1e-4 Å 有 104 条；后者两个固定旋转未见成员或逐原子计数变化。调查结束，暂无依据优先追加平滑计数训练。[统计](logs/log-2026-11-02-cutoff-boundary-census.md) |
+| 10-23～10-31 | 新目标 E＋S 与 blind 每原子总量；LR2 采用为工作点。[目标](design/design-2026-10-23-balanced-blind-objective.md) |
+| 10-28～11-02 | 双 decoder、声子物理头、midpoint 编排均未采用；E(3)/晶胞一致性与截断边界检查结束。[证据导航](index.md) |
+| 11-03～11-04 | 同配方三 seed 联合 E 极差 0.0013；三 seed 集成 0.257，大于任何架构改动的收益；去掉结构（S0）后变差，结构贡献在 phDOS 上更明显。[结果](logs/log-2026-11-03-reference-controls-run.md) |
+| 11-05 | 结构利用诊断：瓶颈是泛化（train/valid 误差约差 2 倍），不是结构算子缺信息；标签噪声只占小部分。[结果](logs/log-2026-11-05-structure-use-audit-run.md) |
+| 11-05～11-06 | 泛化正则单 seed 筛选：G（几何扰动）改善 0.0021，属“效应太小”，列为最终配方备选；D（局部丢弃）变差 0.0049，结束。[方案](design/design-2026-11-05-structure-generalization.md)，原始结果 `results/runs/structure_generalization_20261105/analysis/screen.json`（运行日志未写） |
+| 11-06 | 改为单 seed 流程，多 seed 只在定稿时做一次（[规则](decisions.md#历史参照与判读)）；长时实验改为脚本监控、agent 按事件唤醒（[AGENTS.md](../AGENTS.md)）。 |
 
-## 尚未解决与下一步
+## 当前判断与下一步
 
-- 已完成（2026-11-04）：LR2 三 seed 联合 E 极差 0.001319，低于0.00604192门槛，不触发 A64 seed43/44 补跑；S0 对照的联合/phDOS 结构贡献达到固定判据，eDOS 为方向性证据；eDOS-only 未分辨，phDOS-only 在受监督任务上较好。结论限单数据集、35轮、valid-only。同配方 seed 极差门槛已于 2026-11-05 写入[决策契约](decisions.md#历史参照与判读)。
-  [方案](design/design-2026-11-03-variance-and-reference-controls.md)、[准备与预检](logs/log-2026-11-03-reference-controls-preparation.md)、[完整运行、独立核验与判读](logs/log-2026-11-03-reference-controls-run.md)
-- 核心问题仍是同组成谱差泛化；下一项假设、对照和预算尚未选定。头数、FFN 等工作配置不等于最优，但不以穷举为推进前提。[方向地图](design/design-2026-09-19-structural-refinement.md)
-- 数据风险仍在：5 条电子谱待核材料、N_val 来源差异、coverage 含义，以及输入结构与 DOS 计算几何未逐条一致；正式评分保留全部材料与完整窗口。[语义审查](logs/log-2026-10-22-spectral-contract-audit.md)、[几何审查](logs/log-2026-10-14-i1-pair-audit.md)
-- 现有两模型平均只支持误差互补，未分离架构与训练随机性；外部结构池的 2026-10-28 本机盘点不支持直接启动预训练。[误差诊断](logs/log-2026-10-28-error-structure-ensemble.md)、[结构盘点](logs/log-2026-10-28-structure-pool-inventory.md)
-- E(3)、原子重排及等价晶胞目标不变；有限数值验收不等于全面保证，AMP 尚未验收。历史 test 曾用于诊断，不能称未触碰的留出集。
+- 模型细节的改动收益已接近噪声，下一步应换杠杆：数据或预训练。
+- **下一步**：学习曲线（25%/50% train，固定总步数，单 seed），回答“数据量是否是瓶颈”，决定是否投入预训练或扩数据。方案待写。
+- g_s43（G 的第二个 seed）于 2026-11-06 在第 25 轮手动停止（用户决定，按单 seed 流程不再确认），未导出；latest 为第 24 轮，checkpoint 保留。其 execution 状态文件停在 running，不代表仍有任务。
 
-新训练须另定方案。长时间训练与监控先生成提示词，由用户指定执行 agent；历史设计、日志及旧提示词不自动成为执行队列。
+## 长期风险
+
+- 数据：输入结构与 DOS 计算几何不一致（来源泛函不同）、5 条电子谱待核、N_val 来源差异；正式评分保留全部材料与完整窗口。[数据页](data.md)
+- 历史 test 曾用于诊断，不能称未触碰的留出集；AMP 未验收。
+
+新训练须另定方案；历史设计、日志和旧提示词不自动成为执行队列。
