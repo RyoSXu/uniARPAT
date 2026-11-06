@@ -10,7 +10,7 @@ from utils.paths import REFERENCE_ROOT, input_path
 
 
 class Dos_Dataset(Dataset):
-    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, strain_augment=False, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", **kwargs) -> None:
+    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, strain_augment=False, train_subset=None, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", **kwargs) -> None:
         super().__init__()
         self.split = split
         # Sum normalization replaces min-max normalization when selected.
@@ -130,6 +130,20 @@ class Dos_Dataset(Dataset):
             allowed = [i for i, material_id in enumerate(self.crystals.material_ids)
                        if str(material_id) not in excluded]
             self._select_rows(allowed)
+        self.train_subset = None
+        if train_subset:
+            # Learning curve (design 2026-11-06): whole composition groups, repeated per epoch.
+            if split != "train" or not self.crystal_format or len(choice) != 0:
+                raise ValueError("a learning-curve subset restricts only the complete-crystal train view")
+            from utils.train_subset import load_train_subset
+
+            self.train_subset = load_train_subset(input_path(train_subset), input_path(data_dir))
+            position = {str(material): row for row, material in enumerate(self.material_ids)}
+            missing = [m for m in self.train_subset["material_ids"] if m not in position]
+            if missing:
+                raise ValueError(f"subset materials outside the train view: {missing[:3]}")
+            rows = sorted(position[m] for m in self.train_subset["material_ids"])
+            self._select_rows(rows * int(self.train_subset["repeat"]))
         if len(choice) != 0:
             self._select_rows(choice)
 

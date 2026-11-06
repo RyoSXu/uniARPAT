@@ -38,7 +38,7 @@ def legacy_balance_config(cfg):
     structure_blind = cfg.local_route == "S0"
     return replace(cfg, local_route="I3" if cfg.local_route in ("LR2", "S0") else cfg.local_route,
                    local_depth=2 if structure_blind else cfg.local_depth,
-                   seed=42, data_order_seed=None, single_task=None, strain_augment=False, local_drop_prob=None,
+                   seed=42, data_order_seed=None, single_task=None, strain_augment=False, local_drop_prob=None, train_subset="",
                    local_layout="staged" if cfg.local_layout == "midpoint" else cfg.local_layout,
                    spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
                    phonon_head=False, phonon_correction=False, scale_mode="eta",
@@ -130,11 +130,26 @@ def validate_regularization(cfg):
     return kind
 
 
+def validate_learning_curve(cfg):
+    """The learning-curve points change only the train rows of the seed-42 staged LR2 E+S recipe."""
+    if not cfg.train_subset:
+        return None
+    if (cfg.local_route != "LR2" or cfg.local_layout != "staged" or not cfg.spectral_shape_aux
+            or cfg.split_decoder or cfg.phonon_head or cfg.phonon_correction or cfg.single_task is not None
+            or cfg.augment or regularization_kind(cfg) is not None or reference_control_kind(cfg) is not None
+            or cfg.selection_metric != ENERGY_METRIC):
+        raise ValueError("learning-curve subsets apply only to the adopted seed-42 staged LR2 E+S recipe")
+    from utils.train_subset import load_train_subset
+
+    return load_train_subset(input_path(cfg.train_subset), input_path(cfg.data_dir))
+
+
 def validate_balance_config(cfg):
     from utils.local_global_experiment import validate_local_global_config
 
     validate_reference_control(cfg)
     validate_regularization(cfg)
+    validate_learning_curve(cfg)
     if (not cfg.spectral_balance_config or cfg.local_route not in ("I3", "LR2", "S0")
             or cfg.scale_mode != "per_atom" or cfg.selection_metric != expected_selection_metric(cfg)):
         raise ValueError("balanced spectra require I3/A64, LR2 or S0, per_atom scale and the matching blind-energy selection")
@@ -249,6 +264,11 @@ def balance_model_contract(cfg, params):
             kind=regularization, design="docs/design/design-2026-11-05-structure-generalization.md",
             scope="training-only regularizer on staged LR2 E+S; architecture, initial tensors, loss, data, "
                   "budget, evaluation path and checkpoint guards unchanged")
+    subset = validate_learning_curve(cfg)
+    if subset is not None:
+        from utils.train_subset import subset_contract
+
+        contract["train_subset"] = subset_contract(subset)
     kind = reference_control_kind(cfg)
     if kind is not None:
         contract["reference_control"] = {

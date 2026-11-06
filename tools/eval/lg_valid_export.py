@@ -76,6 +76,18 @@ def load_run(run_dir: Path):
                 or (drop is not None and regularization.get('prob') != drop)
                 or strain != bool(saved['config']['dataset']['train'].get('strain_augment'))):
             raise ValueError('regularization contract differs from its training/model configuration')
+        subset_path = training.get('train_subset')
+        dataset_train = saved['config'].get('dataset', {}).get('train', {})
+        if (contract.get('train_subset') is None) != (not subset_path) or (
+                subset_path != dataset_train.get('train_subset')):
+            raise ValueError('learning-curve subset differs from its training/dataset configuration')
+        if subset_path:
+            from utils.paths import input_path
+            from utils.train_subset import load_train_subset
+
+            subset = load_train_subset(input_path(subset_path), input_path(dataset_train['data_dir']))
+            if subset['sha256'] != contract['train_subset']['file_sha256']:
+                raise ValueError('learning-curve subset file changed after training')
         residual = contract.get('schema') == BALANCE_RESIDUAL_SCHEMA
         midpoint = contract.get('schema') == MIDPOINT_SCHEMA
         if residual or midpoint or params.get('local_route') == 'LR2':

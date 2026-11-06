@@ -89,6 +89,8 @@ class ExperimentConfig:
     single_task: Optional[str] = None
     strain_augment: bool = False
     local_drop_prob: Optional[float] = None
+    # Learning curve (design 2026-11-06): frozen nested train subset JSON; empty = full train.
+    train_subset: str = ""
     delta_edos: float = 0.09375
     delta_phdos: float = 19.6875
     freeze_backbone: bool = False

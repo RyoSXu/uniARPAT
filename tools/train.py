@@ -461,6 +461,8 @@ def train_and_eval(cfg: ExperimentConfig):
         spectral_balance = validate_balance_config(cfg)
     elif cfg.strain_augment or cfg.local_drop_prob is not None:
         raise ValueError("strain augmentation and local residual drop are LR2 E+S generalization trials")
+    elif cfg.train_subset:
+        raise ValueError("a learning-curve train subset applies only to the LR2 E+S recipe")
 
     if cfg.pair_budget is not None and cfg.pair_budget <= 0:
         raise ValueError("pair_budget must be positive")
@@ -620,6 +622,9 @@ def train_and_eval(cfg: ExperimentConfig):
     if cfg.strain_augment:
         # Absent when off so historical dataset configurations keep their exact keys.
         yaml_cfg['dataset']['train']['strain_augment'] = True
+    if cfg.train_subset:
+        # Absent when off so historical dataset configurations keep their exact keys.
+        yaml_cfg['dataset']['train']['train_subset'] = cfg.train_subset
 
     builder =ConfigBuilder (**yaml_cfg )
     transformer_params = yaml_cfg['model']['params']['sub_model']['transformer']
@@ -837,6 +842,7 @@ def train_and_eval(cfg: ExperimentConfig):
             **({'single_task': cfg.single_task} if cfg.single_task is not None else {}),
             **({'strain_augment': True} if cfg.strain_augment else {}),
             **({'local_drop_prob': cfg.local_drop_prob} if cfg.local_drop_prob is not None else {}),
+            **({'train_subset': cfg.train_subset} if cfg.train_subset else {}),
             'delta_edos':cfg.delta_edos ,'delta_phdos':cfg.delta_phdos ,
             'scalar_mode':cfg.scalar_mode ,'scalar_sup_w':cfg.scalar_sup_w ,
             'use_g1':cfg.use_g1 ,'g1_r_cut':cfg.g1_r_cut ,
@@ -1531,6 +1537,7 @@ def build_arg_parser():
     parser.add_argument('--data_order_seed', type=int, default=None, help='Training sampler seed for LR2 E+S seed replicates; default keeps the historical order (0)')
     parser.add_argument('--single_task', choices=['edos', 'phdos'], default=None, help='LR2 E+S reference control: supervise only one task with the full joint architecture')
     parser.add_argument('--strain_augment', action='store_true', help='LR2 E+S trial G: training-only random strain and Cartesian displacement')
+    parser.add_argument('--train_subset', default='', help='LR2 E+S learning curve: frozen nested train-subset JSON (design 2026-11-06)')
     parser.add_argument('--local_drop_prob', type=float, default=None, help='LR2 E+S trial D: training-only per-sample drop of the summed local residual')
     parser.add_argument('--eta_sup_w', type=float, default=1.0, help='Eta/gamma auxiliary-loss weight')
     parser.add_argument('--delta_edos', type=float, default=0.09375, help='eDOS bin width in eV for eta/gamma supervision')
