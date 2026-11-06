@@ -143,7 +143,8 @@ class LocalGlobalEncoder(nn.Module):
     def __init__(self, route: str, layout: str, depth: int, d_model: int = 512,
                  nhead: int = 8, dim_feedforward: int = 2048, dropout: float = 0.05,
                  activation: str = "gelu", global_depth: int | None = None,
-                 local_scalar_channels: int | None = None, local_hidden_channels: int | None = None):
+                 local_scalar_channels: int | None = None, local_hidden_channels: int | None = None,
+                 local_drop_prob: float | None = None):
         super().__init__()
         if route not in LOCAL_ROUTES or layout not in LOCAL_LAYOUTS:
             raise ValueError("explicit local route and a supported execution layout required")
@@ -171,6 +172,11 @@ class LocalGlobalEncoder(nn.Module):
         if layout == "midpoint" and (route != "LR2" or depth != 2 or global_depth != 6):
             raise ValueError("midpoint requires the isolated LR2 L2/G6 candidate")
         self.route, self.layout, self.depth = route, layout, depth
+        if local_drop_prob is not None and (
+                isinstance(local_drop_prob, bool) or not 0. < float(local_drop_prob) < 1.
+                or route != "LR2" or layout != "staged"):
+            raise ValueError("local residual drop is a training regularizer of staged LR2 only")
+        self.local_drop_prob = None if local_drop_prob is None else float(local_drop_prob)
         self.global_depth = global_depth
         self.d_model = d_model
         self.geometry_route = ("A" if route in ("I3", "W1", "LN1", "LN2", "LR1", "LR2") else "B+" if route in ("I2", "I4") else
@@ -232,13 +238,16 @@ class LocalGlobalEncoder(nn.Module):
         if prepared_geometry is None and self.shared_geometry:
             prepared_geometry = prepare_shared_message_geometry(records, self.geometry_route)
         h = h.masked_fill(padding_mask[..., None], 0)
-        if self.route == "I4":
+        if self.route == "I4" or self.local_drop_prob is not None:
             initial = h
         for kind, i in self.execution_order:
             if kind == "local":
                 h = self.local_layers[i](h, records, padding_mask, prepared_geometry)
                 if self.route == "I4" and i == self.depth - 1:
                     local_delta = h - initial
+                if self.local_drop_prob is not None and self.training and i == self.depth - 1:
+                    from utils.structure_regularization import drop_local_residual
+                    h = drop_local_residual(initial, h, self.local_drop_prob)
             else:
                 h = self.global_layers[i](h, padding_mask)
         if self.route == "I4":

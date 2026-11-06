@@ -459,6 +459,8 @@ def train_and_eval(cfg: ExperimentConfig):
     if cfg.spectral_balance_config:
         from utils.spectral_balance_experiment import validate_balance_config
         spectral_balance = validate_balance_config(cfg)
+    elif cfg.strain_augment or cfg.local_drop_prob is not None:
+        raise ValueError("strain augmentation and local residual drop are LR2 E+S generalization trials")
 
     if cfg.pair_budget is not None and cfg.pair_budget <= 0:
         raise ValueError("pair_budget must be positive")
@@ -601,6 +603,8 @@ def train_and_eval(cfg: ExperimentConfig):
             yaml_cfg['model']['params']['spectral_shape_aux'] = True
         if cfg.single_task is not None:
             yaml_cfg['model']['params']['single_task'] = cfg.single_task
+        if cfg.local_drop_prob is not None:
+            yaml_cfg['model']['params']['sub_model']['transformer']['local_drop_prob'] = float(cfg.local_drop_prob)
     _sn =(cfg.norm =="sumnorm")
     yaml_cfg ['model']['params']['sub_model']['transformer']['energy_code']=cfg.energy_code
     if cfg.energy_code =="edos":
@@ -613,6 +617,9 @@ def train_and_eval(cfg: ExperimentConfig):
     # Apply augmentation only to the training split.
     yaml_cfg ['dataset']['train']['augment']=bool (cfg.augment )
     yaml_cfg ['dataset']['train']['disp_sigma']=float (cfg.disp_sigma )
+    if cfg.strain_augment:
+        # Absent when off so historical dataset configurations keep their exact keys.
+        yaml_cfg['dataset']['train']['strain_augment'] = True
 
     builder =ConfigBuilder (**yaml_cfg )
     transformer_params = yaml_cfg['model']['params']['sub_model']['transformer']
@@ -828,6 +835,8 @@ def train_and_eval(cfg: ExperimentConfig):
             **({'phonon_correction': True} if cfg.phonon_correction else {}),
             **({'data_order_seed': cfg.data_order_seed} if cfg.data_order_seed is not None else {}),
             **({'single_task': cfg.single_task} if cfg.single_task is not None else {}),
+            **({'strain_augment': True} if cfg.strain_augment else {}),
+            **({'local_drop_prob': cfg.local_drop_prob} if cfg.local_drop_prob is not None else {}),
             'delta_edos':cfg.delta_edos ,'delta_phdos':cfg.delta_phdos ,
             'scalar_mode':cfg.scalar_mode ,'scalar_sup_w':cfg.scalar_sup_w ,
             'use_g1':cfg.use_g1 ,'g1_r_cut':cfg.g1_r_cut ,
@@ -852,7 +861,7 @@ def train_and_eval(cfg: ExperimentConfig):
             default_flow_style =False )
 
     if comparison_init is not None and start_epoch < cfg.epochs:
-        configure_local_global_execution(model.model['transformer'], augment=cfg.augment)
+        configure_local_global_execution(model.model['transformer'], augment=cfg.augment or cfg.strain_augment)
         execution = write_local_global_execution(
             config_path, model.model['transformer'], start_epoch)
         logger.info("[%s] Local/global execution: %s", cfg.model_name, execution)
@@ -1521,6 +1530,8 @@ def build_arg_parser():
     parser.add_argument('--phonon_correction', action='store_true', help='Add the original phDOS readout as a zero-initialized correction to the physics shape')
     parser.add_argument('--data_order_seed', type=int, default=None, help='Training sampler seed for LR2 E+S seed replicates; default keeps the historical order (0)')
     parser.add_argument('--single_task', choices=['edos', 'phdos'], default=None, help='LR2 E+S reference control: supervise only one task with the full joint architecture')
+    parser.add_argument('--strain_augment', action='store_true', help='LR2 E+S trial G: training-only random strain and Cartesian displacement')
+    parser.add_argument('--local_drop_prob', type=float, default=None, help='LR2 E+S trial D: training-only per-sample drop of the summed local residual')
     parser.add_argument('--eta_sup_w', type=float, default=1.0, help='Eta/gamma auxiliary-loss weight')
     parser.add_argument('--delta_edos', type=float, default=0.09375, help='eDOS bin width in eV for eta/gamma supervision')
     parser.add_argument('--delta_phdos', type=float, default=19.6875, help='phDOS bin width in cm^-1 for eta/gamma supervision')

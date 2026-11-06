@@ -38,7 +38,7 @@ def legacy_balance_config(cfg):
     structure_blind = cfg.local_route == "S0"
     return replace(cfg, local_route="I3" if cfg.local_route in ("LR2", "S0") else cfg.local_route,
                    local_depth=2 if structure_blind else cfg.local_depth,
-                   seed=42, data_order_seed=None, single_task=None,
+                   seed=42, data_order_seed=None, single_task=None, strain_augment=False, local_drop_prob=None,
                    local_layout="staged" if cfg.local_layout == "midpoint" else cfg.local_layout,
                    spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
                    phonon_head=False, phonon_correction=False, scale_mode="eta",
@@ -56,6 +56,7 @@ def _backbone_params(params):
         base["local_layout"] = "staged"
     base.pop("phonon_head", None)
     base.pop("phonon_correction", None)
+    base.pop("local_drop_prob", None)
     return base
 
 
@@ -107,10 +108,33 @@ def validate_reference_control(cfg):
     return kind
 
 
+def regularization_kind(cfg):
+    """None for every historical trial; otherwise the 2026-11-05 generalization arm."""
+    if cfg.strain_augment and cfg.local_drop_prob is not None:
+        raise ValueError("geometry perturbation and local drop are separate arms")
+    return "strain_augment" if cfg.strain_augment else "local_drop" if cfg.local_drop_prob is not None else None
+
+
+def validate_regularization(cfg):
+    from utils.structure_regularization import LOCAL_DROP_PROB
+
+    kind = regularization_kind(cfg)
+    if kind is None:
+        return None
+    if (cfg.local_route != "LR2" or cfg.local_layout != "staged" or not cfg.spectral_shape_aux
+            or cfg.split_decoder or cfg.phonon_head or cfg.phonon_correction or cfg.single_task is not None
+            or cfg.augment or cfg.selection_metric != ENERGY_METRIC):
+        raise ValueError("generalization arms apply only to the adopted staged LR2 E+S recipe")
+    if kind == "local_drop" and cfg.local_drop_prob != LOCAL_DROP_PROB:
+        raise ValueError(f"local drop probability is fixed at {LOCAL_DROP_PROB}; no scan")
+    return kind
+
+
 def validate_balance_config(cfg):
     from utils.local_global_experiment import validate_local_global_config
 
     validate_reference_control(cfg)
+    validate_regularization(cfg)
     if (not cfg.spectral_balance_config or cfg.local_route not in ("I3", "LR2", "S0")
             or cfg.scale_mode != "per_atom" or cfg.selection_metric != expected_selection_metric(cfg)):
         raise ValueError("balanced spectra require I3/A64, LR2 or S0, per_atom scale and the matching blind-energy selection")
@@ -212,6 +236,19 @@ def balance_model_contract(cfg, params):
                         scope="no local update and no geometry; the six corrected global layers, ZP, "
                               "shared decoder, per-atom total head, E+S loss and data unchanged; "
                               "removing the local branch also removes its parameters")
+    regularization = regularization_kind(cfg)
+    if (params.get("local_drop_prob") is not None) != (cfg.local_drop_prob is not None) or (
+            cfg.local_drop_prob is not None and params.get("local_drop_prob") != cfg.local_drop_prob):
+        raise ValueError("local drop flag and model parameters disagree")
+    if regularization is not None:
+        from utils.structure_regularization import STRAIN_AUGMENT_CONTRACT, local_drop_contract
+
+        contract["regularization"] = (deepcopy(STRAIN_AUGMENT_CONTRACT) if regularization == "strain_augment"
+                                      else local_drop_contract(cfg.local_drop_prob))
+        contract["regularization"].update(
+            kind=regularization, design="docs/design/design-2026-11-05-structure-generalization.md",
+            scope="training-only regularizer on staged LR2 E+S; architecture, initial tensors, loss, data, "
+                  "budget, evaluation path and checkpoint guards unchanged")
     kind = reference_control_kind(cfg)
     if kind is not None:
         contract["reference_control"] = {

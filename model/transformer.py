@@ -152,7 +152,7 @@ class Transformer(nn.Module):
                   local_route="none", local_layout=None, local_depth=None,
                   global_depth=None,
                   lg_baseline=False, local_scalar_channels=None, local_hidden_channels=None,
-                  phonon_head=False, phonon_correction=False):
+                  phonon_head=False, phonon_correction=False, local_drop_prob=None):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
@@ -162,6 +162,8 @@ class Transformer(nn.Module):
             raise ValueError("unknown local/global comparison route")
         if local_route != "W1" and (local_scalar_channels is not None or local_hidden_channels is not None):
             raise ValueError("explicit full-model local widths require W1")
+        if local_drop_prob is not None and local_route != "LR2":
+            raise ValueError("local residual drop applies only to LR2")
         if local_route == "none" and (local_layout is not None or local_depth is not None
                                       or global_depth is not None):
             raise ValueError("local layout/depth require an A/B+ route")
@@ -329,7 +331,8 @@ class Transformer(nn.Module):
                 local_route, local_layout, local_depth, d_model=d_model, nhead=nhead,
                 dim_feedforward=dim_feedforward, dropout=dropout, activation=activation,
                 global_depth=global_depth, local_scalar_channels=local_scalar_channels,
-                local_hidden_channels=local_hidden_channels)
+                local_hidden_channels=local_hidden_channels,
+                **({"local_drop_prob": local_drop_prob} if local_drop_prob is not None else {}))
         elif self.use_periodic_manybody:
             from archive.code.model.periodic_manybody import PeriodicManyBodyEncoder
 

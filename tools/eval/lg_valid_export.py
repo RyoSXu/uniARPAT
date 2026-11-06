@@ -66,6 +66,16 @@ def load_run(run_dir: Path):
         if control is None and (blind or training.get('single_task') or training.get('seed', 42) != 42
                                 or training.get('data_order_seed') is not None):
             raise ValueError('reference-control runs must carry their control contract')
+        regularization = contract.get('regularization')
+        strain, drop = bool(training.get('strain_augment')), training.get('local_drop_prob')
+        if regularization is None:
+            if strain or drop is not None or params.get('local_drop_prob') is not None:
+                raise ValueError('generalization runs must carry their regularization contract')
+        elif (regularization.get('kind') != ('strain_augment' if strain else 'local_drop' if drop is not None else None)
+                or params.get('local_drop_prob') != drop
+                or (drop is not None and regularization.get('prob') != drop)
+                or strain != bool(saved['config']['dataset']['train'].get('strain_augment'))):
+            raise ValueError('regularization contract differs from its training/model configuration')
         residual = contract.get('schema') == BALANCE_RESIDUAL_SCHEMA
         midpoint = contract.get('schema') == MIDPOINT_SCHEMA
         if residual or midpoint or params.get('local_route') == 'LR2':

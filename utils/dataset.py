@@ -10,7 +10,7 @@ from utils.paths import REFERENCE_ROOT, input_path
 
 
 class Dos_Dataset(Dataset):
-    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", **kwargs) -> None:
+    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, strain_augment=False, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", **kwargs) -> None:
         super().__init__()
         self.split = split
         # Sum normalization replaces min-max normalization when selected.
@@ -26,6 +26,10 @@ class Dos_Dataset(Dataset):
         self.augment = bool(augment) and (split == 'train')
         self.disp_sigma = float(disp_sigma)
         self.disp_clip = float(disp_clip)
+        # Strain+Cartesian displacement (design 2026-11-05 G); train split only.
+        self.strain_augment = bool(strain_augment) and (split == 'train')
+        if self.strain_augment and self.augment:
+            raise ValueError("strain augmentation replaces, not adds to, fractional displacement")
         self.smear = smear
         self.data_dir = str(input_path(data_dir))+"/"+split+"/"
 
@@ -159,6 +163,11 @@ class Dos_Dataset(Dataset):
         else:
             elements = self.elements[index]
             pos = self.positions[index].reshape(-1, 3).clone()
+        if self.strain_augment:
+            if not self.crystal_format:
+                raise ValueError("strain augmentation requires explicit crystal geometry")
+            from utils.structure_regularization import strain_perturb
+            pos = CrystalGeometry(*strain_perturb(pos.cell, pos.frac_coords))
         if self.augment:
             # Perturb fractional atom rows and wrap them into the unit cell.
             # The first two element slots are non-atom sentinel tokens.

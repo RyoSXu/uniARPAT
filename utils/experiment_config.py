@@ -87,6 +87,8 @@ class ExperimentConfig:
     # historical DistributedSampler seed 0 and joint supervision.
     data_order_seed: Optional[int] = None
     single_task: Optional[str] = None
+    strain_augment: bool = False
+    local_drop_prob: Optional[float] = None
     delta_edos: float = 0.09375
     delta_phdos: float = 19.6875
     freeze_backbone: bool = False
