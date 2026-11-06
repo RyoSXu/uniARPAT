@@ -36,8 +36,10 @@ def residual_config(reference: ExperimentConfig, tag_prefix: str) -> ExperimentC
 def additive_parameters(params: dict) -> dict:
     if params.get("local_route") != "LR2":
         raise ValueError("internal residual comparison initialization requires LR2 parameters")
-    # A training-only drop rate is not part of the additive reference architecture.
-    return {**{k: v for k, v in params.items() if k != "local_drop_prob"}, "local_route": "I3"}
+    # A training-only drop rate and the phDOS readout depth are not part of the
+    # additive reference encoder.
+    return {**{k: v for k, v in params.items() if k not in ("local_drop_prob", "phdos_head_layers")},
+            "local_route": "I3"}
 
 
 def validate_residual_model(transformer, params: dict, *, require_identity=False) -> None:

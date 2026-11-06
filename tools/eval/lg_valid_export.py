@@ -88,6 +88,11 @@ def load_run(run_dir: Path):
             subset = load_train_subset(input_path(subset_path), input_path(dataset_train['data_dir']))
             if subset['sha256'] != contract['train_subset']['file_sha256']:
                 raise ValueError('learning-curve subset file changed after training')
+        depth = training.get('phdos_head_layers')
+        head = contract.get('phdos_head')
+        if (head is None) != (depth is None) or params.get('phdos_head_layers') != depth or (
+                head is not None and head.get('layers') != depth):
+            raise ValueError('phDOS head depth differs from its training/model configuration')
         residual = contract.get('schema') == BALANCE_RESIDUAL_SCHEMA
         midpoint = contract.get('schema') == MIDPOINT_SCHEMA
         if residual or midpoint or params.get('local_route') == 'LR2':

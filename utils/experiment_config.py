@@ -91,6 +91,7 @@ class ExperimentConfig:
     local_drop_prob: Optional[float] = None
     # Learning curve (design 2026-11-06): frozen nested train subset JSON; empty = full train.
     train_subset: str = ""
+    phdos_head_layers: Optional[int] = None
     delta_edos: float = 0.09375
     delta_phdos: float = 19.6875
     freeze_backbone: bool = False

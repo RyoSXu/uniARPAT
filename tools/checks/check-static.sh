@@ -69,7 +69,7 @@ PY
     tests.pipeline.test_cutoff_boundary_census \
     tests.pipeline.test_structure_use_audit \
     tests.pipeline.test_structure_regularization \
-    tests.pipeline.test_learning_curve \
+    tests.pipeline.test_learning_curve tests.pipeline.test_phdos_head \
     archive.code.tests.test_c2_1b_loss_attribution \
     tests.pipeline.test_b7_cif_inference \
     archive.code.tests.test_d4_phdos_spike_imaginary_audit \

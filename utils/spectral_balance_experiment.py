@@ -12,6 +12,9 @@ from utils.spectral_balance import ENERGY_METRIC, load_balance_protocol
 BALANCE_RESIDUAL_SCHEMA = "joint-spectral-balance-residual-model-v1"
 STRUCTURE_BLIND_SCHEMA = "joint-spectral-balance-structure-blind-v1"
 REFERENCE_CONTROL_SCHEMA = "lr2-es-reference-control-v1"
+PHDOS_HEAD_SCHEMA = "lr2-es-phdos-head-depth-v1"
+PHDOS_HEAD_DESIGN = "docs/design/design-2026-11-06-phdos-head.md"
+PHDOS_HEAD_DEPTHS = (1, 2)
 
 
 def shape_supervision_contract(enabled):
@@ -39,6 +42,7 @@ def legacy_balance_config(cfg):
     return replace(cfg, local_route="I3" if cfg.local_route in ("LR2", "S0") else cfg.local_route,
                    local_depth=2 if structure_blind else cfg.local_depth,
                    seed=42, data_order_seed=None, single_task=None, strain_augment=False, local_drop_prob=None, train_subset="",
+                   phdos_head_layers=None,
                    local_layout="staged" if cfg.local_layout == "midpoint" else cfg.local_layout,
                    spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
                    phonon_head=False, phonon_correction=False, scale_mode="eta",
@@ -57,6 +61,7 @@ def _backbone_params(params):
     base.pop("phonon_head", None)
     base.pop("phonon_correction", None)
     base.pop("local_drop_prob", None)
+    base.pop("phdos_head_layers", None)
     return base
 
 
@@ -144,12 +149,40 @@ def validate_learning_curve(cfg):
     return load_train_subset(input_path(cfg.train_subset), input_path(cfg.data_dir))
 
 
+def validate_phdos_head(cfg):
+    """The head study changes only the phDOS readout depth of the seed-42 staged LR2 E+S recipe."""
+    if cfg.phdos_head_layers is None:
+        return None
+    if cfg.phdos_head_layers not in PHDOS_HEAD_DEPTHS:
+        raise ValueError(f"phDOS head depth must be one of {PHDOS_HEAD_DEPTHS}; the historical 6 is the default")
+    if (cfg.local_route != "LR2" or cfg.local_layout != "staged" or not cfg.spectral_shape_aux
+            or cfg.split_decoder or cfg.phonon_head or cfg.phonon_correction or cfg.single_task is not None
+            or cfg.augment or regularization_kind(cfg) is not None or reference_control_kind(cfg) is not None
+            or cfg.train_subset or cfg.selection_metric != ENERGY_METRIC):
+        raise ValueError("the phDOS head study applies only to the adopted seed-42 staged LR2 E+S recipe")
+    return cfg.phdos_head_layers
+
+
+def phdos_head_state(d_model, layers, seed):
+    """Seeded independent head tensors, initialized as the Transformer constructor does."""
+    from model.heads import CNN
+
+    with torch.random.fork_rng(devices=[]):
+        torch.random.default_generator.manual_seed(seed)
+        head = CNN(d_model, d_model * 3, output_dim=1, num_layers=layers)
+        for parameter in head.parameters():
+            if parameter.dim() > 1:
+                torch.nn.init.xavier_normal_(parameter)
+    return {f"phdos_out_head.{key}": value for key, value in head.state_dict().items()}
+
+
 def validate_balance_config(cfg):
     from utils.local_global_experiment import validate_local_global_config
 
     validate_reference_control(cfg)
     validate_regularization(cfg)
     validate_learning_curve(cfg)
+    validate_phdos_head(cfg)
     if (not cfg.spectral_balance_config or cfg.local_route not in ("I3", "LR2", "S0")
             or cfg.scale_mode != "per_atom" or cfg.selection_metric != expected_selection_metric(cfg)):
         raise ValueError("balanced spectra require I3/A64, LR2 or S0, per_atom scale and the matching blind-energy selection")
@@ -269,6 +302,16 @@ def balance_model_contract(cfg, params):
         from utils.train_subset import subset_contract
 
         contract["train_subset"] = subset_contract(subset)
+    depth = validate_phdos_head(cfg)
+    if params.get("phdos_head_layers") != depth:
+        raise ValueError("phDOS head depth flag and model parameters disagree")
+    if depth is not None:
+        contract["phdos_head"] = {
+            "schema": PHDOS_HEAD_SCHEMA, "design": PHDOS_HEAD_DESIGN, "layers": depth, "reference_layers": 6,
+            "hidden_channels": 3 * int(params.get("d_model", 512)), "kernel_size": 3,
+            "initialization": "seeded independent head; every other tensor copied from the A64/LR2 initial state",
+            "scope": "phDOS readout depth only; encoder, shared decoder, queries, eDOS head, mass head, loss, "
+                     "data, budget, evaluation path and checkpoint guards unchanged"}
     kind = reference_control_kind(cfg)
     if kind is not None:
         contract["reference_control"] = {
@@ -376,6 +419,10 @@ def initialize_balance_model(transformer, params, seed):
             torch.random.default_generator.manual_seed(seed)
             head = PhononSpringHead(transformer.d_model, LOCAL_RADIUS)
         mapped.update({f"phonon_head.{key}": value for key, value in head.state_dict().items()})
+    depth = params.get("phdos_head_layers")
+    if depth is not None:
+        mapped = {key: value for key, value in mapped.items() if not key.startswith("phdos_out_head.")}
+        mapped.update(phdos_head_state(transformer.d_model, depth, seed))
     correction = bool(params.get("phonon_correction"))
     if correction:
         for key in _final_phdos_conv(mapped):
@@ -413,6 +460,10 @@ def initialize_balance_model(transformer, params, seed):
             **({"local_layout": "midpoint", "execution_order": [list(step) for step in transformer.encoder.execution_order]}
                if params.get("local_layout") == "midpoint" else {}),
             **({"phonon_head": "seeded independent initialization; all A64 tensors copied"} if phonon else {}),
+            **({"phdos_head": {"layers": depth, "state_sha256": state_hash(
+                {k: v for k, v in actual.items() if k.startswith("phdos_out_head.")}),
+                "parameters": sum(v.numel() for k, v in actual.items() if k.startswith("phdos_out_head."))}}
+               if depth is not None else {}),
             **({"phonon_correction": "final phDOS convolution zeroed; start equals the physics shape"}
                if correction else {}),
             "update_counts": transformer.encoder.update_counts}

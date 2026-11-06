@@ -152,7 +152,8 @@ class Transformer(nn.Module):
                   local_route="none", local_layout=None, local_depth=None,
                   global_depth=None,
                   lg_baseline=False, local_scalar_channels=None, local_hidden_channels=None,
-                  phonon_head=False, phonon_correction=False, local_drop_prob=None):
+                  phonon_head=False, phonon_correction=False, local_drop_prob=None,
+                  phdos_head_layers=None):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
@@ -164,6 +165,9 @@ class Transformer(nn.Module):
             raise ValueError("explicit full-model local widths require W1")
         if local_drop_prob is not None and local_route != "LR2":
             raise ValueError("local residual drop applies only to LR2")
+        if phdos_head_layers is not None and (
+                local_route != "LR2" or head_type != "legacy" or phdos_head_layers not in (1, 2)):
+            raise ValueError("phDOS head depth study applies only to the legacy LR2 readout with 1 or 2 layers")
         if local_route == "none" and (local_layout is not None or local_depth is not None
                                       or global_depth is not None):
             raise ValueError("local layout/depth require an A/B+ route")
@@ -460,7 +464,9 @@ class Transformer(nn.Module):
         else:  # "legacy"
             self.edos_out_head = CNN(d_model, d_model * 3, output_dim=1, num_layers=1)
             if not hasattr(self, "atom_phdos_head"):
-                self.phdos_out_head = CNN(d_model, d_model * 3, output_dim=1, num_layers=6)
+                # Historical depth 6; the 2026-11-06 head study opts into 1 or 2.
+                self.phdos_out_head = CNN(d_model, d_model * 3, output_dim=1,
+                                          num_layers=6 if phdos_head_layers is None else phdos_head_layers)
 
         # Scale Head MLP for blind physical inference (Shape-Scale decoupled regression)
         if predict_scale:
