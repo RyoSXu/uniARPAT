@@ -32,7 +32,7 @@
 | 结构利用与数据上限 | [第一阶段诊断方案](design/design-2026-11-05-structure-use-and-data-ceiling.md)、[几何普查、噪声地板与描述符基线结果](logs/log-2026-11-05-structure-use-audit-run.md) |
 | 结构分支泛化正则 | [第二阶段方案：几何扰动 G 与局部分支丢弃 D](design/design-2026-11-05-structure-generalization.md)、[实施与预检](logs/log-2026-11-05-structure-generalization-preparation.md) |
 | 学习曲线（数据量是否为瓶颈） | [方案](design/design-2026-11-06-learning-curve.md)、[实施与预检](logs/log-2026-11-06-learning-curve-preparation.md) |
-| phDOS 输出头深度 | [方案](design/design-2026-11-06-phdos-head.md)、[实施与预检](logs/log-2026-11-06-phdos-head-preparation.md) |
+| phDOS 输出头深度 | [方案](design/design-2026-11-06-phdos-head.md)、[实施与预检](logs/log-2026-11-06-phdos-head-preparation.md)、[运行与结果](logs/log-2026-11-08-phdos-head-run.md) |
 | E(3)、晶胞一致性与截断边界 | [输出要求](design/design-2026-10-04-e3-output-invariance.md)、[完整模型有限验收](logs/log-2026-11-02-crystal-model-invariance.md)、[全量边界统计](logs/log-2026-11-02-cutoff-boundary-census.md) |
 
 ## 当前问题的证据
