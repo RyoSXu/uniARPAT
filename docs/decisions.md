@@ -1,6 +1,6 @@
 # 固定契约与历史边界
 
-更新：2026-11-05。本页维护新开发须遵守的模型、数据与评价约定；结果及待决定事项只在[状态页](status.md)维护。
+更新：2026-11-08。本页维护新开发须遵守的模型、数据与评价约定；结果及待决定事项只在[状态页](status.md)维护。
 
 ## 当前研究配方
 
@@ -10,10 +10,11 @@
 | 几何 | 完整 FP32 晶体，6 Å 严格 `d<R` 有向周期镜像记录；几何由局部消息利用，不另接旧方向注意力打分旁路 |
 | 局部更新 | 完整 A 的 LR2 形式，标量/隐藏宽度 64/128；两次调用、每次两个内部块；关闭四个内部加法，保留内部 post-norm、外层 512 维 pre-norm 残差、完整状态读出 |
 | 全局与编排 | staged：`L1 L2 G1 G2 G3 G4 G5 G6`；全局 post-norm、8 头、2048 维 GELU FFN；注意力概率 dropout=0，残差/FFN dropout=0.05；Q/K/V/O 恒等初值后继续学习 |
-| 输出 | 六层共享 decoder；E0/P0 为 128/64 箱；结构预测非负、无固定上限的每原子窗口总量 |
+| 输出 | 六层共享 decoder；eDOS 头 1 层 Conv1d（512→1）；phDOS 头 2 层 Conv1d（512→1536→1，核 3，`--phdos_head_layers 2`）；E0/P0 为 128/64 箱；结构预测非负、无固定上限的每原子窗口总量 |
 | 训练预算 | M1、启用 q1_coord、q1_hidden=128、seed42、35 轮、batch32、lr5e-5、FP32；其他参数以冻结准备报告与有效配置为准 |
 
 用户于 2026-10-31 确认采用，参照为 LR2 E＋S ep29；A64 E＋S ep25 是匹配对照。
+2026-11-08 用户将 phDOS 头由 legacy 6 层改为 2 层（h2），参照为 h2_s42 best ep24；6 层头的 R42（LR2 E＋S ep29）是匹配对照。1 层头（h1）同样未分辨，保留为以后可考虑的进一步精简。[依据](logs/log-2026-11-08-phdos-head-run.md)
 这些是已检验的工作配置，不宣称每个细节最优或 A 总体优于 B+。
 [采用记录](logs/log-2026-10-30-spectral-residual-run.md#采用决定2026-10-31)
 
@@ -31,7 +32,7 @@ E 使用完整窗口，包括零箱和零谱；train 全零预测的平均 E 为
 
 原公式与边界见[全谱协议](design/design-2026-10-23-balanced-blind-objective.md)及[谱形辅助](design/design-2026-10-25-spectral-shape-supervision.md)。
 源码分别在 `utils/spectral_balance.py`、`model/losses.py` 与 `utils/checkpoint_selection.py`。
-工作命令必须显式启用 `--local_route LR2 --scale_mode per_atom --spectral_shape_aux --selection_metric balanced_blind_energy`、冻结 `--spectral_balance_config` 及获准结构配置；CLI 历史默认不代表当前配方。
+工作命令必须显式启用 `--local_route LR2 --scale_mode per_atom --spectral_shape_aux --selection_metric balanced_blind_energy --phdos_head_layers 2`、冻结 `--spectral_balance_config` 及获准结构配置；CLI 历史默认不代表当前配方。
 
 ## 数据、输出与兼容性
 
@@ -52,6 +53,7 @@ E 使用完整窗口，包括零箱和零谱；train 全零预测的平均 E 为
 新候选执行前明确主目标、配对对照、预算、保护条件和采用判据；不沿用旧中位 R²“平局线”替代当前 E 判据。
 **seed 尺度与单 seed 筛选**（2026-11-05 确认门槛；2026-11-06 用户改为单 seed 流程）：同配方 LR2＋E＋S
 三 seed（42/43/44）联合 mean E 极差为 **0.001319**（eDOS 0.000651、phDOS 0.003289），只是粗略噪声尺度，不是置信界。
+该极差在 6 层 phDOS 头上测得；换为 2 层头后暂沿用，定稿多 seed 时重测。
 - 每个候选默认只跑一个 seed，不补 seed 确认。
 - 联合 mean E 改善 ≤ 极差：“未分辨”；介于极差与约 3 倍极差（≈0.004）之间：“效应太小”，不追加实验，可列为最终配方备选；
   大于约 0.004 且满足候选自身判据与双任务保护：视为有效。单任务比较用该任务的极差。
