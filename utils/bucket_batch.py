@@ -6,6 +6,7 @@ from torch.utils.data import Sampler
 from torch.utils.data._utils.collate import default_collate
 from torch.nn.utils.rnn import pad_sequence
 from utils.crystal import CrystalGeometry
+from utils.external_atom_features import FIELD as EXTERNAL_ATOM_FIELD
 
 
 class LengthBucketBatchSampler(Sampler):
@@ -60,6 +61,10 @@ def crystal_collate(samples):
                              pad_sequence([s[1].frac_coords for s in samples], batch_first=True))]
     for i in range(2, len(samples[0])):
         values = [s[i] for s in samples]
+        if i == EXTERNAL_ATOM_FIELD:
+            # Per-atom external features pad like the atom fields (design 2026-11-08).
+            batch.append(pad_sequence(values, batch_first=True))
+            continue
         batch.append(None if all(v is None for v in values) else default_collate(values))
     return batch
 
@@ -89,6 +94,8 @@ def split_crystal_batch(batch, pair_budget):
         fields = [batch[0][start:end, :length],
                   CrystalGeometry(batch[1].cell[start:end], batch[1].frac_coords[start:end, :length])]
         fields.extend(value[start:end] if torch.is_tensor(value) else value for value in batch[2:])
+        if len(fields) > EXTERNAL_ATOM_FIELD and torch.is_tensor(fields[EXTERNAL_ATOM_FIELD]):
+            fields[EXTERNAL_ATOM_FIELD] = fields[EXTERNAL_ATOM_FIELD][:, :length]
         result.append(fields)
     return result
 

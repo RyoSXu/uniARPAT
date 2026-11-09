@@ -93,6 +93,20 @@ def load_run(run_dir: Path):
         if (head is None) != (depth is None) or params.get('phdos_head_layers') != depth or (
                 head is not None and head.get('layers') != depth):
             raise ValueError('phDOS head depth differs from its training/model configuration')
+        external = training.get('external_atom_features')
+        feature_block = contract.get('external_atom_features')
+        datasets = saved['config'].get('dataset', {})
+        if (feature_block is None) != (not external) or any(
+                datasets.get(split, {}).get('external_atom_features') != (external or None)
+                for split in ('train', 'valid', 'test')):
+            raise ValueError('external atom features differ from their training/dataset configuration')
+        if external:
+            from utils.external_atom_features import feature_contract
+            from utils.paths import input_path
+
+            current = feature_contract(input_path(external), input_path(dataset_train['data_dir']))
+            if current != feature_block['features'] or params.get('external_atom_dim') != current['dim']:
+                raise ValueError('external atom features changed after training')
         residual = contract.get('schema') == BALANCE_RESIDUAL_SCHEMA
         midpoint = contract.get('schema') == MIDPOINT_SCHEMA
         if residual or midpoint or params.get('local_route') == 'LR2':

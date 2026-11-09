@@ -92,6 +92,8 @@ class ExperimentConfig:
     # Learning curve (design 2026-11-06): frozen nested train subset JSON; empty = full train.
     train_subset: str = ""
     phdos_head_layers: Optional[int] = None
+    # MACE frozen-feature reference (design 2026-11-08): external per-atom feature directory; empty = off.
+    external_atom_features: str = ""
     delta_edos: float = 0.09375
     delta_phdos: float = 19.6875
     freeze_backbone: bool = False

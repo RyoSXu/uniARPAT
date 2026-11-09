@@ -38,7 +38,7 @@ def additive_parameters(params: dict) -> dict:
         raise ValueError("internal residual comparison initialization requires LR2 parameters")
     # A training-only drop rate and the phDOS readout depth are not part of the
     # additive reference encoder.
-    return {**{k: v for k, v in params.items() if k not in ("local_drop_prob", "phdos_head_layers")},
+    return {**{k: v for k, v in params.items() if k not in ("local_drop_prob", "phdos_head_layers", "external_atom_dim")},
             "local_route": "I3"}
 
 

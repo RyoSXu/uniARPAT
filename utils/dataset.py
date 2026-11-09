@@ -10,7 +10,7 @@ from utils.paths import REFERENCE_ROOT, input_path
 
 
 class Dos_Dataset(Dataset):
-    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, strain_augment=False, train_subset=None, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", **kwargs) -> None:
+    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, strain_augment=False, train_subset=None, external_atom_features=None, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", **kwargs) -> None:
         super().__init__()
         self.split = split
         # Sum normalization replaces min-max normalization when selected.
@@ -125,6 +125,15 @@ class Dos_Dataset(Dataset):
             self.phdos_mean = torch.ones_like(p_sum)
             self.phdos_std = torch.ones_like(p_sum)
 
+        # Frozen external per-atom features (design 2026-11-08), indexed by packed structure.
+        self.external_atom_features = None
+        if external_atom_features:
+            if not self.crystal_format or self.edos_x is None or self.phdos_x is None:
+                raise ValueError("external atom features require the complete-crystal Q1 cache with bin centers")
+            from utils.external_atom_features import ExternalAtomFeatures
+
+            self.external_atom_features = ExternalAtomFeatures(
+                input_path(external_atom_features), split, input_path(data_dir), self.crystals.offsets)
         if self.crystal_format and split == "train":
             excluded = set(self.crystals.manifest.get("training_exclusions", []))
             allowed = [i for i, material_id in enumerate(self.crystals.material_ids)
@@ -216,6 +225,9 @@ class Dos_Dataset(Dataset):
                 self.edos_x.clone(),  # [15] Q1 eDOS bin centers (eV @ Fermi)
                 self.phdos_x.clone(),  # [16] Q1 phDOS bin centers (cm^-1 @ nu=0)
             ]
+        if self.external_atom_features is not None:
+            # [17] frozen external per-atom features [n_atoms, D], same atom order as [0]
+            items.append(self.external_atom_features[int(self.structure_indices[index])])
         return items
 
     def get_elements(self):

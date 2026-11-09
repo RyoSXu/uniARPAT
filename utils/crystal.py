@@ -35,6 +35,28 @@ class CrystalGeometry(NamedTuple):
         return self.cell.dtype
 
 
+class FeaturedCrystalGeometry(CrystalGeometry):
+    """Device-side geometry that also carries padded external per-atom features.
+
+    The tuple itself stays (cell, frac_coords), so unpacking and every geometry
+    consumer are unchanged; `atom_features` [B, L, D] is an attribute attached by
+    `Model.data_preprocess` after the batch reaches the device (design
+    2026-11-08). Only `Transformer.forward` reads it.
+    """
+
+    @classmethod
+    def attach(cls, geometry: CrystalGeometry, atom_features: torch.Tensor) -> "FeaturedCrystalGeometry":
+        if atom_features.ndim != 3 or atom_features.shape[:2] != geometry.frac_coords.shape[:2]:
+            raise ValueError("external atom features must align with the [B,L] atom slots")
+        featured = cls(geometry.cell, geometry.frac_coords)
+        featured.atom_features = atom_features
+        return featured
+
+    def to(self, *args, **kwargs):
+        return FeaturedCrystalGeometry.attach(CrystalGeometry.to(self, *args, **kwargs),
+                                              self.atom_features.to(*args, **kwargs))
+
+
 def validate_crystal_geometry(geometry: CrystalGeometry,
                               padding_mask: torch.Tensor) -> None:
     cell, frac = geometry

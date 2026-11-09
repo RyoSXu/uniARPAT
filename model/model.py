@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from model.transformer import Transformer
 from utils.builder import get_optimizer, get_lr_scheduler
-from utils.crystal import CrystalGeometry, atom_padding_mask
+from utils.crystal import CrystalGeometry, FeaturedCrystalGeometry, atom_padding_mask
+from utils.external_atom_features import FIELD as EXTERNAL_ATOM_FIELD
 from utils.metrics import MetricsRecorder
 import utils.misc as utils
 import time
@@ -198,6 +199,10 @@ class basemodel(nn.Module):
         mask = (inp == 0)
         inp = inp.to(self.device, non_blocking=True)
         pos = pos.to(self.device, non_blocking=True)
+        if len(data) > EXTERNAL_ATOM_FIELD and data[EXTERNAL_ATOM_FIELD] is not None:
+            # Frozen external per-atom features ride on the geometry (design 2026-11-08).
+            features = data[EXTERNAL_ATOM_FIELD][:, :pos.frac_coords.shape[1]]
+            pos = FeaturedCrystalGeometry.attach(pos, features.to(self.device, non_blocking=True))
         
         # 将两套 target 和统计量都送入 GPU
         edos_target = edos_target.to(self.device, non_blocking=True)

@@ -153,7 +153,7 @@ class Transformer(nn.Module):
                   global_depth=None,
                   lg_baseline=False, local_scalar_channels=None, local_hidden_channels=None,
                   phonon_head=False, phonon_correction=False, local_drop_prob=None,
-                  phdos_head_layers=None):
+                  phdos_head_layers=None, external_atom_dim=None):
         super().__init__()
         self.local_route = local_route
         self._local_geometry_cache = None
@@ -168,6 +168,9 @@ class Transformer(nn.Module):
         if phdos_head_layers is not None and (
                 local_route != "LR2" or head_type != "legacy" or phdos_head_layers not in (1, 2)):
             raise ValueError("phDOS head depth study applies only to the legacy LR2 readout with 1 or 2 layers")
+        if external_atom_dim is not None and (
+                local_route != "LR2" or atom_feat_mode != "z_only_proj" or int(external_atom_dim) <= 0):
+            raise ValueError("external atom features apply only to the ZP LR2 atom entrance")
         if local_route == "none" and (local_layout is not None or local_depth is not None
                                       or global_depth is not None):
             raise ValueError("local layout/depth require an A/B+ route")
@@ -415,6 +418,16 @@ class Transformer(nn.Module):
             self.q_p = None
 
         self._reset_parameters()
+        self.external_atom_dim = None if external_atom_dim is None else int(external_atom_dim)
+        if self.external_atom_dim is not None:
+            # Frozen external per-atom features (design 2026-11-08): zero-initialized
+            # projection added to the ZP state, built outside the main RNG stream so
+            # the start equals the reference model exactly.
+            with torch.random.fork_rng(devices=[]):
+                self.external_atom_proj = nn.Linear(self.external_atom_dim, d_model)
+            with torch.no_grad():
+                self.external_atom_proj.weight.zero_()
+                self.external_atom_proj.bias.zero_()
         if atom_feat_mode == "mendeleev24":
             # Token embedding starts silent and learns corrections to numeric features.
             with torch.no_grad():
@@ -553,6 +566,9 @@ class Transformer(nn.Module):
         # edos_x/phdos_x: [E] or [B,E] bin centers in task units, supplied by
         # the dataset whenever coordinate conditioning is enabled.
         mask_atom = atom_padding_mask(pos, mask)
+        external = getattr(pos, "atom_features", None)
+        if (external is None) != (self.external_atom_dim is None):
+            raise ValueError("external atom features and the model configuration disagree")
         if isinstance(pos, CrystalGeometry):
             validate_crystal_geometry(pos, mask_atom)
             # Ignored padding may contain NaN; dense geometry must not read it.
@@ -570,6 +586,11 @@ class Transformer(nn.Module):
                 raise ValueError("valid atomic numbers must lie in [1,118]")
             atom_idx = atom_idx.masked_fill(mask_atom, 0)
         atom_src = self._encode_atoms(atom_idx)
+        if external is not None:
+            if external.shape != (*mask_atom.shape, self.external_atom_dim):
+                raise ValueError("external atom features must be [B,L,D] aligned with the atoms")
+            injected = self.external_atom_proj(external.to(device=atom_src.device, dtype=atom_src.dtype))
+            atom_src = atom_src + injected.masked_fill(mask_atom[..., None], 0.0)
 
         if self.use_macro_lattice:
             from archive.code.utils.macro_lattice import macro_lattice_features

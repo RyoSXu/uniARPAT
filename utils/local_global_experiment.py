@@ -410,7 +410,8 @@ def training_record(cfg: ExperimentConfig) -> dict:
             and (key != 'global_depth' or value is not None)
             and (key not in ('data_order_seed', 'single_task', 'local_drop_prob', 'phdos_head_layers') or value is not None)
             and (key != 'strain_augment' or value)
-            and (key != 'train_subset' or value)}
+            and (key != 'train_subset' or value)
+            and (key != 'external_atom_features' or value)}
 
 
 def comparison_contract(cfg: ExperimentConfig, transformer_params: dict) -> dict | None:

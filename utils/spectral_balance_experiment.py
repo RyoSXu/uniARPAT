@@ -15,6 +15,8 @@ REFERENCE_CONTROL_SCHEMA = "lr2-es-reference-control-v1"
 PHDOS_HEAD_SCHEMA = "lr2-es-phdos-head-depth-v1"
 PHDOS_HEAD_DESIGN = "docs/design/design-2026-11-06-phdos-head.md"
 PHDOS_HEAD_DEPTHS = (1, 2)
+EXTERNAL_FEATURE_SCHEMA = "lr2-es-external-atom-features-v1"
+EXTERNAL_FEATURE_DESIGN = "docs/design/design-2026-11-08-mace-features.md"
 
 
 def shape_supervision_contract(enabled):
@@ -42,7 +44,7 @@ def legacy_balance_config(cfg):
     return replace(cfg, local_route="I3" if cfg.local_route in ("LR2", "S0") else cfg.local_route,
                    local_depth=2 if structure_blind else cfg.local_depth,
                    seed=42, data_order_seed=None, single_task=None, strain_augment=False, local_drop_prob=None, train_subset="",
-                   phdos_head_layers=None,
+                   phdos_head_layers=None, external_atom_features="",
                    local_layout="staged" if cfg.local_layout == "midpoint" else cfg.local_layout,
                    spectral_balance_config="", spectral_shape_aux=False, split_decoder=False,
                    phonon_head=False, phonon_correction=False, scale_mode="eta",
@@ -62,6 +64,7 @@ def _backbone_params(params):
     base.pop("phonon_correction", None)
     base.pop("local_drop_prob", None)
     base.pop("phdos_head_layers", None)
+    base.pop("external_atom_dim", None)
     return base
 
 
@@ -176,6 +179,21 @@ def phdos_head_state(d_model, layers, seed):
     return {f"phdos_out_head.{key}": value for key, value in head.state_dict().items()}
 
 
+def validate_external_features(cfg):
+    """The MACE reference adds frozen per-atom features to the seed-42 staged LR2 E+S recipe (any head depth)."""
+    if not cfg.external_atom_features:
+        return None
+    if (cfg.local_route != "LR2" or cfg.local_layout != "staged" or not cfg.spectral_shape_aux
+            or cfg.atom_feat != "z_only_proj"
+            or cfg.split_decoder or cfg.phonon_head or cfg.phonon_correction or cfg.single_task is not None
+            or cfg.augment or regularization_kind(cfg) is not None or reference_control_kind(cfg) is not None
+            or cfg.train_subset or cfg.selection_metric != ENERGY_METRIC):
+        raise ValueError("external atom features apply only to the adopted seed-42 staged LR2 E+S recipe")
+    from utils.external_atom_features import feature_contract
+
+    return feature_contract(input_path(cfg.external_atom_features), input_path(cfg.data_dir))
+
+
 def validate_balance_config(cfg):
     from utils.local_global_experiment import validate_local_global_config
 
@@ -183,6 +201,7 @@ def validate_balance_config(cfg):
     validate_regularization(cfg)
     validate_learning_curve(cfg)
     validate_phdos_head(cfg)
+    validate_external_features(cfg)
     if (not cfg.spectral_balance_config or cfg.local_route not in ("I3", "LR2", "S0")
             or cfg.scale_mode != "per_atom" or cfg.selection_metric != expected_selection_metric(cfg)):
         raise ValueError("balanced spectra require I3/A64, LR2 or S0, per_atom scale and the matching blind-energy selection")
@@ -312,6 +331,18 @@ def balance_model_contract(cfg, params):
             "initialization": "seeded independent head; every other tensor copied from the A64/LR2 initial state",
             "scope": "phDOS readout depth only; encoder, shared decoder, queries, eDOS head, mass head, loss, "
                      "data, budget, evaluation path and checkpoint guards unchanged"}
+    features = validate_external_features(cfg)
+    if (params.get("external_atom_dim") is None) != (features is None) or (
+            features is not None and params.get("external_atom_dim") != features["dim"]):
+        raise ValueError("external atom feature flag and model parameters disagree")
+    if features is not None:
+        contract["external_atom_features"] = {
+            "schema": EXTERNAL_FEATURE_SCHEMA, "design": EXTERNAL_FEATURE_DESIGN, "features": features,
+            "injection": "atom_src = ZP(Z) + Linear(standardized features); padding rows masked",
+            "initialization": "projection weight and bias zero, built outside the main RNG stream; every other "
+                              "tensor equals the matching reference initial state",
+            "scope": "frozen extra per-atom input only; local/global encoder, decoder, heads, loss, data rows, "
+                     "budget, evaluation path and checkpoint guards unchanged"}
     kind = reference_control_kind(cfg)
     if kind is not None:
         contract["reference_control"] = {
@@ -423,6 +454,10 @@ def initialize_balance_model(transformer, params, seed):
     if depth is not None:
         mapped = {key: value for key, value in mapped.items() if not key.startswith("phdos_out_head.")}
         mapped.update(phdos_head_state(transformer.d_model, depth, seed))
+    external_dim = params.get("external_atom_dim")
+    if external_dim is not None:
+        mapped["external_atom_proj.weight"] = torch.zeros(transformer.d_model, int(external_dim))
+        mapped["external_atom_proj.bias"] = torch.zeros(transformer.d_model)
     correction = bool(params.get("phonon_correction"))
     if correction:
         for key in _final_phdos_conv(mapped):
@@ -464,6 +499,11 @@ def initialize_balance_model(transformer, params, seed):
                 {k: v for k, v in actual.items() if k.startswith("phdos_out_head.")}),
                 "parameters": sum(v.numel() for k, v in actual.items() if k.startswith("phdos_out_head."))}}
                if depth is not None else {}),
+            **({"external_atom_features": {"dim": int(external_dim), "projection": "zero weight and bias",
+                                           "reference_state_sha256": state_hash(
+                                               {k: v for k, v in actual.items()
+                                                if not k.startswith("external_atom_proj.")})}}
+               if external_dim is not None else {}),
             **({"phonon_correction": "final phDOS convolution zeroed; start equals the physics shape"}
                if correction else {}),
             "update_counts": transformer.encoder.update_counts}
