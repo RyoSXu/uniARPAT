@@ -35,6 +35,8 @@
 | phDOS 输出头深度 | [方案](design/design-2026-11-06-phdos-head.md)、[实施与预检](logs/log-2026-11-06-phdos-head-preparation.md)、[运行与结果](logs/log-2026-11-08-phdos-head-run.md) |
 | MACE 冻结特征参照 | [方案](design/design-2026-11-08-mace-features.md)、[实施与预检](logs/log-2026-11-08-mace-features-preparation.md)、[运行与结果](logs/log-2026-11-09-mace-features-run.md) |
 | MACE 收益归因 M0（仅元素先验） | [方案](design/design-2026-11-09-mace-m0.md)、[实施与预检](logs/log-2026-11-09-mace-m0-preparation.md)、[运行与结果](logs/log-2026-11-09-mace-m0-run.md) |
+| phDOS 的 uMLIP＋phonopy 基线（路线阶段 A） | [方案](design/design-2026-11-09-umlip-phonon-baseline.md)、[运行与结果](logs/log-2026-11-09-umlip-phonon-baseline-run.md) |
+| 由 DOS 推出的物理量（热容、熵、带隙、金属判断） | [结果](logs/log-2026-11-09-physical-quantities.md) |
 | E(3)、晶胞一致性与截断边界 | [输出要求](design/design-2026-10-04-e3-output-invariance.md)、[完整模型有限验收](logs/log-2026-11-02-crystal-model-invariance.md)、[全量边界统计](logs/log-2026-11-02-cutoff-boundary-census.md) |
 
 ## 当前问题的证据
