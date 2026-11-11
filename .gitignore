@@ -49,6 +49,7 @@ wandb/
 # Payload containers are closed; only reviewed, bounded evidence is opened below.
 /data/train4ARPAT/*
 /data/crystal_q1_v1/*
+/data/spectral_store_v1/
 /data/crystal_q1_v1_initial_20261004/
 /archive/data/**
 !/archive/data/**/

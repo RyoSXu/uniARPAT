@@ -1,0 +1,8 @@
+# U1: legacy train plus new MP phDOS labels (new eDOS labels not added to train).
+name: u1
+splits:
+  train: [train_q1, train_new]
+  valid: [valid_q1]
+  dev_edos: [dev_edos]
+tasks: {edos: false, phdos: true}
+max_atoms: 160

@@ -1,0 +1,8 @@
+# U2 (all): legacy train plus all new MP eDOS labels (canonical tasks; new phDOS not added).
+name: u2_all
+splits:
+  train: [train_q1, train_new]
+  valid: [valid_q1]
+  dev_edos: [dev_edos]
+tasks: {edos: true, phdos: false}
+max_atoms: 160

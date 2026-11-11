@@ -1,0 +1,7 @@
+# Verification view: legacy materials only; must equal crystal_q1_v1 train/valid.
+name: q1_compat
+splits:
+  train: [train_q1]
+  valid: [valid_q1]
+tasks: {edos: false, phdos: false}
+max_atoms: 160
