@@ -1,0 +1,60 @@
+--- upstream/Mat2Spec_Codes/Mat2Spec/Mat2Spec.py	2026-11-10 11:15:39.823947787 +0800
++++ port/mat2spec_model.py	2026-11-10 11:25:05.974255290 +0800
+@@ -9,19 +9,20 @@
+ from torch_geometric.utils    import softmax
+ from torch_geometric.nn       import global_add_pool, global_mean_pool
+ from torch_geometric.nn       import GATConv
+-from torch_scatter            import scatter_add
++# [port 1] removed unused `from torch_scatter import scatter_add` (torch_scatter is not installed)
+ from torch_geometric.nn.inits import glorot, zeros
+ 
+ from random import sample
+ from copy import copy, deepcopy
+-from Mat2Spec.utils import *
+-from Mat2Spec.SinkhornDistance import SinkhornDistance
+-from Mat2Spec.pytorch_stats_loss import torch_wasserstein_loss
++# [port 2] removed `from Mat2Spec.utils import *` and the unused SinkhornDistance import;
++#          the Wasserstein loss is imported from the copied upstream file next to this one.
++from .pytorch_stats_loss import torch_wasserstein_loss
+ 
+-device = set_device()
++# [port 3] inlined upstream utils.set_device(gpu_id=0)
++device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+ torch.cuda.empty_cache()
+ kl_loss_fn = torch.nn.KLDivLoss()
+-sinkhorn = SinkhornDistance(eps=0.1, max_iter=50, reduction='mean').to(device)
++# [port 4] removed the unused module-level `sinkhorn` object (its only uses are commented out upstream)
+ 
+ 
+ # Note: the part of GNN implementation is modified from https://github.com/superlouis/GATGNN/
+@@ -52,7 +53,9 @@
+ class GAT_Crystal(MessagePassing):
+     def __init__(self, in_features, out_features, edge_dim, heads, concat=False,
+                  dropout=0.0, bias=True, has_edge_attr=True, **kwargs):
+-        super(GAT_Crystal, self).__init__(aggr='add',flow='target_to_source', **kwargs)
++        # [port 7] PyG 1.5 aggregated along node_dim=0; PyG>=2 defaults to node_dim=-2, which is the
++        #          head axis of the [num_edge, num_head, emb_len] messages, so the old default is pinned
++        super(GAT_Crystal, self).__init__(aggr='add',flow='target_to_source', node_dim=0, **kwargs)
+         self.in_features       = in_features
+         self.out_features      = out_features
+         self.heads             = heads
+@@ -105,7 +108,8 @@
+         # self.att: (1,heads,2*out_features)
+ 
+         alpha = F.softplus(self.bn1(alpha))
+-        alpha = softmax(alpha, edge_index_i, size_i) # [num_edge, num_head]
++        # [port 5] PyG>=2 softmax(src, index, ptr, num_nodes): size_i must be passed as num_nodes
++        alpha = softmax(alpha, edge_index_i, num_nodes=size_i) # [num_edge, num_head]
+         #alpha = softmax(alpha, edge_index_i) # [num_edge, num_head]
+         alpha = self.dropout(alpha)
+ 
+@@ -198,7 +202,8 @@
+     def forward(self,data):
+         x, edge_index, edge_attr   = data.x, data.edge_index, data.edge_attr
+ 
+-        batch, global_feat, cluster = data.batch, data.global_feature, data.cluster
++        # [port 6] dropped the unused `data.cluster` read (upstream computes it but never uses it)
++        batch, global_feat = data.batch, data.global_feature
+ 
+         x           = self.embed_n(x) # [num_atom, emb_len]
+ 
