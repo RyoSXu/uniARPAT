@@ -37,6 +37,8 @@
 | MACE 收益归因 M0（仅元素先验） | [方案](design/design-2026-11-09-mace-m0.md)、[实施与预检](logs/log-2026-11-09-mace-m0-preparation.md)、[运行与结果](logs/log-2026-11-09-mace-m0-run.md) |
 | phDOS 的 uMLIP＋phonopy 基线（路线阶段 A） | [方案](design/design-2026-11-09-umlip-phonon-baseline.md)、[运行与结果](logs/log-2026-11-09-umlip-phonon-baseline-run.md) |
 | 由 DOS 推出的物理量（热容、熵、带隙、金属判断） | [结果](logs/log-2026-11-09-physical-quantities.md) |
+| 多来源、部分标签的谱数据扩充 | [方案与用户决定](design/design-2026-11-10-partial-label-data.md)、[P0 谱数据库设计](design/design-2026-11-10-spectral-store-p0.md)、[建库与核验](logs/log-2026-11-10-spectral-store-build.md)、[补充标签平移检查](logs/log-2026-11-10-fallback-shift-check.md)、[标签契约 v2（精确积分分箱，待确认）](design/design-2026-11-11-label-contract-v2.md) |
+| Mat2Spec 外部基线 | [方案](design/design-2026-11-10-mat2spec-baseline.md)、[运行与结果](logs/log-2026-11-10-mat2spec-baseline-run.md) |
 | E(3)、晶胞一致性与截断边界 | [输出要求](design/design-2026-10-04-e3-output-invariance.md)、[完整模型有限验收](logs/log-2026-11-02-crystal-model-invariance.md)、[全量边界统计](logs/log-2026-11-02-cutoff-boundary-census.md) |
 
 ## 当前问题的证据
