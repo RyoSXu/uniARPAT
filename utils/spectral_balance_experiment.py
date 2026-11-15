@@ -153,14 +153,18 @@ def validate_learning_curve(cfg):
 
 
 def validate_phdos_head(cfg):
-    """The head study changes only the phDOS readout depth of the seed-42 staged LR2 E+S recipe."""
+    """The head study changes only the phDOS readout depth of the staged LR2 E+S recipe.
+
+    Seed replicates of an adopted head depth are allowed: backbone and head are both drawn from cfg.seed.
+    """
     if cfg.phdos_head_layers is None:
         return None
     if cfg.phdos_head_layers not in PHDOS_HEAD_DEPTHS:
         raise ValueError(f"phDOS head depth must be one of {PHDOS_HEAD_DEPTHS}; the historical 6 is the default")
     if (cfg.local_route != "LR2" or cfg.local_layout != "staged" or not cfg.spectral_shape_aux
             or cfg.split_decoder or cfg.phonon_head or cfg.phonon_correction or cfg.single_task is not None
-            or cfg.augment or regularization_kind(cfg) is not None or reference_control_kind(cfg) is not None
+            or cfg.augment or regularization_kind(cfg) is not None
+            or reference_control_kind(cfg) not in (None, "seed_replicate")
             or cfg.train_subset or cfg.selection_metric != ENERGY_METRIC):
         raise ValueError("the phDOS head study applies only to the adopted seed-42 staged LR2 E+S recipe")
     return cfg.phdos_head_layers

@@ -24,8 +24,10 @@ class HeadDepthTest(unittest.TestCase):
 
     def test_recipe_guard(self):
         self.assertEqual(validate_phdos_head(replace(ExperimentConfig(), phdos_head_layers=2, **RECIPE)), 2)
+        self.assertEqual(validate_phdos_head(replace(ExperimentConfig(), phdos_head_layers=2, seed=43, **RECIPE)), 2)
         for change in ({'phdos_head_layers': 6}, {'phdos_head_layers': 3}, {'local_route': 'I3'},
-                       {'strain_augment': True}, {'seed': 43}, {'train_subset': 'x'}, {'local_layout': 'midpoint'}):
+                       {'strain_augment': True}, {'single_task': 'phdos'}, {'train_subset': 'x'},
+                       {'local_layout': 'midpoint'}):
             cfg = replace(ExperimentConfig(), **{**RECIPE, 'phdos_head_layers': 1, **change})
             with self.assertRaises(ValueError):
                 validate_phdos_head(cfg)
