@@ -1,0 +1,414 @@
+{
+  "schema": "crystal-q1-v1",
+  "cell_convention": "row lattice vectors, angstrom; legacy canonical frame",
+  "frac_convention": "dimensionless, same primitive basis and atom order",
+  "primitive_policy": {
+    "source": "MP summary structure",
+    "symprec": 0.1
+  },
+  "geometry_precision": "float32",
+  "label_contract": "v2",
+  "binning": "exact_piecewise_linear",
+  "partial_labels": true,
+  "dataset": "dos_v1",
+  "database": "spectral_db_v1",
+  "grid": {
+    "edos": {
+      "range": [
+        -6.0,
+        6.0
+      ],
+      "bins": 128
+    },
+    "phdos": {
+      "range": [
+        -280.0,
+        980.0
+      ],
+      "bins": 64
+    }
+  },
+  "source_codes": {
+    "none": 0,
+    "mp": 2,
+    "mp_dfpt": 4,
+    "phonondb": 5
+  },
+  "link_codes": {
+    "none": 0,
+    "hint": 1,
+    "rehung": 3,
+    "own": 4
+  },
+  "split_rule": {
+    "salt": "spectral-store-v1/splits-v3/2026-11-12",
+    "rare_elements": [
+      "Ar",
+      "He",
+      "Kr",
+      "Ne"
+    ]
+  },
+  "imaginary_modes": {
+    "definition": "share of absolute DOS area below -20 cm^-1",
+    "flag_above": 0.05
+  },
+  "splits": {
+    "train": {
+      "n": 58105,
+      "has_edos": 49184,
+      "has_phdos": 24639,
+      "imag_flag_phdos": 4354
+    },
+    "valid": {
+      "n": 7474,
+      "has_edos": 6342,
+      "has_phdos": 3080,
+      "imag_flag_phdos": 518
+    },
+    "test": {
+      "n": 7451,
+      "has_edos": 6312,
+      "has_phdos": 3227,
+      "imag_flag_phdos": 537
+    }
+  },
+  "files": {
+    "train/cell_train.npy": {
+      "shape": [
+        58105,
+        3,
+        3
+      ],
+      "dtype": "float32",
+      "sha256": "164b09e1f0556174bd983cd5468cca6030a5b637a9967b5df5874d35ff7310b7"
+    },
+    "train/atomic_numbers_train.npy": {
+      "shape": [
+        949412
+      ],
+      "dtype": "uint8",
+      "sha256": "b58e235c45f522bbe6ed81ca0f305cc2753c6debb4286d2c7931c5f39881a40d"
+    },
+    "train/frac_coords_train.npy": {
+      "shape": [
+        949412,
+        3
+      ],
+      "dtype": "float32",
+      "sha256": "176bb453378fda9bded8f6e29857d72198448cd848a5d30bf90cec7f056e40fe"
+    },
+    "train/n_atoms_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "int32",
+      "sha256": "8678e123f559946cf9b8bd7070ee0aa1dca76732b1a48e35f37973a2b35c2b54"
+    },
+    "train/atom_offsets_train.npy": {
+      "shape": [
+        58106
+      ],
+      "dtype": "int64",
+      "sha256": "a84924724247f98c5d4438a9df0bb0670e82cbda14517e504bd41cb74b24c0d7"
+    },
+    "train/nvalence_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "float32",
+      "sha256": "e5d38310fadea29a12b9884b61aee47132e2370346ae3e913357e9543b7510ac"
+    },
+    "train/is_entry_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "bool",
+      "sha256": "395ede0535f6c39f08d0692d65933f1da5a59cb4fb9b298343b4bea763ec2306"
+    },
+    "train/train_index.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "<U24",
+      "sha256": "f1996859997271efbb91fa23396b26978999b2b78873b4ab76fbd542d70687ef"
+    },
+    "train/edos_tgtdos_train.npy": {
+      "shape": [
+        58105,
+        128
+      ],
+      "dtype": "float32",
+      "sha256": "d516960e1b3c6a6ece3ea423e4037ebbe22383fc78b2147df701781492730780"
+    },
+    "train/edos_mask_train.npy": {
+      "shape": [
+        58105,
+        128
+      ],
+      "dtype": "bool",
+      "sha256": "e648e25aae3dfa0658bb1d94d7acc32ed2eb06948222f1560faabd6d8ba1cf63"
+    },
+    "train/has_edos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "bool",
+      "sha256": "4da61e2f77da6407f7e0343e0a0167dc3b1ac76fade44f29833ec4e14102b51a"
+    },
+    "train/source_edos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "int8",
+      "sha256": "718f2b2c83015e10006920de12f1374e0aee61319374d7e9a481f8632a1a1b0a"
+    },
+    "train/disputed_edos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "bool",
+      "sha256": "9b4121ed1285c5a1506ce3761e1fe2b228e7b8a64418841e1c0cb06b2d1524f5"
+    },
+    "train/link_edos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "int8",
+      "sha256": "fa33b9f3d92bf2f4c86748022bccfad3faa1c963886f948d94e505273328a32d"
+    },
+    "train/phdos_tgtdos_train.npy": {
+      "shape": [
+        58105,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "fc8f2f98b5a6ea8cdd9906f4bb2283f5b53c1a499bf8fab31f4e98773c5eeb70"
+    },
+    "train/phdos_mask_train.npy": {
+      "shape": [
+        58105,
+        64
+      ],
+      "dtype": "bool",
+      "sha256": "5491ebba448d8fe9a23af3192db25b46ada81939c8447d4e22d5872dc21bc77f"
+    },
+    "train/has_phdos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "bool",
+      "sha256": "131b6c319f69c02a0dd8f3059d1c450cd2f9c80c3436aaf657aeca9f5ab87f8a"
+    },
+    "train/source_phdos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "int8",
+      "sha256": "974df6e6331fbb236da8663ce6a437bb50377e70f1a942aec816b327f52550b0"
+    },
+    "train/disputed_phdos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "bool",
+      "sha256": "5ec972aaba26c9a3adda042ee646146fbd5907980907410c3569cc062dbd8b7d"
+    },
+    "train/link_phdos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "int8",
+      "sha256": "3a476a05e892b5344658a67f35f00e5895c2ee0e3f3fcfa98630a9ad3b62c292"
+    },
+    "train/imag_frac_phdos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "float32",
+      "sha256": "86c4396da90c4e3db6235b8f6f6930e3abf36743b7b855c657074899430fbe8e"
+    },
+    "train/imag_flag_phdos_train.npy": {
+      "shape": [
+        58105
+      ],
+      "dtype": "bool",
+      "sha256": "3e0dbaa60eb115640d77b77c203dc8f45fbc30807fe80b5f31fa15b1f6b488b3"
+    },
+    "valid/cell_valid.npy": {
+      "shape": [
+        7474,
+        3,
+        3
+      ],
+      "dtype": "float32",
+      "sha256": "4cf030f367f613f485f48c05c8dc22bc99c90aafd00e935380d064b6996d6206"
+    },
+    "valid/atomic_numbers_valid.npy": {
+      "shape": [
+        122401
+      ],
+      "dtype": "uint8",
+      "sha256": "f08bc053deab2b365b44e649213da6bddc25d64a574c518db3bccbd78774d2ef"
+    },
+    "valid/frac_coords_valid.npy": {
+      "shape": [
+        122401,
+        3
+      ],
+      "dtype": "float32",
+      "sha256": "cf865b29d6fad3f7a001d23fb26f9dd1296a4a2bc1bd52e10716210db28c283b"
+    },
+    "valid/n_atoms_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "int32",
+      "sha256": "d26b48dbf9fa8871d77208193312ab997c1dc09f459d0de630e373fb524d5d20"
+    },
+    "valid/atom_offsets_valid.npy": {
+      "shape": [
+        7475
+      ],
+      "dtype": "int64",
+      "sha256": "781ddee7138fd2a1f7dd7eab4bb31ac816bf4c73d7540bff8c959410f72a5f5c"
+    },
+    "valid/nvalence_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "float32",
+      "sha256": "c7cbec67d645533cca2b8c7f5547d3bbae718fa4e89cfc7714b2bb91a062e6fd"
+    },
+    "valid/is_entry_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "bool",
+      "sha256": "b34eeb0c9df6c1561f4db43b9cf89d2efc36c477f7232d1a2d9b0bae80103f82"
+    },
+    "valid/valid_index.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "<U24",
+      "sha256": "489e10fe3e769ed6b0f326b6e9e47863b97b956dc31bf6bd1b0242b9aa02caa8"
+    },
+    "valid/edos_tgtdos_valid.npy": {
+      "shape": [
+        7474,
+        128
+      ],
+      "dtype": "float32",
+      "sha256": "28dddfa8ecab85200016446186bf3a4c768c748eba7a3ffdd8f098476a883fc6"
+    },
+    "valid/edos_mask_valid.npy": {
+      "shape": [
+        7474,
+        128
+      ],
+      "dtype": "bool",
+      "sha256": "7dfbfcbf49fddb5333f5b4405b31cd3ea53f62d6c1dea16e9f51bf1892de0407"
+    },
+    "valid/has_edos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "bool",
+      "sha256": "3f0df531a79aff3f5f748f44250447bfb1297a4bfa936bdd5619a77e97875958"
+    },
+    "valid/source_edos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "int8",
+      "sha256": "e166c4d7cc1bcf97eb70984a316f9455adecd401280d41f73d250c49f2deb318"
+    },
+    "valid/disputed_edos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "bool",
+      "sha256": "e0a5509fd03ed979ba7bfee74e9c743c9921f18f2f2289e3c8a34b760aff2e6d"
+    },
+    "valid/link_edos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "int8",
+      "sha256": "ada62a1fccc4ec671891fc3ea061377a5f7ce1b6f6f6b63a1b1ba0c788103f50"
+    },
+    "valid/phdos_tgtdos_valid.npy": {
+      "shape": [
+        7474,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "371e0d0d851b1dc87c970865c1535fe272ad9ba56ca1e91b65057826e577c80d"
+    },
+    "valid/phdos_mask_valid.npy": {
+      "shape": [
+        7474,
+        64
+      ],
+      "dtype": "bool",
+      "sha256": "464a6ada6531747e629ed197dee35e68007997baed24b9a4f789cfae49580ca8"
+    },
+    "valid/has_phdos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "bool",
+      "sha256": "279af73f8e7985fe32a47efd3830f334688c1252b2c0dfcad20e848a663a8490"
+    },
+    "valid/source_phdos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "int8",
+      "sha256": "a7e2543a52c2c31838350a05bce227253c806fd3a8fadbb2937213b28bcbfdcf"
+    },
+    "valid/disputed_phdos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "bool",
+      "sha256": "f100de84ae0042280e9b71cc6debe9b27d01dbbbfbfb1237fd381d6c3eb9f21f"
+    },
+    "valid/link_phdos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "int8",
+      "sha256": "b091d6d02d6983074a4f709c340a0e777e6c182d5b084151e660c2277aefa955"
+    },
+    "valid/imag_frac_phdos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "float32",
+      "sha256": "53d0fa7198b55a8ecf5ec601d5420c5d34e11f06c3d10ce5c2e65eae50f66e34"
+    },
+    "valid/imag_flag_phdos_valid.npy": {
+      "shape": [
+        7474
+      ],
+      "dtype": "bool",
+      "sha256": "fa68fb17df8392ab624b36fa68025011895da93397b9468348fd5b31d210a939"
+    }
+  },
+  "normalizer_train": {
+    "edos": {
+      "energy": 12.231741379815725,
+      "mass_per_atom_reference": 6.8977434225320815,
+      "bin_width": 0.09375,
+      "bins": 128
+    },
+    "phdos": {
+      "energy": 0.039093343576505346,
+      "mass_per_atom_reference": 2.9903615331952516,
+      "bin_width": 19.6875,
+      "bins": 64
+    }
+  }
+}

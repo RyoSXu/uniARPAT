@@ -1,0 +1,174 @@
+{
+  "dataset": "dos_v1_x2",
+  "splits": {
+    "test": {
+      "n": 7451,
+      "has_edos": 6312,
+      "has_phdos": 3227,
+      "imag_flag_phdos": 537
+    }
+  },
+  "files": {
+    "test/cell_test.npy": {
+      "shape": [
+        7451,
+        3,
+        3
+      ],
+      "dtype": "float32",
+      "sha256": "7083946aee934f8b913cb43dadbe61eeccf88f397250e94dd0a7d80474ce41ce"
+    },
+    "test/atomic_numbers_test.npy": {
+      "shape": [
+        122204
+      ],
+      "dtype": "uint8",
+      "sha256": "a4ba9cfb1a0572e315dec283de57e649cf9ed7f956ab9e426e8fbfddbfc3afac"
+    },
+    "test/frac_coords_test.npy": {
+      "shape": [
+        122204,
+        3
+      ],
+      "dtype": "float32",
+      "sha256": "40594e6f1676c54d77e03ef802bdb3b77cd6d0b8b145c1c616739bd6de6d8438"
+    },
+    "test/n_atoms_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "int32",
+      "sha256": "87ce7920b453865bfd3819f1365356e2bdb13359c1e08bfdca60ff1550adc310"
+    },
+    "test/atom_offsets_test.npy": {
+      "shape": [
+        7452
+      ],
+      "dtype": "int64",
+      "sha256": "a3e38ef4a2d1628d6c0cf1d12c476b48bd5f04a78098356aa264af3f5fd4fc4a"
+    },
+    "test/nvalence_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "float32",
+      "sha256": "35b049252fe1bc0b701402b95d26fbadf354891c5c27b4dd5229610d6aa35e0c"
+    },
+    "test/is_entry_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "bool",
+      "sha256": "f401a0601d981fb93920f3171227d1a2509d60d555b4fc7bfe4af3cb24d01039"
+    },
+    "test/test_index.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "<U24",
+      "sha256": "f21cd02a262b72668d3abb4eaa26f6d42448a1ddb7caa3ef18c5b5a7161ab1bc"
+    },
+    "test/edos_tgtdos_test.npy": {
+      "shape": [
+        7451,
+        256
+      ],
+      "dtype": "float32",
+      "sha256": "890722ebd5a3931a30165d2e95c2a2357b7b8eb09df43f0632ae50645eb34a85"
+    },
+    "test/edos_mask_test.npy": {
+      "shape": [
+        7451,
+        256
+      ],
+      "dtype": "bool",
+      "sha256": "a0e60f80d8071298d53507a7e71e01ba84e509208ec34d4754173f2364d74e95"
+    },
+    "test/has_edos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "bool",
+      "sha256": "2ec46cf883e81b2a5a07c13695ac4af7a82418f206118e5157ab9cf44a87f749"
+    },
+    "test/source_edos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "int8",
+      "sha256": "d80b6797654d244ea8addd9a2bdb323a7fb3422746514b082115fe5cd3e9028c"
+    },
+    "test/disputed_edos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "bool",
+      "sha256": "f6510ff048c7a8a684a2f23252dc08aac7939f4962dd5c35e29cf22c280cfead"
+    },
+    "test/link_edos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "int8",
+      "sha256": "0eb101ecd47146955d4e2935072d765c279f8d2104436f23bc12e6d9ae9149cd"
+    },
+    "test/phdos_tgtdos_test.npy": {
+      "shape": [
+        7451,
+        128
+      ],
+      "dtype": "float32",
+      "sha256": "688117106bb48aeb49c607dc960c1877ebaa9d1418debf120a5bb8e12539f829"
+    },
+    "test/phdos_mask_test.npy": {
+      "shape": [
+        7451,
+        128
+      ],
+      "dtype": "bool",
+      "sha256": "fb3cf8e947ddd3ecefd34e53f53a1d0d335bcbca5cb423e764738f5f5057a7b0"
+    },
+    "test/has_phdos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "bool",
+      "sha256": "39a7a1412a57689a37263268035475aab0d331a81a62acc0f8e68b5f1bfaa6e7"
+    },
+    "test/source_phdos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "int8",
+      "sha256": "f22706d96c3dc09859271e307b664cf62ea47b111028cb386b22fc81a1413b1c"
+    },
+    "test/disputed_phdos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "bool",
+      "sha256": "923e395afa348d5eb8756b3493ecabb6774c2511ced0f8541f5339adbd08c446"
+    },
+    "test/link_phdos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "int8",
+      "sha256": "9b63e3615bebc29bf3686f1bbd4a2a7af28629bc7bbe061c721bb21800f607c4"
+    },
+    "test/imag_frac_phdos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "float32",
+      "sha256": "66118b91f298ba3efeb4a1984696397b190b8f0ee030aaef143e0994129d475b"
+    },
+    "test/imag_flag_phdos_test.npy": {
+      "shape": [
+        7451
+      ],
+      "dtype": "bool",
+      "sha256": "6da984a21a78c20d9626bc837da8777b78dea2b4e101875631e95465e98a36fb"
+    }
+  }
+}

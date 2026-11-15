@@ -226,6 +226,11 @@ wandb/
 !/data/spectral_db_v1/manifest.json
 !/data/spectral_db_v1/build_stats.json
 !/data/spectral_db_v1/verify.json
+!/data/datasets/dos_v1/report.json
+!/data/datasets/dos_v1/views/dos_v1/manifest.json
+!/data/datasets/dos_v1/views/dos_v1_x2/manifest.json
+!/data/datasets/dos_v1/sealed/views/dos_v1/manifest.json
+!/data/datasets/dos_v1/sealed/views/dos_v1_x2/manifest.json
 !/results/reports/crystal_input_q1_20261004/summary.json
 !/data/train4ARPAT/stats_v2.json
 !/results/figures/README.md
