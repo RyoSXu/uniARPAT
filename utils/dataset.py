@@ -10,8 +10,12 @@ from utils.paths import REFERENCE_ROOT, input_path
 
 
 class Dos_Dataset(Dataset):
-    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, strain_augment=False, train_subset=None, external_atom_features=None, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", **kwargs) -> None:
+    def __init__(self, data_dir="./data", split='train', dos_minmax = False, dos_zscore=False, scale_factor=1.0, apply_log=False, smear=0, choice=[], augment=False, disp_sigma=0.01, disp_clip=0.03, strain_augment=False, train_subset=None, external_atom_features=None, dos_sumnorm=False, edos_edges=None, phdos_edges=None, coords="auto", view_split=None, **kwargs) -> None:
         super().__init__()
+        # `split` is the role (train/valid/test); `view_split` names the view directory read for it.
+        if view_split is not None and split == 'train' and view_split != 'train':
+            raise ValueError("the training role always reads the view's train split")
+        split = view_split or split
         self.split = split
         # Sum normalization replaces min-max normalization when selected.
         # min/max slots are reused as (0, sum) so oracle denorm pred*(max-min)+min
@@ -64,9 +68,11 @@ class Dos_Dataset(Dataset):
 
         self.edos_mask = self.get_mask_data(prefix="edos_mask")
         self.phdos_mask = self.get_mask_data(prefix="phdos_mask")
+        self.partial_labels = bool(manifest.get("partial_labels", False))
+        self.labels = self.get_label_flags() if self.partial_labels else None
         # Valence counts are optional metadata for blind scale supervision.
         self.nvalence = self.get_nvalence()
-        for name in ("edos_tgtdos", "phdos_tgtdos", "edos_mask", "phdos_mask", "nvalence"):
+        for name in ("edos_tgtdos", "phdos_tgtdos", "edos_mask", "phdos_mask", "nvalence", "labels"):
             value = getattr(self, name)
             if value is not None and len(value) != data_len:
                 raise ValueError(f"{name} row count differs from structures")
@@ -81,7 +87,7 @@ class Dos_Dataset(Dataset):
             self.edos_x, self.phdos_x = self.get_grid_coords(
                 data_dir, edos_edges, phdos_edges)
         except AssertionError:
-            if self.coords_mode == "on":
+            if self.coords_mode == "on" or self.partial_labels:
                 raise
             self.edos_x, self.phdos_x = None, None
 
@@ -163,7 +169,7 @@ class Dos_Dataset(Dataset):
             self.elements = self.elements.index_select(0, cholist)
             self.positions = self.positions.index_select(0, cholist)
         for name in ("atom_counts", "edos_tgtdos", "phdos_tgtdos", "edos_mask",
-                     "phdos_mask", "nvalence", "edos_mean", "edos_std", "edos_min",
+                     "phdos_mask", "nvalence", "labels", "edos_mean", "edos_std", "edos_min",
                      "edos_max", "phdos_mean", "phdos_std", "phdos_min", "phdos_max"):
             value = getattr(self, name)
             if value is not None:
@@ -228,6 +234,10 @@ class Dos_Dataset(Dataset):
         if self.external_atom_features is not None:
             # [17] frozen external per-atom features [n_atoms, D], same atom order as [0]
             items.append(self.external_atom_features[int(self.structure_indices[index])])
+        elif self.labels is not None:
+            items.append(None)
+        if self.labels is not None:
+            items.append(self.labels[index])  # [18] (has eDOS, has phDOS)
         return items
 
     def get_elements(self):
@@ -253,6 +263,24 @@ class Dos_Dataset(Dataset):
         if self.crystal_format and array.dtype != np.bool_:
             raise ValueError("crystal coverage masks must be stored as boolean")
         return torch.from_numpy(array).bool()
+
+    def get_label_flags(self):
+        if not self.crystal_format:
+            raise ValueError("partial labels require the complete-crystal view")
+        flags = []
+        for task in ("edos", "phdos"):
+            array = np.load(os.path.join(self.data_dir, f"has_{task}_{self.split}.npy"), allow_pickle=False)
+            if array.dtype != np.bool_:
+                raise ValueError("label flags must be stored as boolean")
+            flags.append(array)
+        flags = np.stack(flags, axis=1)
+        if not flags.any(axis=1).all():
+            raise ValueError("every partial-label row needs at least one target")
+        for i, task in enumerate(("edos", "phdos")):
+            target = getattr(self, f"{task}_tgtdos")
+            if (target[torch.from_numpy(~flags[:, i])] != 0).any():
+                raise ValueError(f"unlabelled {task} rows must store zero targets")
+        return torch.from_numpy(flags)
 
     def get_nvalence(self):
         filename = os.path.join(self.data_dir, f"nvalence_{self.split}.npy")

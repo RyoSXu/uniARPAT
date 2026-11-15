@@ -6,6 +6,7 @@ from utils.builder import get_optimizer, get_lr_scheduler
 from utils.crystal import CrystalGeometry, FeaturedCrystalGeometry, atom_padding_mask
 from utils.external_atom_features import FIELD as EXTERNAL_ATOM_FIELD
 from utils.metrics import MetricsRecorder
+from utils.partial_labels import batch_labels, labelled_mean
 import utils.misc as utils
 import time
 import datetime
@@ -355,6 +356,14 @@ class basemodel(nn.Module):
         finally:
             transformer.train(was_training)
 
+    def _partial_labels(self, batch_data):
+        """Device label flags for a partial-label v2 batch; None otherwise (unchanged v1 path)."""
+        labels = batch_labels(batch_data)
+        expected = bool((self.spectral_balance or {}).get("view", {}).get("partial_labels", False))
+        if (labels is not None) != expected:
+            raise ValueError("partial-label batches require the matching v2 partial-label protocol")
+        return None if labels is None else labels.to(self.device)
+
     def train_one_step(self, batch_data, step, pair_batch=None, *, pair_budget=None,
                        _accumulation=None):
         if isinstance(batch_data[1], CrystalGeometry) and _accumulation is None:
@@ -368,16 +377,21 @@ class basemodel(nn.Module):
                     raise ValueError("crystal accumulation requires SumNorm without pair auxiliary")
                 if self.edos_slope_ratio > 0 and not self.edos_slope_calibrated:
                     raise ValueError("calibrate slope loss before splitting a crystal batch")
+                labels = batch_labels(batch_data)
+                # Partial labels: each chunk divides by the whole batch's per-task label counts.
+                counts = None if labels is None else labels.sum(0)
                 result = {}
                 for i, chunk in enumerate(chunks):
-                    weight = len(chunk[0]) / len(batch_data[0])
+                    weight = len(chunk[0]) / len(batch_data[0]) if labels is None else 1.0
                     values = self.train_one_step(chunk, step, pair_budget=budget,
-                        _accumulation=(i == 0, i == len(chunks) - 1, weight))
+                        _accumulation=(i == 0, i == len(chunks) - 1, weight, counts))
                     for key, value in values.items():
                         result[key] = result.get(key, 0.0) + weight * value
                 return result
             batch_data = chunks[0]
-        zero_grad, optimizer_step, loss_weight = _accumulation or (True, True, 1.0)
+        # Callers outside this method still pass the three-field (zero_grad, step, weight) form.
+        zero_grad, optimizer_step, loss_weight, label_counts = (*(_accumulation or (True, True, 1.0)), None)[:4]
+        labels = self._partial_labels(batch_data)
         inp, pos, mask, edos_target, phdos_target, \
         edos_mean, edos_std, edos_min, edos_max, \
         phdos_mean, phdos_std, phdos_min, phdos_max, \
@@ -417,19 +431,27 @@ class basemodel(nn.Module):
             from utils.spectral_balance import normalized_spectral_error, reconstruct_balanced_spectra
             spectra = reconstruct_balanced_spectra(outputs, valid_atoms, self.spectral_balance)
             losses = []
-            for task, normalized_target, low, high in (
+            for i, (task, normalized_target, low, high) in enumerate((
                     ("edos", edos_target, edos_min, edos_max),
-                    ("phdos", phdos_target, phdos_min, phdos_max)):
+                    ("phdos", phdos_target, phdos_min, phdos_max))):
                 physical_target = normalized_target * (high - low) + low
-                losses.append(normalized_spectral_error(
+                error = normalized_spectral_error(
                     spectra[f"blind_{task}"], physical_target, valid_atoms,
-                    self.spectral_balance["tasks"][task]).mean())
+                    self.spectral_balance["tasks"][task])
+                losses.append(error.mean() if labels is None else labelled_mean(
+                    error, labels[:, i], None if label_counts is None else label_counts[i]))
             loss_edos, loss_phdos = losses
             if self.spectral_shape_aux:
-                loss_shape_e = nonzero_sumnorm_klw_loss(predict_edos,
-                    edos_target * (edos_max - edos_min) + edos_min).mean()
-                loss_shape_p = nonzero_sumnorm_klw_loss(predict_phdos,
-                    phdos_target * (phdos_max - phdos_min) + phdos_min).mean()
+                shape_e = nonzero_sumnorm_klw_loss(predict_edos,
+                    edos_target * (edos_max - edos_min) + edos_min)
+                shape_p = nonzero_sumnorm_klw_loss(predict_phdos,
+                    phdos_target * (phdos_max - phdos_min) + phdos_min)
+                if labels is None:
+                    loss_shape_e, loss_shape_p = shape_e.mean(), shape_p.mean()
+                else:
+                    loss_shape_e, loss_shape_p = (labelled_mean(
+                        values, labels[:, i], None if label_counts is None else label_counts[i])
+                        for i, values in enumerate((shape_e, shape_p)))
                 loss_edos = loss_edos + loss_shape_e
                 loss_phdos = loss_phdos + loss_shape_p
         elif self.loss_form == "sumnorm_klw":
@@ -628,6 +650,8 @@ class basemodel(nn.Module):
 
     def test_one_step(self, batch_data, step=None, save_predict=False, *, pair_budget=None,
                       _computation_chunk=False):
+        if batch_labels(batch_data) is not None:
+            raise ValueError("partial-label views are scored by the local/global split evaluator")
         if isinstance(batch_data[1], CrystalGeometry) and not _computation_chunk:
             from utils.bucket_batch import automatic_pair_budget, split_crystal_batch
             budget = pair_budget if pair_budget is not None else automatic_pair_budget(batch_data)

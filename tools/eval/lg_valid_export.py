@@ -165,14 +165,30 @@ def select_best(run_dir: Path, selection_metric: str, saved) -> dict:
     return {'checkpoint': checkpoint, 'row': chosen, 'history': history, 'tag': suffix}
 
 
-def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None = None) -> None:
-    if out.exists() or summary_out.exists() or spectra_out is not None and spectra_out.exists():
+def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None = None,
+           view_split: str | None = None) -> None:
+    """``view_split`` scores another public split of a v2 view (e.g. new dev) with the same checkpoint."""
+    groups_out = out.with_name(out.stem + '_groups.json')
+    if (out.exists() or summary_out.exists() or groups_out.exists()
+            or spectra_out is not None and spectra_out.exists()):
         raise FileExistsError(f'refusing existing export: {out} or {summary_out}')
     torch.set_num_threads(1)
     saved, params, contract = load_run(run_dir)
     selection_metric = contract['selection_metric']
     picked = select_best(run_dir, selection_metric, saved)
     checkpoint = picked['checkpoint']
+    protocol = contract.get('spectral_balance') or {}
+    v2 = protocol.get('label_contract') == 'v2'
+    selection_split = protocol['view']['valid_split'] if v2 else 'valid'
+    if view_split is not None and not v2:
+        raise ValueError('another view split can only be scored for a v2 run')
+    split = selection_split if view_split is None else view_split
+    if split.startswith('test'):
+        raise ValueError('sealed test splits are not exported here')
+    config = saved['config']
+    if split != selection_split:
+        config = {**config, 'dataset': {**config['dataset'],
+                                        'valid': {**config['dataset']['valid'], 'view_split': split}}}
     if 'spectral_balance' in contract:
         from utils.crystal_cache import crystal_data_contract
         actual = crystal_data_contract(saved['config']['dataset']['valid']['data_dir'],
@@ -180,7 +196,7 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
         if actual is None or actual != checkpoint.get('data_contract') or actual != saved['cli'].get('data_contract'):
             raise ValueError('balanced export data differ from the frozen training/evaluation contract')
 
-    builder = ConfigBuilder(**saved['config'])
+    builder = ConfigBuilder(**config)
     model = builder.get_model()
     model.model['transformer'].load_state_dict(checkpoint['model'], strict=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -196,9 +212,15 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
     frame = metrics.pop('sample_df')
     if len(frame) != len(order) or frame['material_id'].duplicated().any():
         raise ValueError(f'sample labels are not a one-to-one valid partition: {run_dir}')
-    if not np.isfinite(frame.select_dtypes('number').to_numpy()).all():
+    scored = frame.select_dtypes('number')
+    if 'has_edos' in frame:
+        # Unlabelled tasks are NaN by construction; every labelled cell must be finite.
+        labelled = pd.DataFrame({c: frame[f"has_{c.rsplit('_', 1)[1]}"] if c.endswith(('_edos', '_phdos'))
+                                 else True for c in scored.columns}, index=frame.index)
+        scored = scored.where(labelled, 0.)
+    if not np.isfinite(scored.to_numpy()).all():
         raise ValueError(f'non-finite exported metrics: {run_dir}')
-    if 'spectral_balance' in contract:
+    if 'spectral_balance' in contract and split == selection_split:
         from utils.checkpoint_selection import validation_score
         from utils.spectral_balance import ENERGY_METRIC, balanced_checkpoint_eligible
         guarded = selection_metric == ENERGY_METRIC
@@ -210,6 +232,11 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
 
     out.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(out, index=False)
+    if v2 and protocol['view']['partial_labels']:
+        from utils.paths import input_path
+        from utils.source_report import grouped_report
+        groups = grouped_report(frame, input_path(config['dataset']['valid']['data_dir']), split)
+        groups_out.write_text(json.dumps(groups, ensure_ascii=False, indent=2) + '\n')
     if spectra_out is not None:
         spectra = metrics.pop('sample_spectra')
         if any(not np.isfinite(values).all() for values in spectra.values()):
@@ -218,7 +245,7 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
         np.savez(spectra_out, material_ids=frame.material_id.to_numpy(dtype=str), **spectra)
     row = picked['row']
     summary = {
-        'tag': picked['tag'], 'run_dir': str(run_dir), 'samples': len(frame),
+        'tag': picked['tag'], 'run_dir': str(run_dir), 'samples': len(frame), 'view_split': split,
         'contract_schema': contract['schema'], 'init_protocol': contract['init_protocol'],
         'selection_metric': selection_metric,
         **selection_contract(selection_metric, contract.get('spectral_balance')),
@@ -248,8 +275,10 @@ def main():
     parser.add_argument('--run-dir', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--summary-out', type=Path, required=True)
+    parser.add_argument('--view-split', default=None,
+                        help='v2 runs only: score this public view split instead of the selection split')
     args = parser.parse_args()
-    export(args.run_dir, args.out, args.summary_out)
+    export(args.run_dir, args.out, args.summary_out, view_split=args.view_split)
 
 
 if __name__ == '__main__':

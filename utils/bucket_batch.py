@@ -61,7 +61,7 @@ def crystal_collate(samples):
                              pad_sequence([s[1].frac_coords for s in samples], batch_first=True))]
     for i in range(2, len(samples[0])):
         values = [s[i] for s in samples]
-        if i == EXTERNAL_ATOM_FIELD:
+        if i == EXTERNAL_ATOM_FIELD and not all(v is None for v in values):
             # Per-atom external features pad like the atom fields (design 2026-11-08).
             batch.append(pad_sequence(values, batch_first=True))
             continue

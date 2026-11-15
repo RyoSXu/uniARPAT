@@ -25,9 +25,12 @@ def crystal_data_contract(root, *, normalization, pair_budget=None):
     for name, entry in manifest["files"].items():
         if file_sha256(root / name) != entry["sha256"]:
             raise ValueError(f"crystal cache digest mismatch: {name}")
-    return {"schema": CRYSTAL_SCHEMA, "manifest_sha256": file_sha256(path),
-            "normalization": normalization, "pair_budget": pair_budget,
-            "automatic_pair_budget": "max(effective_batch_size * 6400, largest_crystal_atoms**2)"}
+    contract = {"schema": CRYSTAL_SCHEMA, "manifest_sha256": file_sha256(path),
+                "normalization": normalization, "pair_budget": pair_budget,
+                "automatic_pair_budget": "max(effective_batch_size * 6400, largest_crystal_atoms**2)"}
+    if "label_contract" in manifest:
+        contract["label_contract"] = manifest["label_contract"]
+    return contract
 
 
 class PackedCrystalStore:

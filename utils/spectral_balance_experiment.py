@@ -7,7 +7,7 @@ from dataclasses import replace
 import torch
 
 from utils.paths import file_sha256, input_path
-from utils.spectral_balance import ENERGY_METRIC, load_balance_protocol
+from utils.spectral_balance import BALANCE_SCHEMA_V2, ENERGY_METRIC, load_balance_protocol
 
 BALANCE_RESIDUAL_SCHEMA = "joint-spectral-balance-residual-model-v1"
 STRUCTURE_BLIND_SCHEMA = "joint-spectral-balance-structure-blind-v1"
@@ -219,12 +219,15 @@ def validate_balance_config(cfg):
     shape_supervision_contract(cfg.spectral_shape_aux)
     validate_local_global_config(legacy_balance_config(cfg))
     protocol = load_balance_protocol(cfg.spectral_balance_config, cfg.data_dir)
-    if (protocol["reference"]["label"] != "A64"
+    v2 = protocol["schema"] == BALANCE_SCHEMA_V2
+    if (not v2 and protocol["reference"]["label"] != "A64"
+            or v2 and not cfg.skip_test_eval
             or protocol["tasks"]["edos"]["bins"] != cfg.edos_num
             or protocol["tasks"]["phdos"]["bins"] != cfg.phdos_num
             or protocol["tasks"]["edos"]["bin_width"] != cfg.delta_edos
             or protocol["tasks"]["phdos"]["bin_width"] != cfg.delta_phdos):
-        raise ValueError("balanced trial requires the fixed A64 guard reference and E0/P0 grids")
+        raise ValueError("balanced trial requires the fixed A64 guard reference (v1) or a sealed-test-free "
+                         "v2 protocol, and the protocol grids")
     return protocol
 
 

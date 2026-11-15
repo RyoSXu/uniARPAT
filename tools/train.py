@@ -475,6 +475,10 @@ def train_and_eval(cfg: ExperimentConfig):
     if data_contract is not None and (cfg.use_amp or cfg.pair_aux_arm != "none"
             or cfg.scalar_mode != "none" or cfg.c5_moe or cfg.norm != "sumnorm"):
         raise ValueError("complete crystal training currently supports FP32 SumNorm/H1 without batch auxiliary losses")
+    view_contract = "v1" if data_contract is None else data_contract.get("label_contract", "v1")
+    if (spectral_balance is None and view_contract != "v1"
+            or spectral_balance is not None and spectral_balance.get("label_contract", "v1") != view_contract):
+        raise ValueError(f"{view_contract} view requires a protocol of the same label contract")
 
     setup_ablation_seed (cfg.seed )
     # A tag isolates artifacts from runs with a different configuration.
@@ -629,6 +633,8 @@ def train_and_eval(cfg: ExperimentConfig):
     yaml_cfg ['dataset']['train']['data_dir']=cfg.data_dir
     yaml_cfg ['dataset']['valid']['data_dir']=cfg.data_dir
     yaml_cfg ['dataset']['test']['data_dir']=cfg.data_dir
+    if view_contract != "v1":
+        yaml_cfg['dataset']['valid']['view_split'] = spectral_balance['view']['valid_split']
     # Apply augmentation only to the training split.
     yaml_cfg ['dataset']['train']['augment']=bool (cfg.augment )
     yaml_cfg ['dataset']['train']['disp_sigma']=float (cfg.disp_sigma )
@@ -1197,6 +1203,7 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
     from utils.metrics import per_sample_spectral_metrics
     from utils.spectral_inference import reconstruct_h1_spectra
     from utils.spectral_balance import normalized_spectral_error, reconstruct_balanced_spectra
+    from utils.partial_labels import batch_labels
 
     model.model['transformer'].eval()
     balance_protocol = getattr(model, 'spectral_balance', None)
@@ -1212,6 +1219,7 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
                 outputs = model.model['transformer'](inp, mask, pos, ex, px)
             outputs = model.fp32_outputs(outputs)
             atoms = (~atom_padding_mask(pos, mask)).sum(-1)
+            labels = batch_labels(batch)
             if balance_protocol is None:
                 spectra = reconstruct_h1_spectra(outputs, atoms, nval,
                     delta_edos=model.delta_edos, delta_phdos=model.delta_phdos)
@@ -1231,6 +1239,12 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
                         energy = normalized_spectral_error(spectra[f'{mode}_{task}'], targets[task],
                                                           atoms, balance_protocol['tasks'][task])
                         measured[f'{mode}_energy_{task}'] = energy.cpu().tolist()
+            if labels is not None:
+                for i, task in enumerate(('edos', 'phdos')):
+                    has = labels[:, i].tolist()
+                    measured[f'has_{task}'] = has
+                    for key in [k for k in measured if k.endswith(f'_{task}') and not k.startswith('has_')]:
+                        measured[key] = [v if h else float('nan') for v, h in zip(measured[key], has)]
             if return_spectra:
                 # Shape space is sum-normalized on both sides; blind/oracle keep
                 # the per-material totals so scale differences stay visible.
@@ -1259,26 +1273,33 @@ def evaluate_local_global_split(model, dataloader, return_sample_level=False, pa
         raise ValueError(f"sample_ids must label every evaluated sample: "
                          f"{len(sample_ids)} != {len(records)}")
     frame = pd.DataFrame(records)
+    partial = 'has_edos' in frame
+    rows = {task: frame[frame[f'has_{task}']] if partial else frame for task in ('edos', 'phdos')}
     summary = {}
+    if partial:
+        summary.update({f'labelled_{task}': int(len(rows[task])) for task in rows})
     for mode in ('blind', 'oracle'):
         for task in ('edos', 'phdos'):
+            labelled = rows[task]
             for metric in ('mae', 'mse', 'r2'):
-                values = frame[f'{mode}_{metric}_{task}']
+                values = labelled[f'{mode}_{metric}_{task}']
                 for aggregate in ('mean', 'median', 'std'):
                     summary[f'{mode}_{metric}_{task}_{aggregate}'] = float(getattr(values, aggregate)())
-            summary[f'{mode}_fail_rate_{task}'] = float((frame[f'{mode}_r2_{task}'] < 0).mean() * 100)
+            summary[f'{mode}_fail_rate_{task}'] = float((labelled[f'{mode}_r2_{task}'] < 0).mean() * 100)
             if balance_protocol is not None:
-                summary[f'{mode}_r2_{task}_p10'] = float(frame[f'{mode}_r2_{task}'].quantile(.1))
-                energy = frame[f'{mode}_energy_{task}']
+                summary[f'{mode}_r2_{task}_p10'] = float(labelled[f'{mode}_r2_{task}'].quantile(.1))
+                energy = labelled[f'{mode}_energy_{task}']
                 for aggregate in ('mean', 'median'):
                     summary[f'{mode}_energy_{task}_{aggregate}'] = float(getattr(energy, aggregate)())
                 summary[f'{mode}_energy_{task}_p90'] = float(energy.quantile(.9))
         summary[f'balanced_{mode}_mae'] = .5 * (
             summary[f'{mode}_mae_edos_median'] + summary[f'{mode}_mae_phdos_median'])
-    summary[BLIND_R2_METRIC] = blind_joint_score(summary)
+    # A single-task evaluation set (e.g. eDOS-only new dev) has no joint score.
+    dual = all(len(labelled) for labelled in rows.values())
+    summary[BLIND_R2_METRIC] = blind_joint_score(summary) if dual else float('nan')
     if balance_protocol is not None:
         from utils.spectral_balance import balanced_energy_score
-        summary[ENERGY_METRIC] = balanced_energy_score(summary)
+        summary[ENERGY_METRIC] = balanced_energy_score(summary) if dual else float('nan')
         summary['selection_samples'] = len(frame)
     # Compatibility with existing history/log readers; explicit columns are authoritative.
     summary.update({key.removeprefix('oracle_'): value for key, value in list(summary.items())
@@ -1305,6 +1326,8 @@ def evaluate_split (model ,dataloader ,is_m5 :bool =False ,return_sample_level :
         raise ValueError("sample_ids require the blind/oracle evaluator")
     if return_spectra:
         raise ValueError("return_spectra requires the blind/oracle evaluator")
+    if getattr(dataloader.dataset, 'labels', None) is not None:
+        raise ValueError("partial-label views require the blind/oracle evaluator")
     model .model ['transformer'].eval ()
     records =[]
     # Thermodynamic integration requires a uniform frequency grid. Skip it for

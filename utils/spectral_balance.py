@@ -18,6 +18,13 @@ from utils.paths import file_sha256, input_path
 TASKS = ("edos", "phdos")
 ENERGY_METRIC = "balanced_blind_energy"
 BALANCE_SCHEMA = "joint-blind-spectral-energy-v1"
+BALANCE_SCHEMA_V2 = "joint-blind-spectral-energy-v2"
+REFERENCE_MODES = ("none", "fixed")
+
+
+def label_contract(value):
+    """Label contract of a view manifest or protocol; absence means the frozen v1 labels."""
+    return value.get("label_contract", "v1")
 
 
 def fit_task_normalizer(target, atoms, bin_width):
@@ -39,7 +46,10 @@ def fit_task_normalizer(target, atoms, bin_width):
 
 
 def validate_balance_protocol(protocol):
+    if isinstance(protocol, dict) and protocol.get("schema") == BALANCE_SCHEMA_V2:
+        return _validate_balance_protocol_v2(protocol)
     if (not isinstance(protocol, dict) or protocol.get("schema") != BALANCE_SCHEMA
+            or "label_contract" in protocol
             or protocol.get("fit_split") != "train"
             or protocol.get("task_weights") != {"edos": .5, "phdos": .5}
             or set(protocol.get("tasks", {})) != set(TASKS)):
@@ -60,6 +70,47 @@ def validate_balance_protocol(protocol):
         score = float(reference.get(f"r2_{task}_median", float("nan")))
         if not isinstance(failed, int) or not 0 <= failed <= count or not math.isfinite(score):
             raise ValueError("finite per-task reference R2 and failure counts required")
+    if (protocol.get("failure_increase_limit_pp") != 0.
+            or protocol.get("r2_drop_limit") != .02):
+        raise ValueError("fixed dual-task guards require zero failure increase and R2 drop <= .02")
+    return protocol
+
+
+def _validate_balance_protocol_v2(protocol):
+    """v2 labels: same normalizer and guard definitions; the guard reference may be absent.
+
+    Without a reference ("none") every epoch is eligible; the first v2 run of the working
+    point is selected this way and its valid export then becomes the fixed reference.
+    """
+    if (protocol.get("label_contract") != "v2" or protocol.get("fit_split") != "train"
+            or protocol.get("task_weights") != {"edos": .5, "phdos": .5}
+            or set(protocol.get("tasks", {})) != set(TASKS)):
+        raise ValueError("invalid v2 joint spectral energy protocol")
+    view = protocol.get("view", {})
+    if not isinstance(view.get("valid_split"), str) or not isinstance(view.get("partial_labels"), bool):
+        raise ValueError("v2 protocol must name its valid split and partial-label mode")
+    for task in TASKS:
+        entry = protocol["tasks"][task]
+        if any(not math.isfinite(float(entry.get(key, float("nan")))) or float(entry[key]) <= 0
+               for key in ("energy", "mass_per_atom_reference", "bin_width")):
+            raise ValueError("positive finite train-fitted task normalizers required")
+        if not isinstance(entry.get("bins"), int) or entry["bins"] < 2:
+            raise ValueError("task bin counts required")
+        if not isinstance(protocol.get("fit_samples", {}).get(task), int) or protocol["fit_samples"][task] < 1:
+            raise ValueError("per-task labelled train counts required")
+    reference = protocol.get("reference", {})
+    count = reference.get("samples", 0)
+    if (reference.get("mode") not in REFERENCE_MODES or reference.get("split") != "valid"
+            or not isinstance(count, int) or count < 1):
+        raise ValueError("a complete-valid cohort and a reference mode are required")
+    if reference["mode"] == "fixed":
+        if not isinstance(reference.get("label"), str):
+            raise ValueError("a fixed reference must be labelled")
+        for task in TASKS:
+            failed = reference.get(f"failures_{task}", -1)
+            score = float(reference.get(f"r2_{task}_median", float("nan")))
+            if not isinstance(failed, int) or not 0 <= failed <= count or not math.isfinite(score):
+                raise ValueError("finite per-task reference R2 and failure counts required")
     if (protocol.get("failure_increase_limit_pp") != 0.
             or protocol.get("r2_drop_limit") != .02):
         raise ValueError("fixed dual-task guards require zero failure increase and R2 drop <= .02")
@@ -138,6 +189,8 @@ def balanced_checkpoint_eligible(metrics, protocol):
     ref = protocol["reference"]
     if float(metrics["selection_samples"]) != ref["samples"]:
         raise ValueError("checkpoint guards require the same complete valid cohort")
+    if ref.get("mode") == "none":
+        return True
     for task in TASKS:
         rate, r2 = (float(metrics[key]) for key in
                     (f"blind_fail_rate_{task}", f"blind_r2_{task}_median"))
@@ -253,6 +306,11 @@ def load_balance_protocol(path, data_dir=None):
     protocol = validate_balance_protocol(json.loads(input_path(path).read_text()))
     if data_dir is not None:
         root = input_path(data_dir)
+        view = label_contract(json.loads((root / "manifest.json").read_text()))
+        if view != label_contract(protocol):
+            raise ValueError(f"label contract mismatch: {label_contract(protocol)} protocol on a {view} view")
+        if protocol["schema"] == BALANCE_SCHEMA_V2:
+            return _check_protocol_v2_data(protocol, root)
         if file_sha256(root / "manifest.json") != protocol["data_manifest_sha256"]:
             raise ValueError("spectral protocol and data manifest differ")
         for name, digest in protocol["train_sha256"].items():
@@ -273,6 +331,93 @@ def load_balance_protocol(path, data_dir=None):
                    for key, value in recomputed.items()):
                 raise ValueError('stored constants are not the frozen train-only normalizers')
     return protocol
+
+
+def _verified_array(root, manifest, relative):
+    path = root / relative
+    digest = file_sha256(path)
+    if digest != manifest["files"][relative]["sha256"]:
+        raise ValueError(f"view payload differs from its manifest: {relative}")
+    return np.load(path, allow_pickle=False), digest
+
+
+def _fit_v2(root, manifest):
+    """C_t on effective train rows that carry a task-t label (W1: missing labels are not zeros)."""
+    if label_contract(manifest) != "v2" or manifest.get("schema") != "crystal-q1-v1":
+        raise ValueError("a v2 crystal view is required")
+    partial = bool(manifest.get("partial_labels", False))
+    hashes = {}
+    ids, hashes["train/train_index.npy"] = _verified_array(root, manifest, "train/train_index.npy")
+    atoms, hashes["train/n_atoms_train.npy"] = _verified_array(root, manifest, "train/n_atoms_train.npy")
+    keep = ~np.isin(ids, manifest.get("training_exclusions", []))
+    tasks, counts = {}, {}
+    for task in TASKS:
+        grid = manifest["grid"][task]
+        lo, hi = (float(v) for v in grid["range"])
+        target, hashes[f"train/{task}_tgtdos_train.npy"] = _verified_array(
+            root, manifest, f"train/{task}_tgtdos_train.npy")
+        rows = keep.copy()
+        if partial:
+            has, hashes[f"train/has_{task}_train.npy"] = _verified_array(root, manifest, f"train/has_{task}_train.npy")
+            rows &= has.astype(bool)
+        if target.shape[1] != int(grid["bins"]):
+            raise ValueError("view targets differ from the manifest grid")
+        tasks[task] = fit_task_normalizer(target[rows], atoms[rows], (hi - lo) / int(grid["bins"]))
+        counts[task] = int(rows.sum())
+    return tasks, counts, hashes, partial
+
+
+def _valid_cohort(root, manifest, valid_split, partial):
+    """Selection cohort; with partial labels each task is scored on its own labelled rows (W1)."""
+    if valid_split not in manifest["splits"] or valid_split == "train":
+        raise ValueError(f"unknown public valid split: {valid_split}")
+    ids, digest = _verified_array(root, manifest, f"{valid_split}/{valid_split}_index.npy")
+    if partial:
+        for task in TASKS:
+            has, _ = _verified_array(root, manifest, f"{valid_split}/has_{task}_{valid_split}.npy")
+            if not has.any():
+                raise ValueError(f"the selection valid split has no {task} labels")
+    return len(ids), digest
+
+
+def _check_protocol_v2_data(protocol, root):
+    manifest_path = root / "manifest.json"
+    if file_sha256(manifest_path) != protocol["data_manifest_sha256"]:
+        raise ValueError("spectral protocol and data manifest differ")
+    manifest = json.loads(manifest_path.read_text())
+    tasks, counts, hashes, partial = _fit_v2(root, manifest)
+    if hashes != protocol["train_sha256"] or counts != protocol["fit_samples"]:
+        raise ValueError("train calibration cohort changed")
+    if partial != protocol["view"]["partial_labels"]:
+        raise ValueError("partial-label mode differs from the view")
+    for task in TASKS:
+        if any(not math.isclose(float(value), float(protocol["tasks"][task][key]), rel_tol=1e-12, abs_tol=0)
+               for key, value in tasks[task].items()):
+            raise ValueError("stored constants are not the frozen train-only normalizers")
+    samples, digest = _valid_cohort(root, manifest, protocol["view"]["valid_split"], partial)
+    if samples != protocol["reference"]["samples"] or digest != protocol["view"]["valid_index_sha256"]:
+        raise ValueError("valid selection cohort changed")
+    return protocol
+
+
+def prepare_balance_protocol_v2(data_dir, valid_split="valid"):
+    """v2 protocol: C fitted on labelled effective-train rows, grid from the view, no guard reference yet."""
+    root = Path(data_dir)
+    manifest = json.loads((root / "manifest.json").read_text())
+    tasks, counts, hashes, partial = _fit_v2(root, manifest)
+    samples, digest = _valid_cohort(root, manifest, valid_split, partial)
+    protocol = {"schema": BALANCE_SCHEMA_V2, "label_contract": "v2", "fit_split": "train",
+                "fit_samples": counts, "tasks": tasks, "task_weights": {"edos": .5, "phdos": .5},
+                "data_manifest_sha256": file_sha256(root / "manifest.json"), "train_sha256": hashes,
+                "view": {"valid_split": valid_split, "valid_index_sha256": digest, "partial_labels": partial,
+                         "grid": deepcopy(manifest["grid"])},
+                "reference": {"mode": "none", "split": "valid", "samples": samples},
+                "failure_increase_limit_pp": 0., "r2_drop_limit": .02,
+                "task_weighting": "W1: each task averaged over its labelled rows, then 0.5/0.5",
+                "scientific_scope": "joint blind full-window per-atom squared error on v2 labels; "
+                                    "C fitted on labelled effective-train rows; no guard reference "
+                                    "(every epoch eligible) until a v2 working-point export is bound"}
+    return validate_balance_protocol(protocol)
 
 
 def prepare_balance_protocol(data_dir, analysis_dir, reference="A64"):
