@@ -1,0 +1,38 @@
+{
+  "edos": {
+    "left": 626340,
+    "right": 691978,
+    "missing": 0,
+    "mismatched": 0,
+    "missing_example": [],
+    "mismatched_example": [],
+    "rows": 691978,
+    "duplicate_ids": 0
+  },
+  "phdos_mp": {
+    "left": 27914,
+    "right": 27914,
+    "missing": 0,
+    "mismatched": 0,
+    "missing_example": [],
+    "mismatched_example": []
+  },
+  "phonondb": {
+    "left": 10034,
+    "right": 10034,
+    "missing": 0,
+    "mismatched": 0,
+    "missing_example": [],
+    "mismatched_example": []
+  },
+  "jarvis": {
+    "left": 7480,
+    "right": 7480,
+    "missing": 0,
+    "mismatched": 0,
+    "missing_example": [],
+    "mismatched_example": []
+  },
+  "materials_unique": true,
+  "materials_rows": 154377
+}

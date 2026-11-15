@@ -509,7 +509,7 @@ def _write_readme(facts: dict, stats: dict):
 来源：MP Delta 表 `s3://materialsproject-parsed/core/electronic-structure/total-dos/`，本地下载于 2026-11-05（`tools/data/raw/delta_mp`，清单 `manifest.json`）。材料归属来自 MP API `materials/core` 的 `task_ids`（2026-11-10）。`calc_type` 来自同一次 `calc_types`。`run_type` 是 Delta 的分区值（GGA、GGA+U、HSE06、PBE、PBEsol、r2SCAN、unknown），不是另行核实过的泛函。
 
 - 共 {edos.get('rows', 0):,} 条。能挂到当前材料的 {edos.get('owned', 0):,} 条，Delta 里有、但 2026-11-10 的 `task_ids` 已经不列的 {edos.get('unlisted', 0):,} 条（`material_id` 为空，谱仍保留）。
-- MP 指定为该材料规范 DOS、且这条谱在 Delta 里的：{edos.get('canonical', 0):,}。
+- 归属材料自己把这条任务指定为规范 DOS 的：{edos.get('canonical', 0):,}。材料表里点名的规范任务有 {edos.get('canonical_task_in_delta', 0):,} 条能在 Delta 里找到；其中 {edos.get('canonical_task_owned_by_other', 0):,} 条的 core 归属不是点名它的那个材料，所以没有标成规范。Delta 里找不到的规范任务号：{edos.get('canonical_task_missing_from_delta', 0):,}。
 - 有自旋向下通道、密度已按通道相加的：{edos.get('spin_resolved', 0):,}。只有一个通道的，密度就是该通道。分开的自旋通道没有保留。
 - 读不出来的：{edos.get('unreadable', 0):,}（`parse_error` 记录原因，行不删）。
 - 无序位点：{edos.get('disordered_sites', 0):,}。
@@ -520,7 +520,7 @@ def _write_readme(facts: dict, stats: dict):
 来源：Delta 表 `phonon/electronic-structure/dos/`，下载于 2026-11-05。`method` 是 Delta 的 `phonon_method`（pheasy 或 dfpt）。`asr`、`cnsr` 是 MP API `materials/phonon` 给出的求和规则偏离；接口没有给出的留空。Delta 和接口都没有给出可核实的泛函，所以这张表没有泛函列。
 
 - 共 {phonon.get('rows', 0):,} 条。挂到材料的 {phonon.get('owned', 0):,}，没有材料归属的 {phonon.get('no_material', 0):,}。
-- 有求和规则数值的 {phonon.get('with_sum_rules', 0):,}。按方法：{json.dumps({k: v for k, v in phonon.items() if '/' in k}, ensure_ascii=False)}。
+- 有求和规则数值的 {phonon.get('with_sum_rules', 0):,}。能读出的谱：dfpt {phonon.get('dfpt/ok', 0):,}，pheasy {phonon.get('pheasy/ok', 0):,}（这里只表示谱本身可读，材料归属见上一条）。
 - 横轴是频率乘以 33.35641，从 THz 换成 cm⁻¹；纵轴是密度除以 33.35641。原始 THz 数组没有另存，用这个常数可以换回去。
 - 无序位点：{phonon.get('disordered_sites', 0):,}。没有计算结构的：{phonon.get('no_structure', 0):,}。
 
@@ -551,12 +551,36 @@ python tools/data/spectral_store/build_db_v1.py all --workers 8
 python tools/data/spectral_store/build_db_v1.py verify
 ```
 
-已有输出时会拒绝覆盖，需要同时加 `--force`。`verify` 把本库和 `spectral_store_v1` 的 staging 表逐条对谱：eDOS、MP 声子按 Delta 重读后比对；PhononDB 比对已重算的 staging；JARVIS 按网页和 zip 重读后比对。
+已有输出时会拒绝覆盖，需要同时加 `--force`。`verify` 把本库和 `spectral_store_v1` 的 staging 表逐条对谱。eDOS 和 MP 声子是建库时从 Delta 重读的，再和 staging 对；PhononDB 和 staging 里已经重算好的表对；JARVIS 是按网页和 zip 重读后再对。
 """
     (OUT / 'README.md').write_text(text)
 
 
+def reconcile_canonical(stats: dict) -> dict:
+    """How MP's named DOS task relates to the task's core owner. Computed from the tables."""
+    materials = pq.read_table(OUT / 'materials.parquet', columns=['material_id', 'canonical_dos_task']).to_pylist()
+    named = {row['material_id']: row['canonical_dos_task'] for row in materials if row['canonical_dos_task']}
+    flagged, present = set(), set()
+    for batch in pq.ParquetFile(OUT / 'spectra_edos.parquet').iter_batches(
+            batch_size=65536, columns=['source_task_id', 'material_id', 'is_canonical']):
+        tasks, owners, flags = (batch.column(i).to_pylist() for i in range(3))
+        for task, owner, flag in zip(tasks, owners, flags):
+            present.add(task)
+            if flag:
+                flagged.add(task)
+    named_tasks = set(named.values())
+    stats = dict(stats)
+    edos = dict(stats.get('edos', {}))
+    edos['canonical_task_in_delta'] = len(named_tasks & present)
+    edos['canonical_flagged'] = len(flagged)
+    edos['canonical_task_owned_by_other'] = len(named_tasks & present) - len(flagged)
+    edos['canonical_task_missing_from_delta'] = len(named_tasks - present)
+    stats['edos'] = edos
+    return stats
+
+
 def build_manifest(stats: dict):
+    stats = reconcile_canonical(stats)
     facts = {name: _table_fact(OUT / name) for name in (
         'materials.parquet', 'spectra_edos.parquet', 'spectra_phdos_mp.parquet',
         'spectra_phdos_phonondb.parquet', 'spectra_phdos_jarvis.parquet')}
@@ -633,6 +657,8 @@ def verify() -> dict:
     right = _column_hashes(OUT / 'spectra_edos.parquet', 'spectrum_id',
                            ['run_type' if f == 'run_type' else f for f in edos_fields])
     report['edos'] = _compare('edos', left, right)
+    report['edos']['rows'] = pq.ParquetFile(OUT / 'spectra_edos.parquet').metadata.num_rows
+    report['edos']['duplicate_ids'] = report['edos']['rows'] - report['edos']['right']
 
     phonon_fields = ['material_id', 'source_task_id', 'method', 'asr', 'cnsr', 'n_points', 'x', 'y',
                      'calc_lattice', 'calc_numbers', 'calc_frac']
@@ -658,7 +684,7 @@ def verify() -> dict:
     report['materials_rows'] = len(ids)
     print('materials unique', report['materials_unique'], 'rows', len(ids))
     problems = [name for name, item in report.items()
-                if isinstance(item, dict) and (item['missing'] or item['mismatched'])]
+                if isinstance(item, dict) and (item.get('missing') or item.get('mismatched') or item.get('duplicate_ids'))]
     if problems or not report['materials_unique']:
         raise SystemExit(f'verify failed: {problems or "materials"}')
     (OUT / 'verify.json').write_text(json.dumps(report, indent=2) + '\n')

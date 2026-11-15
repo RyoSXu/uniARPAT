@@ -223,6 +223,9 @@ wandb/
 !/data/reference/valence_by_element.json
 !/data/train4ARPAT/manifest.json
 !/data/crystal_q1_v1/manifest.json
+!/data/spectral_db_v1/manifest.json
+!/data/spectral_db_v1/build_stats.json
+!/data/spectral_db_v1/verify.json
 !/results/reports/crystal_input_q1_20261004/summary.json
 !/data/train4ARPAT/stats_v2.json
 !/results/figures/README.md

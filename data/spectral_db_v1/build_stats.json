@@ -1,0 +1,53 @@
+{
+  "materials": {
+    "rows": 154377,
+    "with_structure": 154377,
+    "no_structure": 0,
+    "deprecated": 0,
+    "disordered_sites": 0,
+    "with_canonical_dos_task": 62972,
+    "by_license": {
+      "BY-C": 154377
+    },
+    "by_database_version": {
+      "2026.09.28": 154377
+    },
+    "duplicate_material_ids": 0,
+    "canonical_without_summary": 111,
+    "snapshot_canonical_task": "mp-api-0.88.1/electronic_structure/2026-11-10"
+  },
+  "edos": {
+    "disordered_sites": 0,
+    "rows": 691978,
+    "owned": 626340,
+    "spin_resolved": 478463,
+    "unlisted": 65638,
+    "canonical": 59983,
+    "canonical_task_in_delta": 62972,
+    "canonical_flagged": 59983,
+    "canonical_task_owned_by_other": 2989,
+    "canonical_task_missing_from_delta": 0
+  },
+  "phdos_mp": {
+    "disordered_sites": 0,
+    "rows": 27914,
+    "owned": 25468,
+    "dfpt/ok": 1513,
+    "with_sum_rules": 27747,
+    "no_material": 2446,
+    "pheasy/ok": 26401
+  },
+  "phonondb": {
+    "rows": 10034,
+    "archive_hashed": 10034
+  },
+  "jarvis": {
+    "cartesian": 7480,
+    "rows": 7480,
+    "ok": 4067,
+    "no_dos": 3413
+  },
+  "schema": "spectral-db-v1",
+  "built_at": "2026-11-15T12:54:09+08:00",
+  "git_commit": "b29a9071b9ce2ad431c510da574dada5cb1c569f"
+}
