@@ -56,7 +56,8 @@ def exact_bin(x, y, edges):
     that function over [edge_i, edge_{i+1}] divided by the bin width. Outside the sampled
     range the function is 0. Duplicate x are averaged. Returns (values float32, coverage
     fraction of each bin inside the sampled range, float32). Unlike box_average, no edge
-    segment is dropped, so the binned area equals the area of the interpolant.
+    segment is dropped, so the binned area equals the area of the interpolant. Nonnegative input
+    gives nonnegative values (cumulative-sum round-off is clipped at 0).
     """
     x = np.asarray(x, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
@@ -83,6 +84,8 @@ def exact_bin(x, y, edges):
     slope = (y[k + 1] - y[k]) / (x[k + 1] - x[k])
     primitive = cumulative[k] + y[k] * dx + 0.5 * slope * dx * dx
     values = np.diff(primitive) / width
+    if (y >= 0).all():  # a nonnegative interpolant has nonnegative bin averages; drop round-off (~1e-16)
+        values = np.maximum(values, 0.0)
     coverage = (np.minimum(edges[1:], x[-1]) - np.maximum(edges[:-1], x[0])).clip(0) / width
     return values.astype(np.float32), coverage.astype(np.float32)
 

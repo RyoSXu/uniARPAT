@@ -58,6 +58,13 @@ class ExactBin(unittest.TestCase):
         self.assertAlmostEqual(float(values_box[0]), 0.9, places=6)   # 10% of the area lost
         self.assertAlmostEqual(float(values_exact[0]), 1.0, places=6)
 
+    def test_nonnegative_input_gives_nonnegative_bins(self):
+        rng = np.random.default_rng(5)
+        x = np.sort(rng.uniform(0, 1000, 4000))
+        y = np.where(rng.random(4000) < 0.5, 0.0, rng.gamma(0.5, 1e-3, 4000))  # long zero runs
+        values, _ = exact_bin(x, y, np.linspace(-280, 980, 65))
+        self.assertTrue((values >= 0).all())
+
 
 class Spikes(unittest.TestCase):
     def test_isolated_clipped_wide_kept(self):
