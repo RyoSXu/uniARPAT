@@ -207,6 +207,7 @@ def export(run_dir: Path, out: Path, summary_out: Path, spectra_out: Path | None
     order = list(loader.sampler)
     material_ids = [str(value) for value in loader.dataset.material_ids]
     metrics = evaluate_split(model, loader, sumnorm=True, return_sample_level=True,
+                             pair_budget=saved['cli'].get('pair_budget'),
                              return_spectra=spectra_out is not None,
                              sample_ids=[material_ids[index] for index in order])
     frame = metrics.pop('sample_df')

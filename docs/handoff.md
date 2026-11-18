@@ -1,11 +1,11 @@
 # 开发交接
 
-核对日期：2026-11-03。先读[状态](status.md)明确当前问题，再按本页恢复工作；[代码地图](repository.md)与[固定契约](decisions.md)按需查阅。
+核对日期：2026-11-18。先读[状态](status.md)明确当前问题，再按本页恢复工作；[代码地图](repository.md)与[固定契约](decisions.md)按需查阅。
 
 ## 接到任务先确认
 
 1. 检查 `git status --short` 与当前提交，保留已有改动；明确本轮是调查、实施还是实验执行。
-2. 当前研究工作点是 **staged LR2＋E＋S、phDOS 头 2 层（h2）、best ep24**，不是裸 CLI 默认或历史 A64/H1。当前主问题是同组成谱差泛化；历史候选不自动续跑。
+2. 架构工作点是 **staged LR2＋E＋S、phDOS 头 2 层（h2）**。当前训练数据是 `data/datasets/dos_v1/views/dos_v1/`（2026-11-18 按 PhononDB 原胞原子数重建）。11-17 的 checkpoint 和 `results/runs/dos_v1_h2_e100_throughput_20261116/pb51200/protocol.json` 对不上这套标签。下一步是按状态页从头重训，不是续训。
 3. 查相关设计和最终运行日志。文档记录了历史结果，不保证所引用的机器本地数组、权重或环境仍存在。
 4. 核对数据与所需产物后，再做短时测试/预检。长时间任务按[交接流程](workflow.md#长时间实验交给执行-agent)生成提示词，由用户指定新执行 agent。
 
@@ -13,7 +13,8 @@
 
 | 内容 | 当前路径（相对项目根） | 用途 |
 |---|---|---|
-| 完整修复版数据 | `data/crystal_q1_v1/` 与 `data/reference/` | 33 个数组＋manifest、网格与必要参考；只克隆 Git 不含训练数组 |
+| 当前训练数据 | `data/datasets/dos_v1/views/dos_v1/`；test 在 `sealed/` | 2026-11-18 重建。Git 只有 README、report 和 manifest，数组在本地 |
+| 历史修复版 Q1 | `data/crystal_q1_v1/` 与 `data/reference/` | 旧工作点分数所用数据；只克隆 Git 不含训练数组 |
 | 已采用 LR2 准备与协议 | `results/runs/spectral_residual_20261030/{report.json,protocol.json,source_snapshot/}` | 固定命令、数据/源码身份、train 常数和双任务保护 |
 | h2 工作点模型 | `results/runs/ablation_m1_sbal_phead20261106_h2_s42_e35/`；准备与协议 `results/runs/phdos_head_20261106/{report.json,protocol.json}` | best ep24；分析 `results/runs/phdos_head_20261106/analysis/` |
 | LR2 6 层头模型与配置（R42，匹配对照） | `results/runs/ablation_m1_sbal_lr2es20261030_lr2_s42_e35/` | `config_used.yaml`、best ep29、latest ep35；latest 含优化器/RNG |
@@ -31,7 +32,7 @@
 
 ## 最小环境与数据检查
 
-在已安装项目依赖的 Python 环境运行；本机可用解释器为 `/opt/tefscloud/miniconda3/envs/torch/bin/python`，它不是跨机器要求。
+在已安装项目依赖的 Python 环境运行。本机可用解释器为 `/home/jovyan/miniconda-recovery/envs/uniarpat/bin/python`；默认 `python3` 没有项目依赖。解释器路径不是跨机器要求。
 
 ```bash
 python -m pip install -r requirements.txt ruff
@@ -40,14 +41,14 @@ python tools/train.py --help
 python tools/checks/check_repository.py --worktree
 python - <<'PYDATA'
 from utils.crystal_cache import crystal_data_contract
-contract = crystal_data_contract('data/crystal_q1_v1', normalization='sumnorm')
-assert contract is not None, '完整修复版 Q1 manifest 缺失'
+contract = crystal_data_contract('data/datasets/dos_v1/views/dos_v1', normalization='sumnorm')
+assert contract is not None, '当前 dos_v1 训练视图 manifest 缺失'
 print(contract)
 PYDATA
 ```
 
 此检查验证 manifest 与所有数组指纹；`sumnorm` 是 loader 的谱形归一化标记，不代替 per_atom／E＋S 模型协议认证。
-完整字段、排除两条材料及有效划分另见[数据约定](data.md)。来源许可和发布准备保留原核查日期，不能把本地发布候选当已发布附件。
+dos_v1 的字段、缩放和切分见其目录 README 与[数据约定](data.md)。Q1 数据卡的许可核查日期不代表 dos_v1 已重新核查许可。
 
 ## 开发与实验边界
 

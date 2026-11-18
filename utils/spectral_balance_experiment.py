@@ -41,7 +41,20 @@ def legacy_balance_config(cfg):
     # Reference controls validate the frozen seed-42 structural recipe; their
     # own seed, data order, route and supervision are recorded in the contract.
     structure_blind = cfg.local_route == "S0"
+    # A v2 run may use an explicit computation budget. The legacy factory below
+    # describes only its historical backbone; the real budget remains bound in
+    # training_record(cfg) and the data/checkpoint contract, never in old runs.
+    pair_budget, epochs = cfg.pair_budget, cfg.epochs
+    if (pair_budget is not None or epochs != 35) and cfg.spectral_balance_config:
+        if pair_budget is not None and (isinstance(pair_budget, bool) or not isinstance(pair_budget, int) or pair_budget <= 0):
+            raise ValueError('pair_budget must be a positive integer')
+        if isinstance(epochs, bool) or not isinstance(epochs, int) or epochs < 1:
+            raise ValueError('epochs must be a positive integer')
+        protocol = load_balance_protocol(cfg.spectral_balance_config, cfg.data_dir)
+        if protocol['schema'] == BALANCE_SCHEMA_V2:
+            pair_budget, epochs = None, 35
     return replace(cfg, local_route="I3" if cfg.local_route in ("LR2", "S0") else cfg.local_route,
+                   pair_budget=pair_budget, epochs=epochs,
                    local_depth=2 if structure_blind else cfg.local_depth,
                    seed=42, data_order_seed=None, single_task=None, strain_augment=False, local_drop_prob=None, train_subset="",
                    phdos_head_layers=None, external_atom_features="",

@@ -1,5 +1,7 @@
 # uniARPAT crystal-q1-v1 dataset card
 
+This card describes the historical Q1 package. Current training data is [dos_v1](../data/datasets/dos_v1/README.md).
+
 [中文](dataset-card-zh.md) · [Sources, citations and license review](dataset-sources.md) · Documentation updated: 2026-11-03 (data version unchanged; licensing not re-audited)
 
 ## Purpose and version

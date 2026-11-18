@@ -12,6 +12,11 @@
   "partial_labels": true,
   "dataset": "dos_v1",
   "database": "spectral_db_v1",
+  "dos_norm_atoms": {
+    "mp": "calculation cell",
+    "phonondb": "primitive cell",
+    "structure_match": "phonondb unit cell; mp calculation cell"
+  },
   "grid": {
     "edos": {
       "range": [
@@ -55,8 +60,8 @@
   },
   "splits": {
     "train": {
-      "n": 58105,
-      "has_edos": 49184,
+      "n": 58103,
+      "has_edos": 49181,
       "has_phdos": 24639,
       "imag_flag_phdos": 4354
     },
@@ -76,164 +81,164 @@
   "files": {
     "train/cell_train.npy": {
       "shape": [
-        58105,
+        58103,
         3,
         3
       ],
       "dtype": "float32",
-      "sha256": "164b09e1f0556174bd983cd5468cca6030a5b637a9967b5df5874d35ff7310b7"
+      "sha256": "fb4b31372ddb7e568039677ddc7704fc2bae5764edcbcfe2882985738f497acf"
     },
     "train/atomic_numbers_train.npy": {
       "shape": [
-        949412
+        949377
       ],
       "dtype": "uint8",
-      "sha256": "b58e235c45f522bbe6ed81ca0f305cc2753c6debb4286d2c7931c5f39881a40d"
+      "sha256": "2922b782960c706341a1adf2918f9ec3101859ef5b410332b0821353dc570599"
     },
     "train/frac_coords_train.npy": {
       "shape": [
-        949412,
+        949377,
         3
       ],
       "dtype": "float32",
-      "sha256": "176bb453378fda9bded8f6e29857d72198448cd848a5d30bf90cec7f056e40fe"
+      "sha256": "ad238ce5cdc2293c45f499e0ac7f84b2b9aae778788addcc3f6cbe5fafad1152"
     },
     "train/n_atoms_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "int32",
-      "sha256": "8678e123f559946cf9b8bd7070ee0aa1dca76732b1a48e35f37973a2b35c2b54"
+      "sha256": "cd4678782dd678f80721965253d3a5520b52965bac63213590a99f988c03c287"
     },
     "train/atom_offsets_train.npy": {
       "shape": [
-        58106
+        58104
       ],
       "dtype": "int64",
-      "sha256": "a84924724247f98c5d4438a9df0bb0670e82cbda14517e504bd41cb74b24c0d7"
+      "sha256": "1848d08120785c1142660a0e2ff731bdce0d6f7b08f6325f6efeec63b9197c16"
     },
     "train/nvalence_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "float32",
-      "sha256": "e5d38310fadea29a12b9884b61aee47132e2370346ae3e913357e9543b7510ac"
+      "sha256": "ab0af62a5bb4e306376e185e04102cdc05a44d6891c450bb336d4422e19170c8"
     },
     "train/is_entry_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "bool",
-      "sha256": "395ede0535f6c39f08d0692d65933f1da5a59cb4fb9b298343b4bea763ec2306"
+      "sha256": "430f4eba05f043cdd48f10f74ce7c1625e0b4614941a5d35fa66a7fe595550ca"
     },
     "train/train_index.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "<U24",
-      "sha256": "f1996859997271efbb91fa23396b26978999b2b78873b4ab76fbd542d70687ef"
+      "sha256": "3c05589b52ebc609af99a484cc0a5e9f48ea13f8bf38b8c324a44aceca218700"
     },
     "train/edos_tgtdos_train.npy": {
       "shape": [
-        58105,
+        58103,
         256
       ],
       "dtype": "float32",
-      "sha256": "facc6c5ceefb09d26648ff31140e1fd90f68ba5d1b7f3c3027d5b5f3f5cc2dc0"
+      "sha256": "bea54d2a8a954d0f98bef02df09753635dda44beb66c31daa94d1148410cb18c"
     },
     "train/edos_mask_train.npy": {
       "shape": [
-        58105,
+        58103,
         256
       ],
       "dtype": "bool",
-      "sha256": "0b51ab2ddcb84ed2b72a13774330df31b2fa4db803a9db2b92f11a688eecb07b"
+      "sha256": "8bc44ae4d9a7566ba29704f11ebd18ad0fe27703b9d285026cd115cbdeb0314f"
     },
     "train/has_edos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "bool",
-      "sha256": "4da61e2f77da6407f7e0343e0a0167dc3b1ac76fade44f29833ec4e14102b51a"
+      "sha256": "36d0b5a4626c21f501ec7bb4462a9734a8ccf6401f4139404db32f2a4d08bbed"
     },
     "train/source_edos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "int8",
-      "sha256": "718f2b2c83015e10006920de12f1374e0aee61319374d7e9a481f8632a1a1b0a"
+      "sha256": "e0f50bfb07b5ba86e2e98a15b1de8f093f603371e7199f517fc643c48ff0e562"
     },
     "train/disputed_edos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "bool",
-      "sha256": "9b4121ed1285c5a1506ce3761e1fe2b228e7b8a64418841e1c0cb06b2d1524f5"
+      "sha256": "c3a04d9684096e43b6fdc89fd3861b8f59b675791a004406c18fcd8bd5506679"
     },
     "train/link_edos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "int8",
-      "sha256": "fa33b9f3d92bf2f4c86748022bccfad3faa1c963886f948d94e505273328a32d"
+      "sha256": "54f71931d286263f7a338869478d35075300efd5b2a94d14c7d7006150633f1d"
     },
     "train/phdos_tgtdos_train.npy": {
       "shape": [
-        58105,
+        58103,
         128
       ],
       "dtype": "float32",
-      "sha256": "4a3b05a189bed87192f8e335da49c83a2fc74ec83f05e7205be6051b7f095716"
+      "sha256": "c3d63aa7b0c0f0fd8789d832a36a9d937147f5054406a9d89239adb73f8c715c"
     },
     "train/phdos_mask_train.npy": {
       "shape": [
-        58105,
+        58103,
         128
       ],
       "dtype": "bool",
-      "sha256": "67c4b380681ecc5b2d00d12579378cf851ecdb6e35f8cf66a9c0d0239de6b934"
+      "sha256": "6ce9e6efce99059f57f499ae2c1a5b5de2277bd97fe3c5ec07844f8ba7e5b96c"
     },
     "train/has_phdos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "bool",
-      "sha256": "131b6c319f69c02a0dd8f3059d1c450cd2f9c80c3436aaf657aeca9f5ab87f8a"
+      "sha256": "46584cf4adb1385e511a28eaf7fe169a2f0268484fb3052122d9f1f92f7e6e23"
     },
     "train/source_phdos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "int8",
-      "sha256": "974df6e6331fbb236da8663ce6a437bb50377e70f1a942aec816b327f52550b0"
+      "sha256": "db216fe846100f313d15df3704848f881f03707f470f856862a05586af394052"
     },
     "train/disputed_phdos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "bool",
-      "sha256": "5ec972aaba26c9a3adda042ee646146fbd5907980907410c3569cc062dbd8b7d"
+      "sha256": "1547a91c3ad03fef9fe6b0d1e27b15e06f9cee771d60a4f0443a6db63812863a"
     },
     "train/link_phdos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "int8",
-      "sha256": "3a476a05e892b5344658a67f35f00e5895c2ee0e3f3fcfa98630a9ad3b62c292"
+      "sha256": "73a908d03ca373bf36ce0751a1ece4f35cf0f39dbb6623481acc495fcd5ba360"
     },
     "train/imag_frac_phdos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "float32",
-      "sha256": "86c4396da90c4e3db6235b8f6f6930e3abf36743b7b855c657074899430fbe8e"
+      "sha256": "4db638a7e75f79dfb439843a0e62dc4493aa7f387afbcd37badd02edd4619e77"
     },
     "train/imag_flag_phdos_train.npy": {
       "shape": [
-        58105
+        58103
       ],
       "dtype": "bool",
-      "sha256": "3e0dbaa60eb115640d77b77c203dc8f45fbc30807fe80b5f31fa15b1f6b488b3"
+      "sha256": "3cf801b37ab6037d53cead00c8fef8fb90ebfb9eacf927754335f06f6a958dbf"
     },
     "valid/cell_valid.npy": {
       "shape": [
@@ -257,7 +262,7 @@
         3
       ],
       "dtype": "float32",
-      "sha256": "cf865b29d6fad3f7a001d23fb26f9dd1296a4a2bc1bd52e10716210db28c283b"
+      "sha256": "d726515e6a95da763a899782062ac8756b282ae7f8eb47457975c0d7b981d2d6"
     },
     "valid/n_atoms_valid.npy": {
       "shape": [
@@ -344,7 +349,7 @@
         128
       ],
       "dtype": "float32",
-      "sha256": "81c9a5cecb98610b9be2bc8c33786720c3ff00c799ab536dc601920cb33c14c1"
+      "sha256": "60103f7c8eb94e6737f3be9f81d8ca7b412d49d12efd3d178abca787ce63ad21"
     },
     "valid/phdos_mask_valid.npy": {
       "shape": [
@@ -373,21 +378,21 @@
         7474
       ],
       "dtype": "bool",
-      "sha256": "f100de84ae0042280e9b71cc6debe9b27d01dbbbfbfb1237fd381d6c3eb9f21f"
+      "sha256": "74cee5f6d5ed69690578f3c33384b05ca479d18aa686da74f1e9bad1d4f72a8b"
     },
     "valid/link_phdos_valid.npy": {
       "shape": [
         7474
       ],
       "dtype": "int8",
-      "sha256": "b091d6d02d6983074a4f709c340a0e777e6c182d5b084151e660c2277aefa955"
+      "sha256": "c37c4d83beae55293357c7588cd5e05038eaab35074547425fbe98adfbfcac7f"
     },
     "valid/imag_frac_phdos_valid.npy": {
       "shape": [
         7474
       ],
       "dtype": "float32",
-      "sha256": "53d0fa7198b55a8ecf5ec601d5420c5d34e11f06c3d10ce5c2e65eae50f66e34"
+      "sha256": "7124d220101e9811df1e2e92f9271645675b27a33c25663dd0224ed1aa0c50e6"
     },
     "valid/imag_flag_phdos_valid.npy": {
       "shape": [
@@ -399,14 +404,14 @@
   },
   "normalizer_train": {
     "edos": {
-      "energy": 13.22019923578565,
-      "mass_per_atom_reference": 6.897743422991323,
+      "energy": 13.220545794802955,
+      "mass_per_atom_reference": 6.897779193861061,
       "bin_width": 0.046875,
       "bins": 256
     },
     "phdos": {
-      "energy": 0.042927632213895485,
-      "mass_per_atom_reference": 2.99036152479152,
+      "energy": 0.044232299732053275,
+      "mass_per_atom_reference": 2.992906858257129,
       "bin_width": 9.84375,
       "bins": 128
     }

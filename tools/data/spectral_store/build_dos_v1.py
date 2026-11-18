@@ -16,6 +16,11 @@ Matching keeps the previous StructureMatcher parameters and does not reduce cell
 to primitive first. Hint pairs with a volume ratio within 10% that still fail the
 matcher are counted. More than 500 stops the build before any training array is
 written (--accept-near-miss overrides that stop).
+
+PhononDB DOS is normalized by phonopy to the primitive cell. The stored label is
+scaled by the input cell atom count divided by that primitive count. Structure
+matching still uses the PhononDB unit cell. A PhononDB archive without a primitive
+cell is skipped. MP phonon and eDOS keep the calculation-cell atom count.
 """
 from __future__ import annotations
 
@@ -245,7 +250,7 @@ def _area_atom(x, y, n):
     return float(np.trapz(y[keep][order], x[keep][order]) / n)
 
 
-def _record_from_calc(record_id, kind, hint, lattice, numbers, frac, x=None, y=None):
+def _record_from_calc(record_id, kind, hint, lattice, numbers, frac, x=None, y=None, dos_n=None):
     from pymatgen.core import Element, Structure, Lattice
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
     symbols = [Element.from_Z(int(z)).symbol for z in numbers]
@@ -255,17 +260,22 @@ def _record_from_calc(record_id, kind, hint, lattice, numbers, frac, x=None, y=N
         {e: symbols.count(e) for e in set(symbols)}).reduced_formula
     crystal = SpacegroupAnalyzer(structure, symprec=SYMPREC).get_crystal_system()
     n = len(symbols)
+    # dos_n is the cell the spectrum integrates over. PhononDB passes the primitive
+    # count; MP and eDOS leave it empty and use this calculation cell.
+    norm = n if dos_n is None else int(dos_n)
+    if norm <= 0:
+        raise ValueError('dos normalization count must be positive')
     return {'record_id': record_id, 'kind': kind, 'hint': hint, 'formula': formula,
-            'cs': crystal, 'n': n, 'volume': volume_per_atom(lattice, n),
+            'cs': crystal, 'n': n, 'dos_n': norm, 'volume': volume_per_atom(lattice, n),
             'lattice': [float(v) for v in np.asarray(lattice, np.float64).reshape(-1)],
             'species': symbols, 'frac': [float(v) for v in np.asarray(frac, np.float64).reshape(-1)],
-            'nvalence': valence_of(symbols), 'area_atom': None if x is None else _area_atom(x, y, n)}
+            'nvalence': valence_of(symbols), 'area_atom': None if x is None else _area_atom(x, y, norm)}
 
 
 def _record_job(job):
-    record_id, kind, hint, lattice, numbers, frac, x, y = job
+    record_id, kind, hint, lattice, numbers, frac, x, y, dos_n = job
     try:
-        return _record_from_calc(record_id, kind, hint, lattice, numbers, frac, x, y)
+        return _record_from_calc(record_id, kind, hint, lattice, numbers, frac, x, y, dos_n)
     except Exception as exc:
         return {'record_id': record_id, 'status': f'failed:{type(exc).__name__}', 'kind': kind}
 
@@ -286,7 +296,7 @@ def build_records(workers: int):
         tasks, lattices, numbers, fracs, errors = (batch.column(i).to_pylist() for i in range(5))
         for task, lattice, number, frac, error in zip(tasks, lattices, numbers, fracs, errors):
             if task in named and not error and number:
-                jobs.append((f'edos:mp:{task}', 'mp_edos', named[task], lattice, number, frac, None, None))
+                jobs.append((f'edos:mp:{task}', 'mp_edos', named[task], lattice, number, frac, None, None, None))
     phonon = pq.read_table(DB / 'spectra_phdos_mp.parquet',
                            columns=['source_task_id', 'method', 'material_id', 'x', 'y', 'calc_lattice',
                                     'calc_numbers', 'calc_frac', 'parse_error'])
@@ -295,18 +305,25 @@ def build_records(workers: int):
             continue
         kind = 'mp_pheasy' if record['method'] == 'pheasy' else 'mp_dfpt'
         jobs.append((f"phdos:mp:{record['method']}:{record['source_task_id']}", kind, record['material_id'],
-                     record['calc_lattice'], record['calc_numbers'], record['calc_frac'], record['x'], record['y']))
+                     record['calc_lattice'], record['calc_numbers'], record['calc_frac'], record['x'], record['y'], None))
     phonondb = pq.read_table(DB / 'spectra_phdos_phonondb.parquet',
-                             columns=['source_id', 'mp_reference', 'x', 'y', 'unit_cell', 'parse_error'])
+                             columns=['source_id', 'mp_reference', 'x', 'y', 'unit_cell', 'primitive_cell', 'parse_error'])
     from pymatgen.core import Element
+    skipped = Counter()
     for record in phonondb.to_pylist():
         if record['parse_error'] or not record['unit_cell']:
             continue
         cell = json.loads(record['unit_cell'])
+        primitive = json.loads(record['primitive_cell']) if record.get('primitive_cell') else None
+        points = primitive.get('points') if isinstance(primitive, dict) else None
+        if not points:
+            skipped['phonondb_no_primitive'] += 1
+            continue
         numbers = [Element(p['symbol']).Z for p in cell['points']]
         hint = _legacy_mp_id(record['mp_reference'])
         jobs.append((f"phdos:phonondb:{record['source_id']}", 'phonondb', hint if hint in present else None,
-                     cell['lattice'], numbers, [p['coordinates'] for p in cell['points']], record['x'], record['y']))
+                     cell['lattice'], numbers, [p['coordinates'] for p in cell['points']], record['x'], record['y'],
+                     len(points)))
     rows, failed = [], Counter()
     with Pool(workers) as pool:
         for i, row in enumerate(pool.imap_unordered(_record_job, jobs, chunksize=8)):
@@ -317,16 +334,46 @@ def build_records(workers: int):
             if (i + 1) % 10000 == 0:
                 print('records prepared', i + 1, flush=True)
     pq.write_table(pa.Table.from_pylist(rows), path, compression='zstd')
-    print('records', len(rows), dict(failed), flush=True)
+    print('records', len(rows), dict(failed), 'skipped', dict(skipped), flush=True)
 
 
 def _legacy_mp_id(reference: str):
+    """Numeric PhononDB MP id to the 8-letter id used in spectral_db_v1.
+
+    Same encoding as emmet ``AlphaID(n, prefix='mp')`` with the body padded to 8
+    using ``a`` (a = 0 in a base-26 alphabet). Current emmet-core no longer ships
+    ``AlphaID``, so the conversion lives here.
+    """
     text = str(reference or '')
     if not text.startswith('mp-') or not text[3:].isdigit():
         return None
-    from emmet.core.mpid import AlphaID
-    converted = str(AlphaID(int(text[3:]), prefix='mp'))
-    return 'mp-' + converted[3:].rjust(8, 'a')
+    return 'mp-' + _integer_to_mp_alpha(int(text[3:]))
+
+
+def _integer_to_mp_alpha(integer: int) -> str:
+    from math import floor, log
+    from string import ascii_lowercase
+    alphabet = ascii_lowercase
+    if integer < 0:
+        raise ValueError('MP id cannot be negative')
+    if integer == 0:
+        body = alphabet[0]
+    else:
+        base = len(alphabet)
+        max_pow = floor(log(integer) / log(base))
+        body = ''
+        remaining = integer
+        for power in range(max_pow, -1, -1):
+            if remaining == 0:
+                body += alphabet[0]
+                continue
+            place = base ** power
+            for coeff in range(base - 1, -1, -1):
+                if coeff * place <= remaining:
+                    body += alphabet[coeff]
+                    remaining -= coeff * place
+                    break
+    return body.rjust(8, 'a')
 
 
 # ---------------------------------------------------------------- match
@@ -596,7 +643,7 @@ def _finite(value):
 
 def _bin_label(record, unit, spectra, task, bins):
     x, y = spectra[record['record_id']]
-    y = np.asarray(y, np.float64) * (unit['structure']['n'] / record['n'])
+    y = np.asarray(y, np.float64) * (unit['structure']['n'] / record['dos_n'])
     values, coverage = exact_bin(x, y, grid(task, bins))
     values = np.maximum(values, 0)
     return values, coverage >= 1 - 1e-6
@@ -612,7 +659,8 @@ def write_views(units, labels, members, exclusions, spectra, near_miss: int):
     # Disputed flags use the main-grid per-atom energy and the train normalizer.
     main_bins = VIEWS['dos_v1']
     per_atom = {}
-    record_n = {r['record_id']: r['n'] for r in pq.read_table(CACHE / 'records.parquet', columns=['record_id', 'n']).to_pylist()}
+    record_n = {r['record_id']: r['dos_n'] for r in pq.read_table(
+        CACHE / 'records.parquet', columns=['record_id', 'dos_n']).to_pylist()}
     for unit_id, lab in labels.items():
         for task, item in lab.items():
             values, _ = _bin_label(item['record'], units[unit_id], spectra, task, main_bins[task])
@@ -663,6 +711,8 @@ def _write_one_view(name, bins, units, labels, spectra, order, disputed, train_e
                 'primitive_policy': {'source': 'MP summary structure', 'symprec': SYMPREC},
                 'geometry_precision': 'float32', 'label_contract': 'v2', 'binning': 'exact_piecewise_linear',
                 'partial_labels': True, 'dataset': 'dos_v1', 'database': 'spectral_db_v1',
+                'dos_norm_atoms': {'mp': 'calculation cell', 'phonondb': 'primitive cell',
+                                   'structure_match': 'phonondb unit cell; mp calculation cell'},
                 'grid': {t: {'range': list(RANGES[t]), 'bins': b} for t, b in bins.items()},
                 'source_codes': SOURCE_CODES, 'link_codes': LINK_CODES,
                 'split_rule': {'salt': SALT, 'rare_elements': sorted(RARE_ELEMENTS)},

@@ -1,12 +1,12 @@
 {
   "near_miss_volume_match_fail": 323,
   "splits": {
-    "train": 58105,
+    "train": 58103,
     "valid": 7474,
     "test": 7451
   },
   "exclusions": {
-    "edos_unmatched": 1092,
+    "edos_unmatched": 1095,
     "edos_not_own_canonical": 18,
     "tight_unique": 8,
     "over_160": 13,
@@ -15,7 +15,7 @@
     "anomalous_W": 24
   },
   "labels": {
-    "edos/mp_edos": 61838,
+    "edos/mp_edos": 61835,
     "phdos/mp_pheasy": 26168,
     "phdos/phonondb": 4444,
     "phdos/mp_dfpt": 334

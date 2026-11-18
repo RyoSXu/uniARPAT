@@ -1,5 +1,7 @@
 # uniARPAT crystal-q1-v1 数据说明
 
+本文只描述历史数据包 Q1。当前训练数据是 [dos_v1](../data/datasets/dos_v1/README.md)。
+
 [English](dataset-card-en.md) · [来源、引用与许可核查](dataset-sources.md) · 文档更新：2026-11-03（数据版本未变，来源许可未重新核查）
 
 ## 数据用途与版本

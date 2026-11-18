@@ -26,7 +26,9 @@
 |---|---|
 | `model/`、`utils/` | 可导入的模型及支持库；保留 checkpoint 参数与契约边界 |
 | `tools/` | 供人显式执行的训练、数据、检查、分析和历史 B7 CIF 入口；默认配置在 `training-defaults.yaml` |
-| `data/crystal_q1_v1/`、`data/reference/` | 当前修复版缓存与固定参考；原始数组本地保存，少量清单/参考受版本控制 |
+| `data/datasets/dos_v1/` | 当前训练数据。Git 保留 README、report 和 manifest；数组与过程表在本地 |
+| `data/spectral_db_v1/` | 只有来源事实的谱数据库，不含切分和标签选择；不进 Git |
+| `data/crystal_q1_v1/`、`data/reference/` | 历史修复版缓存与固定参考；原始数组本地保存 |
 | `results/runs/`、`results/reports/`、`results/figures/` | 运行载荷、历史/摘要及图像；新文件不能仅因在“报告”目录就自动进入 Git |
 | `docs/` | 常用说明；`design/`、`logs/` 分别保存带日期协议和证据，使用各自模板 |
 | `tests/model/`、`tests/data/`、`tests/pipeline/` | 数学/模型、数据/几何、训练/导出/恢复等契约检查 |

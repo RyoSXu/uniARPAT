@@ -1,9 +1,9 @@
 # uniARPAT
 
-从完整晶体结构联合预测电子态密度（eDOS）与声子态密度（phDOS）。当前研究目标是让同组成、不同结构材料的谱差预测获得可泛化收益。
+从完整晶体结构联合预测电子态密度（eDOS）与声子态密度（phDOS）。
 
 接手先读[当前状态](docs/status.md)与[开发交接](docs/handoff.md)；按[文档导航](docs/index.md)查契约和证据。
-当前研究工作点为 **完整 A64 的 LR2 形式＋E＋S、staged L2/G6**。总体误差已有单 seed 改善证据，同组成谱差尚未检出明确改善。
+架构工作点为 **LR2＋E＋S、staged L2/G6、phDOS 头 2 层**。当前训练数据是 `data/datasets/dos_v1/views/dos_v1/`。
 
 ## 环境与数据
 
@@ -14,7 +14,7 @@ python tools/train.py --help
 ```
 
 Git 保存代码、文档和有限元信息；训练数据、checkpoint 与原始预测须单独恢复。
-当前输入为 `data/crystal_q1_v1/`，有效 train/valid/test 为 18,704/2,313/2,287。
+当前输入为 `data/datasets/dos_v1/views/dos_v1/`，train/valid 为 58,103/7,474；test 封存在 `sealed/`。`data/crystal_q1_v1/` 是历史修复版。
 先按[交接清单](docs/handoff.md)校验数据和所需产物，再执行获准方案。
 数据字段、来源和恢复方式见[数据约定](docs/data.md)与[中英文数据卡](docs/dataset-card-zh.md)。
 

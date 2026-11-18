@@ -214,6 +214,33 @@ class BalancedPipelineTests(unittest.TestCase):
                 torch.testing.assert_close(actual[key], expected[key], atol=1e-4, rtol=1e-4)
                 torch.testing.assert_close(permuted[key], expected[key], atol=1e-4, rtol=1e-4)
 
+    def test_partial_label_chunking_preserves_gradients_and_one_update(self):
+        from utils.partial_labels import FIELD
+        from utils.spectral_balance import BALANCE_SCHEMA_V2
+        full, split = self.training_model(shape_aux=True), self.training_model(shape_aux=True)
+        for model in (full, split):
+            model.spectral_balance.update(schema=BALANCE_SCHEMA_V2, label_contract='v2',
+                fit_samples={'edos': 2, 'phdos': 2},
+                view={'valid_split': 'valid', 'partial_labels': True},
+                reference={'mode': 'none', 'split': 'valid', 'samples': 3})
+        split.model['transformer'].load_state_dict(deepcopy(full.model['transformer'].state_dict()))
+        # Unequal task coverage across chunks must use the whole batch's label counts.
+        items = [grid_sample(3, 42), grid_sample(2, 43), grid_sample(1, 44)]
+        for item, flags in zip(items, ((True, False), (False, True), (True, True))):
+            item.extend([None] * (FIELD - len(item)))
+            item.append(torch.tensor(flags, dtype=torch.bool))
+        batch = crystal_collate(items)
+        for model in (full, split):
+            model.model['transformer'].eval()
+        left = full.train_one_step(batch, 0, pair_budget=27)
+        with patch.object(split.optimizer['transformer'], 'step', wraps=split.optimizer['transformer'].step) as step:
+            right = split.train_one_step(batch, 0, pair_budget=9)
+        self.assertEqual(step.call_count, 1)
+        self.assertAlmostEqual(left['loss'], right['loss'], places=5)
+        for (name, p), (_, q) in zip(full.model['transformer'].named_parameters(), split.model['transformer'].named_parameters()):
+            if p.grad is not None:
+                torch.testing.assert_close(p.grad, q.grad, atol=3e-5, rtol=3e-4, msg=name)
+
     def test_new_selection_requires_opt_in_and_legacy_training_contract_is_unchanged(self):
         cfg = ExperimentConfig(**{**FROZEN, 'local_route': 'I3', 'selection_metric': ENERGY_METRIC})
         with self.assertRaisesRegex(ValueError, 'spectral_balance_config'):
