@@ -34,10 +34,14 @@ def write(path, value):
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + '\n')
 
 
-def prepare(out, tag, pair_budget, epochs=35, cohorts=None):
+def prepare(out, tag, pair_budget, epochs=35, cohorts=None, schedule_epochs=None):
     OUT = Path(out).resolve()
     if pair_budget < 160 ** 2:
         raise ValueError('pair budget must fit one complete 160-atom crystal')
+    if schedule_epochs is not None and (epochs != 50 or schedule_epochs != 100):
+        raise ValueError('only a 50-epoch stop on the 100-epoch cosine is enabled')
+    if epochs == 50 and schedule_epochs != 100:
+        raise ValueError('50 epochs must keep the 100-epoch cosine')
     if OUT.exists():
         raise FileExistsError(f'fresh preparation required: {OUT}')
     protocol = prepare_balance_protocol_v2(DATA, 'valid')
@@ -46,7 +50,7 @@ def prepare(out, tag, pair_budget, epochs=35, cohorts=None):
     if manifest.get('dataset') != 'dos_v1' or public_splits != {'train', 'valid'}:
         raise ValueError('only public dos_v1 train/valid may be prepared')
     data_contract = crystal_data_contract(DATA, normalization='sumnorm', pair_budget=pair_budget)
-    cfg = ExperimentConfig(epochs=epochs, batch_size=32, lr=5e-5, seed=42,
+    cfg = ExperimentConfig(epochs=epochs, schedule_epochs=schedule_epochs, batch_size=32, lr=5e-5, seed=42,
         tag=tag, data_dir=str(DATA), pair_budget=pair_budget,
         atom_feat='z_only_proj', skip_test_eval=True, q1_coord=True,
         local_route='LR2', local_layout='staged', local_depth=2, global_depth=6,
@@ -97,13 +101,17 @@ def preflight(report):
     cfg = ExperimentConfig(**report['configuration'])
     from utils.builder import build_warmup_cosine_scheduler
     probe_optimizer = torch.optim.AdamW([torch.nn.Parameter(torch.zeros(()))], lr=cfg.lr)
-    scheduler = build_warmup_cosine_scheduler(probe_optimizer, cfg.epochs)
+    horizon = cfg.schedule_epochs or cfg.epochs
+    scheduler = build_warmup_cosine_scheduler(probe_optimizer, horizon)
     lr_history = []
     for _ in range(cfg.epochs):
         lr_history.append(probe_optimizer.param_groups[0]['lr'])
         probe_optimizer.step()
         scheduler.step()
-    assert np.isclose(probe_optimizer.param_groups[0]['lr'], 1e-6)
+    if horizon == cfg.epochs:
+        assert np.isclose(probe_optimizer.param_groups[0]['lr'], 1e-6)
+    else:
+        assert lr_history[47] > 2e-5
     builder, model, params, initialization, assembly = build(cfg)
     transformer = model.model['transformer']
     assert params['phdos_head_layers'] == 2
@@ -111,7 +119,7 @@ def preflight(report):
     configure_local_global_execution(transformer)
     loader = builder.get_dataloader(split='train', batch_size=32, dos_minmax=True, dos_sumnorm=True)
     valid = builder.get_dataloader(split='valid', batch_size=32, dos_minmax=True, dos_sumnorm=True)
-    for split, ld, expected in [('train', loader, (58105, 49184, 24639)),
+    for split, ld, expected in [('train', loader, (58103, 49181, 24639)),
                                 ('valid', valid, (7474, 6342, 3080))]:
         flags = [np.load(DATA / split / f'has_{t}_{split}.npy') for t in ('edos', 'phdos')]
         assert (len(ld.dataset), *(int(v.sum()) for v in flags)) == expected
@@ -196,10 +204,11 @@ if __name__ == '__main__':
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--tag', required=True)
     parser.add_argument('--pair-budget', type=int, required=True)
-    parser.add_argument('--epochs', type=int, choices=(35, 100), required=True)
+    parser.add_argument('--epochs', type=int, choices=(35, 50, 100), required=True)
+    parser.add_argument('--schedule-epochs', type=int, default=None)
     parser.add_argument('--cohorts', type=Path)
     args = parser.parse_args()
-    report = prepare(args.out, args.tag, args.pair_budget, args.epochs, args.cohorts)
+    report = prepare(args.out, args.tag, args.pair_budget, args.epochs, args.cohorts, args.schedule_epochs)
     try:
         print(json.dumps(preflight(report), indent=2), flush=True)
     except Exception as error:

@@ -1,6 +1,6 @@
 # 当前项目状态
 
-更新：2026-11-18。只记录大事件与当前判断；细节见链接。[接手步骤](handoff.md) · [固定契约](decisions.md) · [证据导航](index.md)
+更新：2026-11-19。只记录大事件与当前判断；细节见链接。[接手步骤](handoff.md) · [固定契约](decisions.md) · [证据导航](index.md)
 
 ## 目标与工作点
 
@@ -33,7 +33,7 @@ h2 相对 R42 为 −0.0021（单 seed，配对区间含 0），采用理由是�
 
 ## 当前判断与下一步
 
-- **下一步**：在重建后的 dos_v1 上从头训练 h2、seed42、100 轮。11-17 那次 best ep48、联合 E 0.2294 用的是修正前标签，checkpoint 和那次 `protocol.json` 不能复用。[重建](logs/log-2026-11-18-dos-v1-phonondb-norm.md)、[旧运行](logs/log-2026-11-17-dosv1-h2-e100-run.md)、[配方](design/design-2026-11-16-dos-v1-h2-e100.md)
+- **dos_v1 重建后的 h2 基线已核验（2026-11-19）**：seed42，100 轮余弦，停在第 50 轮，test 未跑。best ep29，valid 联合盲测 E 0.2273（eDOS 0.2876、phDOS 0.1670）。第 40–50 轮联合 E 均值 0.2349，训练误差仍降。PhononDB phDOS 失败 5/438。不与修正前的 0.2294 作因果比较，不自动采用。[运行与核验](logs/log-2026-11-19-dosv1-h2-e50-run.md)
 - **当前数据 dos_v1（2026-11-18）**：PhononDB 按原胞原子数缩放，结构匹配仍用单胞。train 58,103（eDOS 49,181、phDOS 24,639），valid 7,474（6,342、3,080），test 7,451（6,312、3,227，在 `sealed/`）。C：eDOS 12.232，phDOS 0.04029。训练目录 `data/datasets/dos_v1/views/dos_v1/`。[说明](../data/datasets/dos_v1/README.md)
 - 上表和 11-06 学习曲线都来自旧 Q1（有效 train 18,704），不能外推成 dos_v1 已饱和或未饱和。M1 是旧数据上最明显的单一改动；换数据后工作点架构先不变，MACE 不自动带入这次基线。
 - 路线仍是两种 DOS 联合预测。外部 uMLIP 只作对照。阶段 A 的声子基线、物理量和 Mat2Spec 已有结果，见[导航](index.md)，不自动续做。

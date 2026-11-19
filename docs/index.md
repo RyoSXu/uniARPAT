@@ -43,7 +43,7 @@
 
 ## 当前问题的证据
 
-当前数据是 2026-11-18 重建的 dos_v1，基线尚未重训：[重建](logs/log-2026-11-18-dos-v1-phonondb-norm.md)。
+当前数据是 2026-11-18 重建的 dos_v1。h2、seed42、100 轮余弦停在第 50 轮的基线已核验：[运行](logs/log-2026-11-19-dosv1-h2-e50-run.md)、[重建](logs/log-2026-11-18-dos-v1-phonondb-norm.md)。
 11-17 的 100 轮用的是修正前标签，checkpoint 不能复用：[方案](design/design-2026-11-16-dos-v1-h2-e100.md)、[准备](logs/log-2026-11-16-dos-v1-h2-e100-preparation.md)、[运行](logs/log-2026-11-17-dosv1-h2-e100-run.md)。更早的 35 轮准备因 OOM 停在预检：[方案](design/design-2026-11-16-dos-v1-baseline.md)、[预检](logs/log-2026-11-16-dos-v1-baseline-preparation.md)。
 
 | 问题 | 主要结果 |

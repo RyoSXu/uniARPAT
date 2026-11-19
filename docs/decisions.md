@@ -11,7 +11,7 @@
 | 局部更新 | 完整 A 的 LR2 形式，标量/隐藏宽度 64/128；两次调用、每次两个内部块；关闭四个内部加法，保留内部 post-norm、外层 512 维 pre-norm 残差、完整状态读出 |
 | 全局与编排 | staged：`L1 L2 G1 G2 G3 G4 G5 G6`；全局 post-norm、8 头、2048 维 GELU FFN；注意力概率 dropout=0，残差/FFN dropout=0.05；Q/K/V/O 恒等初值后继续学习 |
 | 输出 | 六层共享 decoder；eDOS 头 1 层 Conv1d（512→1）；phDOS 头 2 层 Conv1d（512→1536→1，核 3，`--phdos_head_layers 2`）；E0/P0 为 128/64 箱；结构预测非负、无固定上限的每原子窗口总量 |
-| 训练预算 | M1、启用 q1_coord、q1_hidden=128、seed42、batch32、lr5e-5、FP32。Q1 上已采用的预算是 35 轮；dos_v1 这次基线按已批准方案探索 100 轮，不把 100 轮写成新的固定预算 |
+| 训练预算 | M1、启用 q1_coord、q1_hidden=128、seed42、batch32、lr5e-5、FP32。Q1 上已采用的预算是 35 轮。dos_v1 重训沿用 100 轮余弦，停在第 50 轮；这不把 50 或 100 写成新的固定预算 |
 
 用户于 2026-10-31 确认采用，参照为 LR2 E＋S ep29；A64 E＋S ep25 是匹配对照。
 2026-11-08 用户将 phDOS 头由 legacy 6 层改为 2 层（h2），参照为 h2_s42 best ep24；6 层头的 R42（LR2 E＋S ep29）是匹配对照。1 层头（h1）同样未分辨，保留为以后可考虑的进一步精简。[依据](logs/log-2026-11-08-phdos-head-run.md)

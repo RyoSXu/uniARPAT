@@ -54,7 +54,7 @@ def legacy_balance_config(cfg):
         if protocol['schema'] == BALANCE_SCHEMA_V2:
             pair_budget, epochs = None, 35
     return replace(cfg, local_route="I3" if cfg.local_route in ("LR2", "S0") else cfg.local_route,
-                   pair_budget=pair_budget, epochs=epochs,
+                   pair_budget=pair_budget, epochs=epochs, schedule_epochs=None,
                    local_depth=2 if structure_blind else cfg.local_depth,
                    seed=42, data_order_seed=None, single_task=None, strain_augment=False, local_drop_prob=None, train_subset="",
                    phdos_head_layers=None, external_atom_features="",

@@ -748,7 +748,10 @@ def train_and_eval(cfg: ExperimentConfig):
     logger .info (f"[{cfg.model_name }] Effective optimizer LR set to {cfg.lr :.2e}")
     # Use one warmup-plus-cosine schedule for every runner invocation.
     from utils .builder import build_warmup_cosine_scheduler
-    scheduler =build_warmup_cosine_scheduler (optimizer ,cfg.epochs )if _wu is None else build_warmup_cosine_scheduler (optimizer ,cfg.epochs ,warmup_epochs =int (_wu ))
+    schedule_epochs =cfg.schedule_epochs or cfg.epochs
+    if cfg.schedule_epochs is not None and cfg.schedule_epochs < cfg.epochs:
+        raise ValueError('schedule_epochs must cover every trained epoch')
+    scheduler =build_warmup_cosine_scheduler (optimizer ,schedule_epochs )if _wu is None else build_warmup_cosine_scheduler (optimizer ,schedule_epochs ,warmup_epochs =int (_wu ))
 
     best_val_score =initial_best_score(cfg.selection_metric)
     best_epoch =0
@@ -833,7 +836,7 @@ def train_and_eval(cfg: ExperimentConfig):
     # existing resume config, including its recorded slope calibration.
     if not os.path.exists(latest_p) or not os.path.exists(config_path):
         with open(config_path, "w") as f:
-            yaml .dump ({'cli':{'model':cfg.model_name ,'epochs':cfg.epochs ,
+            yaml .dump ({'cli':{'model':cfg.model_name ,'epochs':cfg.epochs ,'schedule_epochs':cfg.schedule_epochs ,
             'batch_size':cfg.batch_size ,'lr':cfg.lr ,'seed':cfg.seed ,
             'data_dir':cfg.data_dir ,'pair_budget':cfg.pair_budget ,'data_contract':data_contract ,'edos_num':cfg.edos_num ,
             'phdos_num':cfg.phdos_num ,'atom_feat':cfg.atom_feat ,
@@ -1058,7 +1061,9 @@ def train_and_eval(cfg: ExperimentConfig):
         displayed_mode = 'blind' if blind_selection else 'oracle'
 
         log_str =(
-        f"[{cfg.model_name }] Epoch [{epoch +1 :03d}/{cfg.epochs :03d}] ({ep_time :.1f}s) | "
+        f"[{cfg.model_name }] Epoch [{epoch +1 :03d}/{cfg.epochs :03d}]"
+        + (f" schedule {schedule_epochs}" if schedule_epochs != cfg.epochs else "")
+        + f" ({ep_time :.1f}s) | "
         f"Train Loss: {train_loss :.4f} | "
         f"Val eDOS R2(med): {val_metrics [display_prefix+'r2_edos_median']:.3f} (MAE: {val_metrics [display_prefix+'mae_edos_median']:.3f}) | "
         f"Val phDOS R2(med): {val_metrics [display_prefix+'r2_phdos_median']:.3f} (MAE: {val_metrics [display_prefix+'mae_phdos_median']:.4f}) | "
@@ -1505,6 +1510,8 @@ def build_arg_parser():
     parser = argparse.ArgumentParser(description='uniARPAT Ablation Experiments Runner')
     parser.add_argument('--model', type=str, default='M1', choices=['M1', 'M2', 'M3', 'M4', 'M5', 'all'], help='Model variant to run')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
+    parser.add_argument('--schedule_epochs', type=int, default=None,
+                        help='Cosine horizon when training stops earlier; default is --epochs')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate')
     parser.add_argument('--skip_existing', action='store_true', help='Skip variant if test summary already exists')

@@ -26,4 +26,4 @@ valid 上每原子声子面积中位：MP 2.994，DFPT 3.000，PhononDB 2.974。
 
 ## 不能沿用的产物
 
-11-17 的 checkpoint 和 `results/runs/dos_v1_h2_e100_throughput_20261116/pb51200/protocol.json` 绑的是修正前的数组和 C。不要用它们续训或当作新数据的协议。新基线需要重新准备协议后再从头训练。
+11-17 的 checkpoint 和 `results/runs/dos_v1_h2_e100_throughput_20261116/pb51200/protocol.json` 绑的是修正前的数组和 C。不要用它们续训或当作新数据的协议。新基线需要重新准备协议后再从头训练。用户已确认：学习率用 100 轮余弦，训练在第 50 轮停止。`--epochs 50` 且不传余弦长度会换成另一条学习率曲线，不能这样准备。

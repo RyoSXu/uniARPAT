@@ -15,6 +15,8 @@ class ExperimentConfig:
     # --- Core ---
     model_name: str = "M1"
     epochs: int = 100
+    # LR horizon when training stops before the cosine ends. None uses epochs.
+    schedule_epochs: Optional[int] = None
     batch_size: int = 32
     lr: float = 5e-5
     seed: int = 42

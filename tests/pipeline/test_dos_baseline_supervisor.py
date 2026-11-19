@@ -90,14 +90,17 @@ class SupervisorTests(unittest.TestCase):
 
 class ComputationBudgetTests(unittest.TestCase):
     def test_v2_backbone_reference_keeps_actual_training_budget_separate(self):
-        cfg = ExperimentConfig(epochs=100, pair_budget=51200, spectral_balance_config='unit.json')
+        cfg = ExperimentConfig(epochs=50, schedule_epochs=100, pair_budget=51200,
+                               spectral_balance_config='unit.json')
         with patch('utils.spectral_balance_experiment.load_balance_protocol',
                    return_value={'schema': BALANCE_SCHEMA_V2}):
             legacy = legacy_balance_config(cfg)
             self.assertIsNone(legacy.pair_budget)
             self.assertEqual(legacy.epochs, 35)
+            self.assertIsNone(legacy.schedule_epochs)
         self.assertEqual(cfg.pair_budget, 51200)
-        self.assertEqual(cfg.epochs, 100)
+        self.assertEqual(cfg.epochs, 50)
+        self.assertEqual(cfg.schedule_epochs, 100)
 
     def test_v1_still_exposes_nondefault_budget_to_frozen_validator(self):
         cfg = ExperimentConfig(epochs=100, pair_budget=51200, spectral_balance_config='unit.json')
@@ -120,7 +123,15 @@ class ComputationBudgetTests(unittest.TestCase):
         self.assertAlmostEqual(rates[0], 1e-5)
         self.assertAlmostEqual(rates[5], 5e-5)
         self.assertGreater(rates[35], 3e-5)
+        self.assertAlmostEqual(rates[47], 2.993157309113669e-05)
+        self.assertGreater(rates[49], 2e-5)
         self.assertAlmostEqual(optimizer.param_groups[0]['lr'], 1e-6)
+        short = torch.optim.AdamW([torch.nn.Parameter(torch.zeros(()))], lr=5e-5)
+        short_scheduler = build_warmup_cosine_scheduler(short, 50)
+        for _ in range(50):
+            short.step()
+            short_scheduler.step()
+        self.assertAlmostEqual(short.param_groups[0]['lr'], 1e-6)
 
 
 if __name__ == '__main__':

@@ -38,7 +38,9 @@ def view_metadata(root, split):
         frame[f"source_{task}"] = [source_names[int(c)] for c in load(f"source_{task}")]
         frame[f"link_{task}"] = [link_names[int(c)] for c in load(f"link_{task}")]
         frame[f"disputed_{task}"] = load(f"disputed_{task}")
-        frame[f"volume_flag_{task}"] = load(f"volume_flag_{task}")
+        # dos_v1 drops labels whose volume differs by more than 10% and stores no flag.
+        volume_name = f"volume_flag_{task}_{split}.npy"
+        frame[f"volume_flag_{task}"] = load(f"volume_flag_{task}") if (root / split / volume_name).exists() else False
         frame[f"structure_mismatch_{task}"] = pd.Series(pd.NA, index=frame.index, dtype="boolean")
     return frame.set_index("material_id")
 
